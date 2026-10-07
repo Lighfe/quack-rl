@@ -1,0 +1,1 @@
+# Simple Quacks implementation
