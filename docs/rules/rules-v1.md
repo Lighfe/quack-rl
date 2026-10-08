@@ -4,6 +4,11 @@ A simplified 1v1 version of **The Quacks of Quedlinburg**: a push-your-luck game
 
 Rules version: `v1`. Every game record stores the rules version it was played with. The machine-readable values (chips, track, shop, die) live in the ruleset data file of the engine; this document and that file must agree.
 
+Status: working version, not final.
+
+- **Settled:** the mechanics (simultaneous brewing per chip draw, explosion, resolve order, shop with victory points, game end)
+- **Default:** every number (chip values, explosion limit, track money, ruby fields, die odds, shop prices, purchase limit, starting bag, number of rounds). These are tuning values. A change makes a new ruleset version (for example `v1.1`)
+
 Earlier draft: `docs/archive/2026-10-08-rules-draft.md`.
 
 ## 1. Components
@@ -15,7 +20,7 @@ Earlier draft: `docs/archive/2026-10-08-rules-draft.md`.
 | ⚪ White | 1, 2, 3 | Advance by its value. Add its value to the explosion total. |
 | 🟠 Orange | 1 | Advance by its value. No other effect. |
 | 🔵 Blue | 1, 2, 4 | Advance by its value, plus 1 if the previously placed chip of this round has a value other than 1. The first chip of a round gets no bonus. |
-| 🟢 Green | 1, 2, 4 | Advance by its value. At round end, each green chip among the last two placed chips gives a 50% chance to advance the droplet by 1 (see 4.3). |
+| 🟢 Green | 1, 2, 4 | Advance by its value. At round end, each green chip among the last two placed chips advances the droplet by 0.5 (see 4.3). |
 
 Blue example: Blue 2 after White 2 advances 3. Blue 2 after White 1 advances 2.
 
@@ -109,7 +114,7 @@ A player's final field is the field of the player's last placed chip.
 In this order, for each player:
 
 1. **Ruby:** if the final field is a ruby field, the droplet advances by 0.5. This also applies after an explosion.
-2. **Green chips:** for each green chip among the last two placed chips, roll: with 50% the droplet advances by 1. Each green chip rolls on its own, so two green chips can give 0, 1 or 2. This also applies after an explosion.
+2. **Green chips:** for each green chip among the last two placed chips, the droplet advances by 0.5. Two green chips give 1. This also applies after an explosion.
 3. **Bonus die:** the player with the furthest final field whose potion did not explode rolls the bonus die. If players are tied for furthest, each tied player rolls. A player whose potion exploded never rolls.
 4. **Money:** the player receives the money of the final field. If the potion exploded, the money is halved, rounded down. Add +1 if the bonus die gave +1 money.
 

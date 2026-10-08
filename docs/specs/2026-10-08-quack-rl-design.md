@@ -1,18 +1,23 @@
 # Quack RL design
 
-Status: draft for owner review. Sections marked **(proposed)** were not yet discussed in the brainstorming session.
+Status: working draft. This spec records the current state of the design, not a final truth. Each section and decision carries one of these tags:
+
+- **Settled:** the owner decided. It changes only through the owner
+- **Default:** a working choice to build with, expected to change (tuning, a later design session). Code keeps it in data or config, never hard-coded
+- **Open:** needs a design session or an owner decision before anyone builds it
+- **Proposed:** written by the planner, not yet reviewed by the owner
 
 ## 1. Purpose
 
-A learning project out of curiosity about reinforcement learning and push-your-luck decisions. Implement a simplified board game, make it a standard RL environment, and collect game data that is fit for online and offline RL.
+A learning project out of curiosity about boardgame implementations, push-your-luck decisions and Reinforcement Learning. Implement a simplified board game, make it a standard RL environment, and collect game data that is fit for online and offline RL.
 
-RL training itself is **not** the purpose. At most, a small notebook later shows that the environment works for online and offline RL. No algorithm tuning.
+RL training itself is **not** the purpose. At most, a small notebook later shows that the environment works for online and offline RL. No dedicated algorithm tuning.
 
-The look of the game is not important. The data is.
+The look of the game is not important. The data is as well as the RL environment being in line with common benchmarks.
 
 ## 2. Goals
 
-### Current goals (this spec, stages 1-4)
+### Current goals (this spec, milestones M1-M4)
 
 - The game: rules v1 (`docs/rules/rules-v1.md`), 1v1
 - One rules engine in Python, the only place the rules live
@@ -29,26 +34,26 @@ The look of the game is not important. The data is.
 - A skill: game rules + components + interactive owner feedback → Python RL environment (`rules-to-rl-env`)
 - A skill: add a rule or component to an existing game in a structured way (test cases: section 6 of the rules)
 - Rule changes from section 6 of the rules
-- Transfer: use a model trained on one rules version on a changed version (section 7.4)
+- Transfer Learning use cases: use a model trained on one rules version on a changed version (section 7.4)
 - Hosted play and hosted records
-- A notebook that tries online and offline RL on the environment
+- Marimo notebooks that show online and offline RL on the environment in depth (M2 has only a tiny smoke-test notebook)
 
-## 3. Decisions taken
+## 3. Decisions so far
 
-| Topic | Decision | Reason |
-|---|---|---|
-| Rules location | One Python engine; nobody writes the rules a second time (no TypeScript copy) | One source of truth; rule changes happen once. Common practice (OpenSpiel, PettingZoo, Kaggle environments) |
-| Layers | Pure engine → adapters (RL env, CLI, server) → versioned contract | The engine has no I/O, so every adapter is thin and testable |
-| Frontend | Lovable, replay-first, in a later stage, built against a finished contract | The kit's frontend lane cannot reach the Python code; QA uses fixtures; Lovable gets exact instructions |
-| First human interface | Terminal play | Play and test the rules in stage 1, with no frontend |
-| Brewing | Simultaneous per chip draw: hidden choices, public results after each step | Owner decision |
-| Shop | Simultaneous for now; alternating later (planned rule change) | Owner decision |
-| Win condition | Victory points bought in the shop; most points wins | Coins split between engine and points: a real trade-off, no easy best path |
-| Explosion | Half money, no choice | Owner simplification: one fixed penalty, smaller action space |
-| Rewards | The env exposes the plain game outcome: 0 per step, +1/-1/0 at the end. No reward design | Reward design is RL work, out of scope. Raw logs allow any reward to be recomputed later |
-| Records | Local files first, behind a storage interface; hosting later | Owner decision |
+| Topic | Decision | Reason | Status |
+|---|---|---|---|
+| Rules location | One Python engine; nobody writes the rules a second time (no TypeScript copy) | One source of truth; rule changes happen once. Common practice (OpenSpiel, PettingZoo, Kaggle environments) | Settled |
+| Layers | Pure engine → adapters (RL env, CLI, server) → versioned contract | The engine has no I/O, so every adapter is thin and testable | Settled |
+| Frontend | Lovable, replay-first, in a later milestone, built against a finished contract | The kit's frontend lane cannot reach the Python code; QA uses fixtures; Lovable gets exact instructions | Settled |
+| First human interface | Terminal play | Play and test the rules in M1, with no frontend | Settled |
+| Brewing | Simultaneous per chip draw: hidden choices, public results after each step | Owner decision | Settled |
+| Shop | Simultaneous for now; alternating later (planned rule change) | Owner decision | Default |
+| Win condition | Victory points bought in the shop; most points wins | Coins split between engine and points: a real trade-off, no easy best path | Settled (prices: Default) |
+| Explosion | Half money, no choice | Owner simplification: one fixed penalty, smaller action space | Settled |
+| Rewards | The env exposes the plain game outcome: 0 per step, +1/-1/0 at the end. No reward design | Reward design is RL work, out of scope. Raw logs allow any reward to be recomputed later | Settled |
+| Records | Local files first, behind a storage interface; hosting later | Owner decision | Settled (hosting: Open) |
 
-## 4. Architecture (proposed)
+## 4. Architecture (Default)
 
 ```
 src/quack_rl/
@@ -57,40 +62,43 @@ src/quack_rl/
   engine/       state, phases, legal actions, step, seeded chance
   bots/         random, threshold, greedy, points-first
   record/       raw game log: write, read, replay, verify
-  env/          PettingZoo ParallelEnv, Gymnasium single-agent wrapper   (stage 2)
-  datasets/     Minari export from raw logs                             (stage 2)
+  env/          PettingZoo ParallelEnv, Gymnasium single-agent wrapper   (M2)
+  datasets/     Minari export from raw logs                             (M2)
   cli/          play (terminal), simulate, tournament, replay
-  server/       HTTP API for the frontend                               (stage 3)
+notebooks/      marimo notebooks                                        (M2)
+  server/       HTTP API for the frontend                               (M3)
 ```
 
 ### 4.1 Engine
 
 - `GameState` is a plain data object (dataclasses). It can be serialized to JSON and back with no loss
 - `legal_actions(state, player)`, `step(state, joint_action, rng) -> (state, events)`
-- All chance comes from one seeded RNG owned by the game. Each chance outcome (chip drawn, green roll, bonus die) is emitted as an explicit chance event (the OpenSpiel idea of chance nodes). Same seed + same actions → same game
+- All chance comes from one seeded RNG owned by the game. Each chance outcome (chip drawn, bonus die) is emitted as an explicit chance event (the OpenSpiel idea of chance nodes). Same seed + same actions → same game
 - The engine does no I/O and knows nothing about bots, terminals, files or HTTP
 
 ### 4.2 Components and plug-ins
 
 Rule changes must be cheap. So the rules are data plus small hooks:
 
-- Each chip type is a registered component with descriptive features (colour, value, explosion weight, ...) and effect hooks on engine events, for example `on_place` (blue bonus, white explosion total) and `on_round_end` (green roll)
+- Each chip type is a registered component with descriptive features (colour, value, explosion weight, ...) and effect hooks on engine events, for example `on_place` (blue bonus, white explosion total) and `on_round_end` (green droplet bonus)
 - Shop items, die faces and the track are data in the ruleset file
 - A ruleset file names its version (`v1`) and the components it uses
 - Adding a chip colour = one component module + entries in a ruleset file + tests. The engine core does not change
 
-### 4.3 Bots
+### 4.3 Bots (Open: needs a dedicated design session)
 
-Simple scripted policies, for opponents and for a balance check: random (uniform over legal actions), threshold (stop at explosion total ≥ k), greedy buyer, points-first. They use the same interface as a human seat.
+Which bots exist, how they decide, and how they serve as opponents and for a balance check is not designed yet. It needs its own design session before the bot work is built.
 
-## 5. State, observations, actions
+Fixed now only: a bot uses the same interface as a human seat (it gets the observation and the legal actions, and returns one action). M1 needs at least one bot so that human vs bot and bot vs bot can be played; the minimal default is a random bot (uniform over legal actions).
+
+## 5. State, observations, actions (Settled, details Default)
 
 ### 5.1 Turn structure
 
 A round has the phases Brew → Resolve → Shop → Reset.
 
 - Brew: simultaneous steps; each brewing player sends Draw or Stop
-- Resolve: chance only, no player actions (rubies, green rolls, bonus die, money)
+- Resolve: no player actions (rubies, green bonus, bonus die, money)
 - Shop: simultaneous steps; each shopping player sends one Buy or Done
 - A player with nothing to do in a step (stopped, exploded, done shopping) sends `Wait`. This is the usual way to handle this in a PettingZoo `ParallelEnv`
 
@@ -130,11 +138,7 @@ Two encodings of the same state:
 
 One `Discrete` action space with an action mask: `Wait, Draw, Stop, Done, Buy<item 1> ... Buy<item n>`, built from the ruleset. v1 has 16 actions.
 
-Why one flat space for brew and shop actions: the phase is part of the observation, and the mask allows only the actions of the current phase. This is the standard for board and card games (PettingZoo classic, RLCard, Hanabi), and every RL library supports it. Separate spaces per phase would fit fewer libraries.
-
-Large action spaces: chess in PettingZoo uses one flat space of 4672 actions with a mask. When combinations would grow exponentially, the usual trick is to split one combined choice into a sequence of small choices. The shop already does this: a basket of up to 3 items is bought one item per step, not chosen among all baskets.
-
-## 6. Records and datasets (proposed)
+## 6. Records and datasets (Proposed)
 
 ### 6.1 Raw game log: the source of truth
 
@@ -156,20 +160,21 @@ Records go to `data/games/` (gitignored), through a storage interface so that a 
 
 ## 7. Adapters
 
-### 7.1 Terminal (stage 1, proposed)
+### 7.1 Terminal (M1, Proposed)
 
 - `quack-rl play --p1 human --p2 bot:threshold` and `--p1 human --p2 human` (hot seat). Hot seat hides each player's simultaneous choice from the other with a "pass the keyboard" prompt
 - `quack-rl replay <file>`: step through a record
 - `quack-rl simulate --p1 bot:random --p2 bot:threshold --games 1000`: bot vs bot, recorded
 - Text board: both potions, fields, explosion totals, droplets, points, optional bag composition
 
-### 7.2 RL environment (stage 2, proposed)
+### 7.2 RL environment (M2, Proposed)
 
 - PettingZoo `ParallelEnv`, checked with PettingZoo's `parallel_api_test`
 - Gymnasium single-agent wrapper: the agent plays one seat, a given bot plays the other. Checked with Gymnasium's `check_env`
-- Tournament command and balance report: win rates of the simple bots against each other, to see whether one strategy dominates
+- Tournament command and balance report: win rates of the bots against each other, to see whether one strategy dominates (depends on the bot design session)
+- A tiny marimo notebook as a smoke test: one short online RL run on the Gymnasium env, and one offline step on a Minari dataset made from recorded games. It shows that env and datasets work with common RL tooling; no tuning
 
-### 7.3 Server and frontend (stages 3 and 4, proposed)
+### 7.3 Server and frontend (M3 and M4, Proposed)
 
 - The contract: JSON Schema of the game record and the state, an OpenAPI description of the HTTP API, and example fixtures. They are files in this repo
 - A small HTTP server (for example FastAPI) wraps the engine, the bots and the recorder
@@ -177,7 +182,7 @@ Records go to `data/games/` (gitignored), through a storage interface so that a 
 - Frontend QA uses the fixtures, not a live server
 - For human play, the frontend runs locally from the `frontend/` submodule next to the server, because browsers increasingly block public pages from calling `localhost`
 
-### 7.4 Transfer across rule changes (future, design hook now)
+### 7.4 Transfer across rule changes (future; design hook now: Default)
 
 Goal: train a model on one ruleset, then use it on a changed ruleset (new chip colour, changed effects).
 
@@ -185,7 +190,7 @@ A flat vector with one slot per chip type breaks when a chip type is added. The 
 
 Design hook now: components declare descriptive features (4.2), and the structured observation lists chips and shop items as entities with these features. The entity encoder itself is future work.
 
-## 8. Testing (proposed)
+## 8. Testing (Proposed)
 
 - Test-driven: one test per rule clause in `docs/rules/rules-v1.md`
 - Deterministic tests with fixed seeds and scripted chance
@@ -193,19 +198,23 @@ Design hook now: components declare descriptive features (4.2), and the structur
 - Property tests: random bot games never reach an illegal state
 - Test command: `uv run --with pytest pytest`
 
-## 9. Stages (proposed)
+## 9. Milestones (Proposed)
 
-| Stage | Purpose | Main content |
+Milestones are the big steps of this spec. They are not the same as the stages of the agent-graph-kit process (`/stage-start`): one milestone can need one or more stages.
+
+| Milestone | Purpose | Main content |
 |---|---|---|
-| 1 | Play the game in the terminal, recorded | Python project set-up, ruleset data, engine, bots, raw log + replay + verify, terminal play and simulate |
-| 2 | Standard RL environment and datasets | PettingZoo and Gymnasium envs with API tests, Minari export, tournament and balance report |
-| 3 | Contract and server | JSON Schema, OpenAPI, fixtures, HTTP server |
-| 4 | Web frontend | Kit Lovable lane set-up (owner steps), replay viewer, live play |
+| M1 | Play the game in the terminal, recorded | Python project set-up, ruleset data, engine, random bot, raw log + replay + verify, terminal play and simulate |
+| M2 | Standard RL environment and datasets | PettingZoo and Gymnasium envs with API tests, Minari export, tiny marimo smoke-test notebook, bot design session, tournament and balance report |
+| M3 | Contract and server | JSON Schema, OpenAPI, fixtures, HTTP server |
+| M4 | Web frontend | Kit Lovable lane set-up (owner steps), replay viewer, live play |
 | later | Notebook and skills | RL notebook, `rules-to-rl-env` skill, add-rule skill, rule changes |
 
-This intake plans stage 1 in detail. Later stages are planned at their stage set-up.
+This intake plans M1 in detail. Later milestones are planned at later stage set-ups.
 
 ## 10. Open questions
+
+- Bot design (section 4.3)
 
 - Hot-seat terminal play: is a "pass the keyboard" screen enough to hide simultaneous choices?
 - Tech stack confirmation: Python 3.12, uv, `src/` layout, TOML ruleset files
