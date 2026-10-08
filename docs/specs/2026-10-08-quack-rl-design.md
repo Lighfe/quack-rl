@@ -61,7 +61,8 @@ src/quack_rl/
   components/   registry of components and their effect hooks
   engine/       state, phases, legal actions, step, seeded chance
   bots/         random, threshold, greedy, points-first
-  record/       raw game log: write, read, replay, verify
+  record/       raw game log: write, read, replay, verify, RecordStore
+  encodings/    observation encodings, one versioned module each        (M2)
   env/          PettingZoo ParallelEnv, Gymnasium single-agent wrapper   (M2)
   datasets/     Minari export from raw logs                             (M2)
   cli/          play (terminal), simulate, tournament, replay
@@ -138,25 +139,50 @@ Two encodings of the same state:
 
 One `Discrete` action space with an action mask: `Wait, Draw, Stop, Done, Buy<item 1> ... Buy<item n>`, built from the ruleset. v1 has 16 actions.
 
-## 6. Records and datasets (Proposed)
+## 6. Records and datasets (Settled, details Default)
 
 ### 6.1 Raw game log: the source of truth
 
-One JSON Lines file per game:
+A record is an event log in JSON Lines (one JSON object per line). Every line carries the `game_id`.
 
-- Header: record schema version, rules version, seed, mode, seats (human or bot, with bot name and parameters), UI settings (bag assist), engine version, start time
-- One line per step: the joint action, the chance events, the resulting public events
-- Footer: final scores, winner
+- `header` line: record schema version, `game_id`, rules version, seed, mode, seats (human or bot, with bot name and parameters), UI settings (bag assist), engine version, start time (ISO 8601, Berlin local time with UTC offset)
+- One `step` line per joint step, written after the reveal:
+  - `legal`: the legal actions of each player, as names
+  - `actions`: the action of each player, as names (`draw`, `stop`, `wait`, `done`, `buy:<item>`); a player with nothing to do has `wait`
+  - `chance`: each chance outcome, explicit (chip drawn, bonus die face)
+  - `events`: the resulting public events (chip placed, explosion, ruby, green bonus, money, purchase)
+  - `decision_ms`: for human seats, the time each action took (Default)
+- A resolve step has no player actions: only `chance` and `events`
+- `footer` line: final scores, winner
 
-The engine can replay a log exactly from the seed and the actions. A `verify` command checks that the replay gives the same chance events and scores.
+Actions and legal actions are stored as names, not indices, so a record stays readable when the action set changes.
 
-Records go to `data/games/` (gitignored), through a storage interface so that a hosted store can replace it later.
+Replay applies the recorded chance outcomes; it does not need the RNG. A `verify` command replays a record and checks, at every step, that the legal actions, events and final scores match.
 
-### 6.2 Derived datasets
+Ruleset rule: once a ruleset version has recorded games, it is never edited, only superseded (for example `v1` → `v1.1`). A changed chip effect is a new component version; the old one stays, so old records can always be replayed.
 
-- Minari datasets are built **from** raw logs: each game gives two episodes, one per seat (Minari is single-agent; the other seat is part of the environment)
-- Changing the observation encoding or the reward means rebuilding datasets, not recording again
-- Human games stay valid across encoding changes
+### 6.2 Files and storage
+
+A record file holds one or more games, each enclosed by its `header` and `footer` lines.
+
+```
+data/records/<rules_version>/play/<time>_<short id>.jsonl          one game with a human seat
+data/records/<rules_version>/sim/<time>_<short id>/shard-0001.jsonl  simulations, up to 1000 games per shard
+```
+
+`<time>` is Berlin local time with its UTC offset, for example `2026-10-08_21-15-03+0200`. The same naming holds for game files and simulation runs. The header is the truth; the path is only for convenience.
+
+All access goes through a `RecordStore` interface (write steps, list, read), so a hosted store can replace the local folder later. `data/` is gitignored: human and simulated records stay local for now.
+
+### 6.3 Derived datasets
+
+- Format: Minari (Default; to be confirmed by a short research task before M2)
+- Built on demand from raw records with `quack-rl dataset build ...`: replay with the record's ruleset, encode the observations, attach the stored legal actions as action masks, and the outcome reward
+- Each game gives two episodes, one per seat; the other seat is part of the environment. Default: both seats; a filter can select seats (for example only human seats, or only the winner)
+- Each observation encoding has its own version, independent of the rules version. Encoder code: `src/quack_rl/encodings/`
+- Dataset ids: `quack-rl/<rules_version>/<encoding>/<record filter>-v<n>`, for example `quack-rl/v1/flat1/human_vs_bot-v0`
+- Datasets go to `data/datasets/` (Minari's `MINARI_DATASETS_PATH`)
+- Changing the encoding or the reward means rebuilding datasets, not recording again
 
 ## 7. Adapters
 
