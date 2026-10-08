@@ -109,7 +109,7 @@ Brewing ends when no player brews anymore.
 
 ### 4.2 Final field
 
-A player's final field is the field of the player's last placed chip.
+A player's final field is the field of the player's last placed chip when brewing ends. It is the round result: it is settled once, cashed out once in Resolve (ruby, bonus die, money), and used as the tie-break after round 9. Nothing after brewing changes it: not the shop (also not removing a placed White 1), not droplet moves.
 
 ### 4.3 Resolve
 
@@ -146,7 +146,7 @@ Shopping ends when no player shops anymore.
 The game ends after the shop of round 9.
 
 1. The player with the most victory points wins
-2. On a tie: the player with the furthest final field in round 9 wins
+2. On a tie: the player with the furthest final field in round 9 (as settled at the end of brewing, 4.2) wins
 3. If that is tied too: the game is a draw
 
 ## 6. Planned rule changes (not in v1)

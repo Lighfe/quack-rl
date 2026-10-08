@@ -103,6 +103,14 @@ A round has the phases Brew → Resolve → Shop → Reset.
 - Shop: simultaneous steps; each shopping player sends one Buy or Done
 - A player with nothing to do in a step (stopped, exploded, done shopping) sends `Wait`. This is the usual way to handle this in a PettingZoo `ParallelEnv`
 
+RL step boundary (one rule for the online envs and the dataset export):
+
+- An RL step goes from one decision point to the next. Automatic parts (Resolve, Reset) are folded into the step whose joint action triggers them
+- ParallelEnv: both seats act in every step; a seat with nothing to do has `Wait` as its only legal action
+- Single-seat env and per-seat dataset episodes: steps where the seat's only legal action is `Wait` are skipped, so the agent sees only real decisions
+- The action mask belongs to the observation before the action. The episode ends after the last step of round 9, with a final observation and `terminated = true`
+- Exported episodes must equal the single-seat env's episodes for the same actions and chance (a test in M2)
+
 ### 5.2 Information and the bag
 
 The rules say: do not look into the bag. But every chip that enters or leaves a bag is public, so a player can reconstruct the bag contents from the history. A computer always can; a human often does not.
@@ -114,7 +122,7 @@ The principled RL answer (OpenSpiel terms):
 
 Decision:
 
-- The env gives the information state by default: the remaining bag composition is part of the observation. The env is then Markov, and standard RL methods apply without memory
+- The env gives the information state by default: the remaining bag composition is part of the observation. The joint game (both seats' actions) is then Markov, and so is a single seat against a fixed, memoryless bot. Against a human or an adaptive opponent, a single seat's view is not fully Markov, because the opponent's behavior is hidden; recurrent or history-based policies remain possible
 - What a human sees is a separate UI choice: the terminal and the frontend may show or hide the bag composition ("bag assist" on or off)
 - Each record stores the assist setting, because it changes how humans play. For offline RL this is part of the behavior policy context
 - Later uncertain bag contents (random chips appearing) fit the same model: the information state then holds the known part and counts of unknown chips
@@ -157,9 +165,16 @@ A record is an event log in JSON Lines (one JSON object per line). Every line ca
 
 Actions and legal actions are stored as names, not indices, so a record stays readable when the action set changes.
 
-Replay applies the recorded chance outcomes; it does not need the RNG. A `verify` command replays a record and checks, at every step, that the legal actions, events and final scores match.
+Replay applies the recorded chance outcomes; it does not need the RNG. A `verify` command replays a record and checks, at every step:
 
-Ruleset rule: once a ruleset version has recorded games, it is never edited, only superseded (for example `v1` → `v1.1`). A changed chip effect is a new component version; the old one stays, so old records can always be replayed.
+- each chance outcome is possible in the state before it (the drawn chip is in that player's bag, the die face exists), and the step has exactly the expected chance outcomes, no missing and no extra ones
+- the legal actions, events and, at the end, the final scores match
+
+A separate check replays from the recorded seed and compares the chance outcomes (only for records made by the engine's RNG).
+
+Version rule: the rules version names the complete game behavior, the ruleset data, the components and the engine's transition logic (phase order, legality, scoring, game end). Once a rules version has recorded games, its behavior is never changed, only superseded (for example `v1` → `v1.1`), also for an engine bug fix that changes behavior. A changed chip effect is a new component version.
+
+The engine replays the rules versions it explicitly supports. A record of any other version is refused with a clear error; its events stay readable in the file. Each supported version has golden-replay fixtures in the tests.
 
 ### 6.2 Files and storage
 
@@ -179,6 +194,7 @@ All access goes through a `RecordStore` interface (write steps, list, read), so 
 - Format: Minari (Default; to be confirmed by a short research task before M2)
 - Built on demand from raw records with `quack-rl dataset build ...`: replay with the record's ruleset, encode the observations, attach the stored legal actions as action masks, and the outcome reward
 - Each game gives two episodes, one per seat; the other seat is part of the environment. Default: both seats; a filter can select seats (for example only human seats, or only the winner)
+- Each episode's metadata names its own seat and the opponent (bot name and version, or human)
 - Each observation encoding has its own version, independent of the rules version. Encoder code: `src/quack_rl/encodings/`
 - Dataset ids: `quack-rl/<rules_version>/<encoding>/<record filter>-v<n>`, for example `quack-rl/v1/flat1/human_vs_bot-v0`
 - Datasets go to `data/datasets/` (Minari's `MINARI_DATASETS_PATH`)
@@ -225,7 +241,9 @@ Design hook now: components declare descriptive features (4.2), and the structur
 - pytest; test command `uv run --with pytest pytest`
 - Rule-clause tests: one or more tests per clause of `docs/rules/rules-v1.md`, named after the clause, with scripted chance
 - Invariant tests with Hypothesis on random games: chip accounting per chip type holds at every step (owned = starting bag + bought + received from the bonus die - removed, and owned = in bag + placed this round), after each reset all owned chips are in the bag, money is never negative, the field is never above 53, only legal actions are applied, every generated record passes `verify`
-- Golden replays: a few small records in `tests/fixtures/` that must replay to the same result
+- Golden replays: a few small records per supported rules version in `tests/fixtures/` that must replay to the same result
+- Corrupted-record fixtures (impossible chip draw, missing or extra chance outcome) that `verify` must reject
+- M2: exported episodes equal single-seat env episodes for the same actions and chance
 - Run time: the default suite stays under about 30 seconds (Hypothesis example counts capped); a deeper Hypothesis profile is opt-in
 - Ruff for linting and formatting; pyright in basic mode for type checking
 
