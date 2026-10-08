@@ -1,6 +1,6 @@
 # Quack RL design
 
-Status: working draft. This spec records the current state of the design, not a final truth. Each section and decision carries one of these tags:
+Status: working draft, reviewed with the owner up to section 7.1 and sections 8-10. This spec records the current state of the design, not a final truth. Each section and decision carries one of these tags:
 
 - **Settled:** the owner decided. It changes only through the owner
 - **Default:** a working choice to build with, expected to change (tuning, a later design session). Code keeps it in data or config, never hard-coded
@@ -220,31 +220,40 @@ A flat vector with one slot per chip type breaks when a chip type is added. The 
 
 Design hook now: components declare descriptive features (4.2), and the structured observation lists chips and shop items as entities with these features. The entity encoder itself is future work.
 
-## 8. Testing (Proposed)
+## 8. Testing and code quality (Settled, details Default)
 
-- Test-driven: one test per rule clause in `docs/rules/rules-v1.md`
-- Deterministic tests with fixed seeds and scripted chance
-- Golden replays: recorded games that must replay to the same result
-- Property tests: random bot games never reach an illegal state
-- Test command: `uv run --with pytest pytest`
+- pytest; test command `uv run --with pytest pytest`
+- Rule-clause tests: one or more tests per clause of `docs/rules/rules-v1.md`, named after the clause, with scripted chance
+- Invariant tests with Hypothesis on random games: chips are never created or lost, money is never negative, the field is never above 53, only legal actions are applied, every generated record passes `verify`
+- Golden replays: a few small records in `tests/fixtures/` that must replay to the same result
+- Run time: the default suite stays under about 30 seconds (Hypothesis example counts capped); a deeper Hypothesis profile is opt-in
+- Ruff for linting and formatting; pyright in basic mode for type checking
 
-## 9. Milestones (Proposed)
+## 9. Stack (Settled)
+
+- Python 3.12, uv, `src/` layout
+- Ruleset files in TOML (read with `tomllib`)
+- Pydantic for the ruleset and record models (validation, JSON Schema generation for the M3 contract); plain dataclasses for the engine state
+- Typer and Rich for the terminal
+- M2 adds: Gymnasium, PettingZoo, Minari, marimo
+
+## 10. Milestones (Settled)
 
 Milestones are the big steps of this spec. They are not the same as the stages of the agent-graph-kit process (`/stage-start`): one milestone can need one or more stages.
 
 | Milestone | Purpose | Main content |
 |---|---|---|
 | M1 | Play the game in the terminal, recorded | Python project set-up, ruleset data, engine, random bot, raw log + replay + verify, terminal play and simulate |
-| M2 | Standard RL environment and datasets | PettingZoo and Gymnasium envs with API tests, Minari export, tiny marimo smoke-test notebook, bot design session, tournament and balance report |
+| M2 | Standard RL environment and datasets | Minari research, PettingZoo and Gymnasium envs with API tests, Minari export, tiny marimo smoke-test notebook, bot design session, tournament and balance report |
 | M3 | Contract and server | JSON Schema, OpenAPI, fixtures, HTTP server |
 | M4 | Web frontend | Kit Lovable lane set-up (owner steps), replay viewer, live play |
 | later | Notebook and skills | RL notebook, `rules-to-rl-env` skill, add-rule skill, rule changes |
 
 This intake plans M1 in detail. Later milestones are planned at later stage set-ups.
 
-## 10. Open questions
+## 11. Open questions
 
-- Bot design (section 4.3)
-
-- Hot-seat terminal play: is a "pass the keyboard" screen enough to hide simultaneous choices?
-- Tech stack confirmation: Python 3.12, uv, `src/` layout, TOML ruleset files
+- Bot design (section 4.3): a design session in M2
+- Minari as dataset format: short research task before the M2 dataset work
+- Sections 7.2-7.4: reviewed with the owner at the stage set-up of M2-M4
+- Hosting of play and records
