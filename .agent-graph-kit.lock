@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "files": {
+    "AGENTS.md": "a056c59236458d313ece2c2ab753b8fa311555eb7c51c7a58c49ffe3c1a60115",
+    "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+    "docs/checks/hook-activation.md": "f231c2fe90e3ea66e1ea601103eef67cf7e21517541f87bc7cd780ee7d5823dc",
+    "docs/process.md": "c260692df6ce52baaf8feabe142e749677f89dfd0576f493f74c90a17677f01b",
+    "docs/task-template.md": "aee078da298e980fa2d9bafdee6858f4638121f0116be0099dec786e3cc23b65",
+    "docs/team/orchestrator.md": "7b1e2045508a67518025bc05dfcf29c5292ddbc9ece9a077df2479ce6013bc27",
+    "docs/team/planner.md": "d494007d91a2570425f735aa0719adb59c3266225906dd9d60fff3fffc732a03",
+    "docs/team/pm.md": "2a702f736289da11bded5d2ca6162fd218749f75d69941555bd6b597d29b3f60",
+    "docs/team/qa-engineer.md": "c25f59b951e8c75fd064dcb2d4631629544d3a63bf6a717c91a1ebf3b5ead74b",
+    "docs/team/software-engineer.md": "77b5c64c6f7f972e99394e71d0c1f6e2013aa0719570d8a04a1cc89c607db850",
+    "scripts/codex_exec.py": "e98f73df4269b110767849436d3b03885ac82f1898a1c5b97524029378edd030",
+    "scripts/qa-codex": "b569c5e3f8fbf0c5a8eb66472775af80eda8f2520e98a69aa279fd93995ccf77",
+    "scripts/qa-result.schema.json": "ea6c0e23e15e7dc854023308b972f5396a9ea740aac790b38f78d89b99e5540f"
+  }
+}
