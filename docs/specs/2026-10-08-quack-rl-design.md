@@ -1,11 +1,10 @@
 # Quack RL design
 
-Status: working draft, reviewed with the owner up to section 7.1 and sections 8-10. This spec records the current state of the design, not a final truth. Each section and decision carries one of these tags:
+Status: approved by the owner on 2026-10-08 as the basis for M1 (sections 7.2 and 7.3 stay Open). This spec records the current state of the design, not a final truth. Each section and decision carries one of these tags:
 
 - **Settled:** the owner decided. It changes only through the owner
 - **Default:** a working choice to build with, expected to change (tuning, a later design session). Code keeps it in data or config, never hard-coded
 - **Open:** needs a design session or an owner decision before anyone builds it
-- **Proposed:** written by the planner, not yet reviewed by the owner
 
 ## 1. Purpose
 
@@ -213,14 +212,14 @@ All access goes through a `RecordStore` interface (write steps, list, read), so 
 - Simultaneous choices: each human seat chooses with a hidden keypress (no echo), then all choices are revealed. Hot seat is a simple mode for now (testing, a single person); real two-person play comes with hosting
 - Text board: round, phase, step; per player: droplet and start field, chips placed, field and money, white total, ruby fields ahead, points, status (brewing, stopped, exploded); the bag composition when bag assist is on (`--bag-assist`, default on)
 
-### 7.2 RL environment (M2, Proposed)
+### 7.2 RL environment (M2, Open: reviewed with the owner at the M2 stage set-up)
 
 - PettingZoo `ParallelEnv`, checked with PettingZoo's `parallel_api_test`
 - Gymnasium single-agent wrapper: the agent plays one seat, a given bot plays the other. Checked with Gymnasium's `check_env`
 - Tournament command and balance report: win rates of the bots against each other, to see whether one strategy dominates (depends on the bot design session)
 - A tiny marimo notebook as a smoke test: one short online RL run on the Gymnasium env, and one offline step on a Minari dataset made from recorded games. It shows that env and datasets work with common RL tooling; no tuning
 
-### 7.3 Server and frontend (M3 and M4, Proposed)
+### 7.3 Server and frontend (M3 and M4, Open: reviewed with the owner at the M3 and M4 stage set-ups)
 
 - The contract: JSON Schema of the game record and the state, an OpenAPI description of the HTTP API, and example fixtures. They are files in this repo
 - A small HTTP server (for example FastAPI) wraps the engine, the bots and the recorder
