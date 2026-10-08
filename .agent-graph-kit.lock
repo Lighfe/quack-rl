@@ -12,7 +12,7 @@
     "docs/team/qa-engineer.md": "c25f59b951e8c75fd064dcb2d4631629544d3a63bf6a717c91a1ebf3b5ead74b",
     "docs/team/software-engineer.md": "77b5c64c6f7f972e99394e71d0c1f6e2013aa0719570d8a04a1cc89c607db850",
     "scripts/codex_exec.py": "e98f73df4269b110767849436d3b03885ac82f1898a1c5b97524029378edd030",
-    "scripts/qa-codex": "b569c5e3f8fbf0c5a8eb66472775af80eda8f2520e98a69aa279fd93995ccf77",
+    "scripts/qa-codex": "1d5fdd00fa6986bfc092fa6633118e95b9ae6944e2dc0c0319ad38a78877e26f",
     "scripts/qa-result.schema.json": "ea6c0e23e15e7dc854023308b972f5396a9ea740aac790b38f78d89b99e5540f"
   }
 }

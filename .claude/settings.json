@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "agk@agent-graph-kit": true
-  },
   "permissions": {
     "allow": [
       "Bash(scripts/qa-codex ROLE=qa ISSUE=*)",
@@ -10,5 +7,8 @@
     "deny": [
       "Edit(/.claude/settings*.json)"
     ]
+  },
+  "enabledPlugins": {
+    "agk@agent-graph-kit": true
   }
 }
