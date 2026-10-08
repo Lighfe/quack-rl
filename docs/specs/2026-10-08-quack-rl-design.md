@@ -186,12 +186,16 @@ All access goes through a `RecordStore` interface (write steps, list, read), so 
 
 ## 7. Adapters
 
-### 7.1 Terminal (M1, Proposed)
+### 7.1 Terminal (M1, Settled, details Default)
 
-- `quack-rl play --p1 human --p2 bot:threshold` and `--p1 human --p2 human` (hot seat). Hot seat hides each player's simultaneous choice from the other with a "pass the keyboard" prompt
-- `quack-rl replay <file>`: step through a record
-- `quack-rl simulate --p1 bot:random --p2 bot:threshold --games 1000`: bot vs bot, recorded
-- Text board: both potions, fields, explosion totals, droplets, points, optional bag composition
+- Command-line library: Typer. Display: Rich (coloured chips, tables)
+- Commands:
+  - `quack-rl play --p1 human --p2 bot:random`, and `--p1 human --p2 human` (hot seat)
+  - `quack-rl replay <file> [--game <game_id>]`: step through a recorded game
+  - `quack-rl simulate --p1 bot:random --p2 bot:random --games 1000`: bot vs bot, recorded in shards
+  - `quack-rl verify <file>`: replay and check a record (6.1)
+- Simultaneous choices: each human seat chooses with a hidden keypress (no echo), then all choices are revealed. Hot seat is a simple mode for now (testing, a single person); real two-person play comes with hosting
+- Text board: round, phase, step; per player: droplet and start field, chips placed, field and money, white total, ruby fields ahead, points, status (brewing, stopped, exploded); the bag composition when bag assist is on (`--bag-assist`, default on)
 
 ### 7.2 RL environment (M2, Proposed)
 
