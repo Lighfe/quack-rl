@@ -224,7 +224,7 @@ Design hook now: components declare descriptive features (4.2), and the structur
 
 - pytest; test command `uv run --with pytest pytest`
 - Rule-clause tests: one or more tests per clause of `docs/rules/rules-v1.md`, named after the clause, with scripted chance
-- Invariant tests with Hypothesis on random games: chips are never created or lost, money is never negative, the field is never above 53, only legal actions are applied, every generated record passes `verify`
+- Invariant tests with Hypothesis on random games: chip accounting per chip type holds at every step (owned = starting bag + bought + received from the bonus die - removed, and owned = in bag + placed this round), after each reset all owned chips are in the bag, money is never negative, the field is never above 53, only legal actions are applied, every generated record passes `verify`
 - Golden replays: a few small records in `tests/fixtures/` that must replay to the same result
 - Run time: the default suite stays under about 30 seconds (Hypothesis example counts capped); a deeper Hypothesis profile is opt-in
 - Ruff for linting and formatting; pyright in basic mode for type checking

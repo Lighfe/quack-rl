@@ -46,6 +46,8 @@ The droplet marks the start field of each round. It moves in half steps. The sta
 
 Each player has a bag. Chips are drawn at random. The players do not look into the bag.
 
+A player's chips are either in the bag or placed on the track in the current round. At the end of every round, all placed chips go back into the bag (4.5), so every round starts with all of a player's chips in the bag.
+
 ### Bonus die
 
 | Chance | Reward |
@@ -82,7 +84,7 @@ Each player has a bag. Chips are drawn at random. The players do not look into t
 
 ## 3. Round overview
 
-Brew → Resolve → Shop → Reset
+Brew → Resolve → Shop → Reset (all placed chips go back into the bag)
 
 ## 4. Round in detail
 
@@ -101,7 +103,7 @@ The first action of a round must be Draw: a player places at least one chip each
 
 A player on field 53 may still draw.
 
-Chips placed this round cannot go back into the bag during the round.
+Chips placed this round cannot go back into the bag during the round. They go back at the reset (4.5).
 
 Brewing ends when no player brews anymore.
 
@@ -127,7 +129,7 @@ Shopping goes in steps, at the same time for both players. In each step, each pl
 - At most 3 purchases per player per round
 - The same item may be bought more than once
 - A player cannot buy an item that costs more than the money left
-- "Remove one White 1" is possible only while the bag holds a White 1
+- "Remove one White 1" is possible only while the player owns a White 1 (in the bag or placed this round). The removed chip is taken from the placed chips first, if one is there
 - Bought chips go into the bag. Victory points are added at once
 - A player stops shopping after Done or after the third purchase
 
@@ -135,7 +137,7 @@ Shopping ends when no player shops anymore.
 
 ### 4.5 Reset
 
-1. All placed chips go back into the bag
+1. All chips placed this round go back into the player's bag. After the reset, every chip the player owns is in the bag
 2. Unspent money is lost
 3. The droplet stays where it is
 
