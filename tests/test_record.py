@@ -26,6 +26,7 @@ def header(game_id="g1", seed=5):
         game_id=game_id,
         schema_version=1,
         rules_version="v1",
+        rounds=9,
         seed=seed,
         mode="sim",
         seats={

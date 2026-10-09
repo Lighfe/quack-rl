@@ -23,7 +23,7 @@ from quack_rl.record import (
     verify_game,
     verify_seed,
 )
-from quack_rl.rules import UnsupportedRulesVersion, load_ruleset
+from quack_rl.rules import UnsupportedRulesVersion, load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
@@ -63,6 +63,7 @@ def simulate(
     games: Annotated[int, typer.Option(help="Number of games (at least 1).")] = 100,
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
     shard_size: Annotated[int, typer.Option(help="Games per shard file (at least 1).")] = 1000,
+    rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
     rules: Annotated[str, typer.Option(help="Rules version.")] = "v1",
     out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
 ) -> None:
@@ -76,8 +77,10 @@ def simulate(
             check_seat(spec)
         except typer.BadParameter as e:
             _fail(f"{option}: {e.message}", code=2)
+    if rounds < 1:
+        _fail(f"--rounds must be at least 1, got {rounds}")
     try:
-        rs = load_ruleset(rules)
+        rs = with_rounds(load_ruleset(rules), rounds)
     except UnsupportedRulesVersion as e:
         _fail(str(e), code=2)
 
@@ -96,6 +99,7 @@ def simulate(
                     game_id=new_game_id(),
                     schema_version=RECORD_SCHEMA_VERSION,
                     rules_version=rules,
+                    rounds=rounds,
                     seed=game_seed,
                     mode="sim",
                     seats={s: seat_info(x) for s, x in seats.items()},
@@ -168,6 +172,7 @@ def play(
     bag_assist: Annotated[
         bool, typer.Option("--bag-assist/--no-bag-assist", help="Show the bag contents.")
     ] = True,
+    rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
     rules: Annotated[str, typer.Option(help="Rules version.")] = "v1",
     out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
 ) -> None:
@@ -179,8 +184,10 @@ def play(
             check_seat(spec, allow_human=True)
         except typer.BadParameter as e:
             _fail(f"{option}: {e.message}", code=2)
+    if rounds < 1:
+        _fail(f"--rounds must be at least 1, got {rounds}")
     try:
-        rs = load_ruleset(rules)
+        rs = with_rounds(load_ruleset(rules), rounds)
     except UnsupportedRulesVersion as e:
         _fail(str(e), code=2)
     game_seed = seed if seed is not None else secrets.randbelow(2**31)
@@ -197,6 +204,7 @@ def play(
         game_id=new_game_id(),
         schema_version=RECORD_SCHEMA_VERSION,
         rules_version=rules,
+        rounds=rounds,
         seed=game_seed,
         mode="play",
         seats={s: seat_info(x) for s, x in seats.items()},

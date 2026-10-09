@@ -22,6 +22,7 @@ def main() -> None:
         game_id="golden-v1-seed7",
         schema_version=1,
         rules_version="v1",
+        rounds=rs.rounds,
         seed=7,
         mode="sim",
         seats={

@@ -19,12 +19,14 @@ Requires [uv](https://docs.astral.sh/uv/).
     uv run quack-rl play                          # you (p1) vs the random bot
     uv run quack-rl play --p2 human               # hot seat on one keyboard
     uv run quack-rl play --no-bag-assist          # hide the bag contents
+    uv run quack-rl play --rounds 4               # a shorter game (default 9)
 
 Keys: `d` draw, `s` stop, `0` done shopping, `1`-`9`/`a`-`c` buy. Your key is not shown.
 
 ## Simulate, replay, verify
 
     uv run quack-rl simulate --games 1000
+    uv run quack-rl simulate --games 1000 --rounds 4   # shorter games (default 9)
     uv run quack-rl replay data/records/v1/play/<file>.jsonl
     uv run quack-rl verify data/records/v1/sim/<run>/shard-0001.jsonl --seed-check
 

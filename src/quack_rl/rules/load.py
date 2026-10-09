@@ -17,3 +17,10 @@ def load_ruleset(version: str) -> Ruleset:
         )
     text = resources.files("quack_rl.rules").joinpath(f"{version}.toml").read_text(encoding="utf-8")
     return Ruleset.model_validate(tomllib.loads(text))
+
+
+def with_rounds(rs: Ruleset, rounds: int) -> Ruleset:
+    """A copy of the ruleset with another number of rounds (the last round gets the multiplier)."""
+    if rounds < 1:
+        raise ValueError(f"rounds must be at least 1, got {rounds}")
+    return rs.model_copy(update={"rounds": rounds})

@@ -20,6 +20,7 @@ class HeaderLine(_Line):
     game_id: str
     schema_version: int
     rules_version: str
+    rounds: int = Field(ge=1)
     seed: int | None
     mode: Literal["play", "sim"]
     seats: dict[str, SeatInfo]

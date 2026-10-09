@@ -15,7 +15,7 @@ from quack_rl.engine import (
     step,
 )
 from quack_rl.record.reader import RecordedGame
-from quack_rl.rules import SUPPORTED_RULES_VERSIONS, DieFace, load_ruleset
+from quack_rl.rules import SUPPORTED_RULES_VERSIONS, DieFace, load_ruleset, with_rounds
 
 
 class ChanceMismatch(ValueError):
@@ -75,7 +75,7 @@ def verify_game(game: RecordedGame) -> list[str]:
     version = game.header.rules_version
     if version not in SUPPORTED_RULES_VERSIONS:
         return [f"unsupported rules version {version!r}"]
-    rs = load_ruleset(version)
+    rs = with_rounds(load_ruleset(version), game.header.rounds)
     state = new_game(rs)
     for line in game.steps:
         where = f"step {line.n}"
@@ -107,7 +107,7 @@ def verify_seed(game: RecordedGame) -> list[str]:
     version = game.header.rules_version
     if version not in SUPPORTED_RULES_VERSIONS:
         return [f"unsupported rules version {version!r}"]
-    rs = load_ruleset(version)
+    rs = with_rounds(load_ruleset(version), game.header.rounds)
     chance = RngChance(game.header.seed)
     state = new_game(rs)
     for line in game.steps:
