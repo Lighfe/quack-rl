@@ -8,6 +8,20 @@ from quack_rl.engine.actions import (
     buy,
     legal_actions,
 )
+from quack_rl.engine.chance import (
+    ChanceLog,
+    ChanceSource,
+    IllegalChance,
+    RngChance,
+    ScriptedChance,
+)
+from quack_rl.engine.game import (
+    GameOver,
+    IllegalAction,
+    StepResult,
+    needs_actions,
+    step,
+)
 from quack_rl.engine.state import (
     SEATS,
     GameState,
@@ -27,15 +41,25 @@ __all__ = [
     "SEATS",
     "STOP",
     "WAIT",
+    "ChanceLog",
+    "ChanceSource",
+    "GameOver",
     "GameState",
+    "IllegalAction",
+    "IllegalChance",
     "Phase",
     "PlayerState",
+    "RngChance",
+    "ScriptedChance",
     "Status",
+    "StepResult",
     "action_names",
     "buy",
     "legal_actions",
+    "needs_actions",
     "new_game",
     "start_field",
     "state_from_dict",
     "state_to_dict",
+    "step",
 ]
