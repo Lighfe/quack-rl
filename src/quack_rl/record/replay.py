@@ -15,7 +15,7 @@ from quack_rl.engine import (
     step,
 )
 from quack_rl.record.reader import RecordedGame
-from quack_rl.rules import SUPPORTED_RULES_VERSIONS, DieFace, load_ruleset, with_rounds
+from quack_rl.rules import SUPPORTED_RULES_VERSIONS, DieFace, apply_overrides, load_ruleset, with_rounds
 
 
 class ChanceMismatch(ValueError):
@@ -70,12 +70,20 @@ def _footer_problems(game: RecordedGame, state: GameState) -> list[str]:
     return []
 
 
+def _header_ruleset(game: RecordedGame):
+    h = game.header
+    return apply_overrides(with_rounds(load_ruleset(h.rules_version), h.rounds), h.overrides)
+
+
 def verify_game(game: RecordedGame) -> list[str]:
     """Replay the recorded actions and chance outcomes. Returns problems; [] means valid."""
     version = game.header.rules_version
     if version not in SUPPORTED_RULES_VERSIONS:
         return [f"unsupported rules version {version!r}"]
-    rs = with_rounds(load_ruleset(version), game.header.rounds)
+    try:
+        rs = _header_ruleset(game)
+    except ValueError as e:
+        return [f"cannot rebuild the ruleset: {e}"]
     state = new_game(rs)
     for line in game.steps:
         where = f"step {line.n}"
@@ -107,7 +115,10 @@ def verify_seed(game: RecordedGame) -> list[str]:
     version = game.header.rules_version
     if version not in SUPPORTED_RULES_VERSIONS:
         return [f"unsupported rules version {version!r}"]
-    rs = with_rounds(load_ruleset(version), game.header.rounds)
+    try:
+        rs = _header_ruleset(game)
+    except ValueError as e:
+        return [f"cannot rebuild the ruleset: {e}"]
     chance = RngChance(game.header.seed)
     state = new_game(rs)
     for line in game.steps:

@@ -21,6 +21,7 @@ class HeaderLine(_Line):
     schema_version: int
     rules_version: str
     rounds: int = Field(ge=1)
+    overrides: dict[str, int | bool | str] = {}
     seed: int | None
     mode: Literal["play", "sim"]
     seats: dict[str, SeatInfo]

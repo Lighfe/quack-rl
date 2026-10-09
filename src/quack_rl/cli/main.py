@@ -23,7 +23,7 @@ from quack_rl.record import (
     verify_game,
     verify_seed,
 )
-from quack_rl.rules import UnsupportedRulesVersion, load_ruleset, with_rounds
+from quack_rl.rules import UnsupportedRulesVersion, apply_overrides, load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
@@ -46,6 +46,19 @@ def _fail(message: str, code: int = 1) -> NoReturn:
     raise typer.Exit(code=code)
 
 
+def _parse_sets(items: list[str] | None) -> dict[str, str]:
+    """Turn the --set values into a map, or exit with an error message."""
+    overrides: dict[str, str] = {}
+    for item in items or []:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            _fail(f"--set needs key=value, got {item!r}", code=2)
+        if key in overrides:
+            _fail(f"--set {key!r} is given twice", code=2)
+        overrides[key] = value
+    return overrides
+
+
 def _load_games(path: Path) -> list[RecordedGame]:
     """Read all games of a record file, or exit with an error message."""
     if not path.is_file():
@@ -65,6 +78,10 @@ def simulate(
     shard_size: Annotated[int, typer.Option(help="Games per shard file (at least 1).")] = 1000,
     rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
     rules: Annotated[str, typer.Option(help="Rules version.")] = "v1",
+    set_: Annotated[
+        list[str] | None,
+        typer.Option("--set", help="Override a rule number, key=value (repeatable)."),
+    ] = None,
     out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
 ) -> None:
     """Play bot vs bot games and record them in shards."""
@@ -83,6 +100,11 @@ def simulate(
         rs = with_rounds(load_ruleset(rules), rounds)
     except UnsupportedRulesVersion as e:
         _fail(str(e), code=2)
+    overrides = _parse_sets(set_)
+    try:
+        rs = apply_overrides(rs, overrides)
+    except ValueError as e:
+        _fail(str(e), code=2)
 
     store = LocalRecordStore(out)
     sim_dir = store.new_sim_dir(rules)
@@ -100,6 +122,7 @@ def simulate(
                     schema_version=RECORD_SCHEMA_VERSION,
                     rules_version=rules,
                     rounds=rounds,
+                    overrides=overrides,
                     seed=game_seed,
                     mode="sim",
                     seats={s: seat_info(x) for s, x in seats.items()},
@@ -174,6 +197,10 @@ def play(
     ] = True,
     rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
     rules: Annotated[str, typer.Option(help="Rules version.")] = "v1",
+    set_: Annotated[
+        list[str] | None,
+        typer.Option("--set", help="Override a rule number, key=value (repeatable)."),
+    ] = None,
     out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
 ) -> None:
     """Play a recorded game in the terminal (human vs bot, or hot seat with two humans)."""
@@ -190,6 +217,11 @@ def play(
         rs = with_rounds(load_ruleset(rules), rounds)
     except UnsupportedRulesVersion as e:
         _fail(str(e), code=2)
+    overrides = _parse_sets(set_)
+    try:
+        rs = apply_overrides(rs, overrides)
+    except ValueError as e:
+        _fail(str(e), code=2)
     game_seed = seed if seed is not None else secrets.randbelow(2**31)
     seats = {
         "p1": parse_seat(
@@ -205,6 +237,7 @@ def play(
         schema_version=RECORD_SCHEMA_VERSION,
         rules_version=rules,
         rounds=rounds,
+        overrides=overrides,
         seed=game_seed,
         mode="play",
         seats={s: seat_info(x) for s, x in seats.items()},

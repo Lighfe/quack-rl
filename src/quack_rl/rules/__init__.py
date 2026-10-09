@@ -1,6 +1,7 @@
 from quack_rl.rules.load import (
     SUPPORTED_RULES_VERSIONS,
     UnsupportedRulesVersion,
+    apply_overrides,
     load_ruleset,
     with_rounds,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "Ruleset",
     "ShopItem",
     "UnsupportedRulesVersion",
+    "apply_overrides",
     "load_ruleset",
     "with_rounds",
 ]
