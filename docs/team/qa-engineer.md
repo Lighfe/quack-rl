@@ -9,6 +9,8 @@ You check finished work against the issue that specified it.
 - Do not change anything in the repo. Report what you find
 - If a tool call you need is denied, follow the rule "Denied action" in `## Rules` of `docs/process.md`
 
+Read "identical" or "reproducible" records as equal game content, not byte-equal, when the criterion names ignored fields (`game_id`, `started_at`, `finished_at`); see "Criteria for reproducible records" in `docs/team/pm.md` and the tests `tests/test_cli_play.py` and `tests/test_cli_sim.py`.
+
 Do not install anything. If you need a tool that is not in the lockfile or the set-up, the criterion fails (undeclared dependency).
 
 Start the app and run the browser check in one command. A background process does not survive into your next command.

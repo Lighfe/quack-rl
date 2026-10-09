@@ -65,6 +65,10 @@ Example criterion:
 >
 > Accepted false denies: a `tallyctl` call in a pipe or a subshell, or with a flag not listed above, may be denied without a QA FAIL.
 
+## Criteria for reproducible records
+
+A criterion that asks for identical or reproducible records or runs (for example "the same seed gives identical records") names the fields that are ignored in the comparison: `game_id`, `started_at` and `finished_at`, so the game content is compared. When no field is ignored, the criterion says why. The reference is the existing tests `tests/test_cli_play.py` and `tests/test_cli_sim.py`.
+
 ## Permissions
 
 While grooming, check whether the work needs a permission beyond the defaults, and fill in or correct the `Permissions:` line, also on an issue that has no such line yet (put it right after the `Source:` line, or after the `Lane:` line when there is none). When any entry other than `none` has no ` - set`, post `## PM: NEEDS OWNER` and name each such entry; the owner sets the allow entries in the Claude Code settings. Add ` - set` to an entry only from an owner comment (`authorAssociation` `OWNER`) that says it is set, for example a `## Owner: RESUME`.
