@@ -1,10 +1,13 @@
+import secrets
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
+from rich.console import Console
 
 from quack_rl import __version__
+from quack_rl.cli.render import render_board, render_step
 from quack_rl.cli.seats import check_seat, parse_seat, seat_info
 from quack_rl.engine import RngChance
 from quack_rl.record import (
@@ -155,3 +158,71 @@ def replay(
             )
         if g.footer is not None:
             typer.echo(f"winner {g.footer.winner}, points {g.footer.points}")
+
+
+@app.command()
+def play(
+    p1: Annotated[str, typer.Option(help="Seat p1 (human or bot:random).")] = "human",
+    p2: Annotated[str, typer.Option(help="Seat p2 (human or bot:random).")] = "bot:random",
+    seed: Annotated[int | None, typer.Option(help="Chance seed (random when not given).")] = None,
+    bag_assist: Annotated[
+        bool, typer.Option("--bag-assist/--no-bag-assist", help="Show the bag contents.")
+    ] = True,
+    rules: Annotated[str, typer.Option(help="Rules version.")] = "v1",
+    out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
+) -> None:
+    """Play a recorded game in the terminal (human vs bot, or hot seat with two humans)."""
+    console = Console()
+    # Check every input before the record file is created.
+    for option, spec in (("--p1", p1), ("--p2", p2)):
+        try:
+            check_seat(spec, allow_human=True)
+        except typer.BadParameter as e:
+            _fail(f"{option}: {e.message}", code=2)
+    try:
+        rs = load_ruleset(rules)
+    except UnsupportedRulesVersion as e:
+        _fail(str(e), code=2)
+    game_seed = seed if seed is not None else secrets.randbelow(2**31)
+    seats = {
+        "p1": parse_seat(
+            p1, 2 * game_seed + 1, console=console, rs=rs, bag_assist=bag_assist, label="Player 1"
+        ),
+        "p2": parse_seat(
+            p2, 2 * game_seed + 2, console=console, rs=rs, bag_assist=bag_assist, label="Player 2"
+        ),
+    }
+    path = LocalRecordStore(out).new_play_path(rules)
+    header = HeaderLine(
+        game_id=new_game_id(),
+        schema_version=RECORD_SCHEMA_VERSION,
+        rules_version=rules,
+        seed=game_seed,
+        mode="play",
+        seats={s: seat_info(x) for s, x in seats.items()},
+        ui={"bag_assist": bag_assist},
+        engine_version=__version__,
+        started_at=berlin_iso(),
+    )
+    with path.open("w", encoding="utf-8") as f:
+        recorder = GameRecorder(f, header)
+
+        def on_step(result, decision_ms):
+            recorder.on_step(result, decision_ms)
+            console.print(render_step(result), markup=False, highlight=False)
+
+        try:
+            final = play_game(rs, seats, RngChance(game_seed), on_step)
+        except (KeyboardInterrupt, EOFError):
+            console.print(
+                f"game aborted, partial record: {path}",
+                markup=False,
+                highlight=False,
+                soft_wrap=True,
+            )
+            raise typer.Exit(code=130) from None
+        recorder.close(final)
+    console.print(render_board(final, rs, bag_assist))
+    points = ", ".join(f"{s} {final.players[s].points}" for s in ("p1", "p2"))
+    console.print(f"winner: {final.winner}  points: {points}", markup=False, highlight=False)
+    console.print(f"record: {path}", markup=False, highlight=False, soft_wrap=True)

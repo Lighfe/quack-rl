@@ -1,7 +1,10 @@
 import typer
+from rich.console import Console
 
 from quack_rl.bots import RandomBot
+from quack_rl.cli.human import HumanSeat
 from quack_rl.record import SeatInfo
+from quack_rl.rules import Ruleset
 from quack_rl.runner import Seat
 
 KNOWN_SEATS = ("bot:random", "human")
@@ -19,8 +22,20 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
         raise typer.BadParameter(f"unknown seat {spec!r} (known: {', '.join(KNOWN_SEATS)})")
 
 
-def parse_seat(spec: str, seed: int | None) -> Seat:
-    check_seat(spec)
+def parse_seat(
+    spec: str,
+    seed: int | None,
+    *,
+    console: Console | None = None,
+    rs: Ruleset | None = None,
+    bag_assist: bool = True,
+    label: str = "",
+) -> Seat:
+    """Build a seat. A human seat needs a console and a ruleset (only `play` gives them)."""
+    check_seat(spec, allow_human=console is not None and rs is not None)
+    if spec == "human":
+        assert console is not None and rs is not None
+        return HumanSeat(label, console, bag_assist, rs)
     return RandomBot(seed)
 
 
