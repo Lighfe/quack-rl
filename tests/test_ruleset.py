@@ -224,3 +224,106 @@ def test_invalid_ruleset_is_refused(change: Callable[[dict[str, Any]], None]):
     change(data)
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
+
+
+def _set(path: Callable[[dict[str, Any]], dict[str, Any]], key: str, value: Any):
+    def change(d: dict[str, Any]) -> None:
+        path(d)[key] = value
+
+    return change
+
+
+def _top(key: str, value: Any) -> Callable[[dict[str, Any]], None]:
+    return _set(lambda d: d, key, value)
+
+
+def _shop(item_id: str, key: str, value: Any) -> Callable[[dict[str, Any]], None]:
+    return _set(lambda d: _by_id(d["shop"], item_id), key, value)
+
+
+def _die(face_id: str, key: str, value: Any) -> Callable[[dict[str, Any]], None]:
+    return _set(lambda d: _by_id(d["die"], face_id), key, value)
+
+
+def _chip(chip_id: str, key: str, value: Any) -> Callable[[dict[str, Any]], None]:
+    return _set(lambda d: _by_id(d["chips"], chip_id), key, value)
+
+
+def _track_end(n: int) -> Callable[[dict[str, Any]], None]:
+    def change(d: dict[str, Any]) -> None:
+        d["track_end"] = n
+        d["money"] = list(range(n + 1))
+        d["rubies"] = []
+
+    return change
+
+
+def _money_at(index: int, value: int) -> Callable[[dict[str, Any]], None]:
+    def change(d: dict[str, Any]) -> None:
+        d["money"][index] = value
+
+    return change
+
+
+def _bag(chip_id: str, count: int) -> Callable[[dict[str, Any]], None]:
+    def change(d: dict[str, Any]) -> None:
+        d["start_bag"][chip_id] = count
+
+    return change
+
+
+def _append_ruby(value: int) -> Callable[[dict[str, Any]], None]:
+    def change(d: dict[str, Any]) -> None:
+        d["rubies"].append(value)
+
+    return change
+
+
+# id -> (change that must be refused, change just inside the range that must validate)
+BOUNDARY_CASES: dict[
+    str, tuple[Callable[[dict[str, Any]], None], Callable[[dict[str, Any]], None]]
+] = {
+    "shop_price_minus_1": (_shop("blue_1", "price", -1), _shop("blue_1", "price", 0)),
+    "die_weight_0": (_die("money_1", "weight", 0), _die("money_1", "weight", 1)),
+    "die_weight_minus_1": (_die("money_1", "weight", -1), _die("money_1", "weight", 1)),
+    "rounds_0": (_top("rounds", 0), _top("rounds", 1)),
+    "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
+    "max_purchases_0": (_top("max_purchases", 0), _top("max_purchases", 1)),
+    "track_end_0": (_track_end(0), _track_end(1)),
+    "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),
+    "chip_value_0": (_chip("white_1", "value", 0), _chip("white_1", "value", 1)),
+    "money_entry_minus_1": (_money_at(1, -1), _money_at(1, 0)),
+    "shop_droplet_halves_0": (_shop("droplet_1", "halves", 0), _shop("droplet_1", "halves", 1)),
+    "die_droplet_halves_0": (_die("droplet_1", "halves", 0), _die("droplet_1", "halves", 1)),
+    "shop_points_0": (_shop("points_2", "points", 0), _shop("points_2", "points", 1)),
+    "die_points_0": (_die("point_1", "points", 0), _die("point_1", "points", 1)),
+    "die_money_amount_0": (_die("money_1", "amount", 0), _die("money_1", "amount", 1)),
+    "shop_chip_item_chip_missing": (
+        _shop("blue_1", "chip", None),
+        _shop("blue_1", "chip", "white_1"),
+    ),
+    "shop_remove_item_chip_missing": (
+        _shop("remove_white_1", "chip", None),
+        _shop("remove_white_1", "chip", "white_2"),
+    ),
+    "die_chip_face_chip_missing": (
+        _die("orange_1", "chip", None),
+        _die("orange_1", "chip", "white_1"),
+    ),
+    "ruby_field_twice": (_append_ruby(5), _append_ruby(6)),
+}
+
+
+@pytest.mark.parametrize("case", list(BOUNDARY_CASES))
+def test_out_of_range_value_is_refused(case: str):
+    data = _v1_data()
+    BOUNDARY_CASES[case][0](data)
+    with pytest.raises(pydantic.ValidationError):
+        Ruleset.model_validate(data)
+
+
+@pytest.mark.parametrize("case", list(BOUNDARY_CASES))
+def test_boundary_value_validates(case: str):
+    data = _v1_data()
+    BOUNDARY_CASES[case][1](data)
+    Ruleset.model_validate(data)
