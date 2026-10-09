@@ -19,11 +19,11 @@ from quack_rl import __version__
 from quack_rl.bots import bot_name, parse_bot_name
 from quack_rl.cli.seats import check_seat
 from quack_rl.record import berlin_iso, berlin_stamp, read_games, verify_game, verify_seed
-from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
-from quack_rl.simgame import play_sim_game
+from quack_rl.rules import Ruleset, apply_overrides, load_ruleset, with_rounds
+from quack_rl.simgame import GameStats, play_sim_game
 
 BOT_SWEEPS = ("draw_limit", "points_round")
-CSV_COLUMNS: list[str] = [
+BASE_COLUMNS: list[str] = [
     "pairing",
     "p1",
     "p2",
@@ -36,6 +36,15 @@ CSV_COLUMNS: list[str] = [
     "p1_explosions",
     "p2_explosions",
 ]
+
+
+def csv_columns(rs: Ruleset) -> list[str]:
+    """Columns of results.csv: the base ones, then purchases per shop item, then draws."""
+    buys = [f"{seat}_buy_{item.id}" for seat in ("p1", "p2") for item in rs.shop]
+    return [*BASE_COLUMNS, *buys, "p1_draws", "p2_draws"]
+
+
+CSV_COLUMNS: list[str] = csv_columns(load_ruleset("v1"))
 SEAT_CHECK_PREFIX = "seatcheck:"
 DEFAULT_SAMPLE_SIZE = 20
 _NAME_OK = re.compile(r"[A-Za-z0-9._-]+")
@@ -176,8 +185,16 @@ def _tasks(config: TournamentConfig) -> list[_Task]:
     return tasks
 
 
-def _row(task: _Task, game: int, seed: int, final, explosions: dict[str, int]) -> dict[str, Any]:
-    return {
+def _row(
+    task: _Task,
+    game: int,
+    seed: int,
+    final,
+    explosions: dict[str, int],
+    stats: GameStats,
+    rs: Ruleset,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
         "pairing": task.pairing,
         "p1": task.p1.removeprefix("bot:"),
         "p2": task.p2.removeprefix("bot:"),
@@ -190,6 +207,12 @@ def _row(task: _Task, game: int, seed: int, final, explosions: dict[str, int]) -
         "p1_explosions": explosions["p1"],
         "p2_explosions": explosions["p2"],
     }
+    for seat in ("p1", "p2"):
+        for item in rs.shop:
+            row[f"{seat}_buy_{item.id}"] = stats.buys[seat][item.id]
+    row["p1_draws"] = stats.draws["p1"]
+    row["p2_draws"] = stats.draws["p2"]
+    return row
 
 
 def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[str, Any]]:
@@ -208,7 +231,7 @@ def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[st
     try:
         for i in range(config.games):
             seed = config.seed + i
-            final, explosions = play_sim_game(
+            final, explosions, stats = play_sim_game(
                 rs,
                 rules=config.rules,
                 rounds=config.rounds,
@@ -218,7 +241,7 @@ def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[st
                 game_seed=seed,
                 stream=shard,
             )
-            rows.append(_row(task, i, seed, final, explosions))
+            rows.append(_row(task, i, seed, final, explosions, stats, rs))
     finally:
         if shard is not None:
             shard.close()
@@ -240,7 +263,8 @@ def run_games(config: TournamentConfig, records_dir: Path | None = None) -> list
 
 def results_csv(rows: Sequence[dict[str, Any]]) -> str:
     out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=CSV_COLUMNS, lineterminator="\n")
+    fieldnames = list(rows[0]) if rows else CSV_COLUMNS
+    writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
     return out.getvalue()
@@ -286,7 +310,7 @@ def verify_sample(config: TournamentConfig, rows: Sequence[dict[str, Any]]) -> l
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "game.jsonl"
             with path.open("w", encoding="utf-8") as f:
-                final, explosions = play_sim_game(
+                final, explosions, stats = play_sim_game(
                     rs,
                     rules=config.rules,
                     rounds=config.rounds,
@@ -298,7 +322,7 @@ def verify_sample(config: TournamentConfig, rows: Sequence[dict[str, Any]]) -> l
                 )
             (game,) = read_games(path)
         task = _Task(0, row["pairing"], "bot:" + row["p1"], "bot:" + row["p2"], value)
-        if _row(task, row["game"], row["seed"], final, explosions) != row:
+        if _row(task, row["game"], row["seed"], final, explosions, stats, rs) != row:
             problems.append(f"{where}: the stored result differs from the rebuilt game")
             continue
         found = verify_game(game) or verify_seed(game)

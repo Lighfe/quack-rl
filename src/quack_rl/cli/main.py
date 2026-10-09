@@ -23,6 +23,7 @@ from quack_rl.record import (
     verify_game,
     verify_seed,
 )
+from quack_rl.report import ReportError, write_report
 from quack_rl.rules import UnsupportedRulesVersion, apply_overrides, load_ruleset, with_rounds
 from quack_rl.runner import play_game
 from quack_rl.simgame import play_sim_game
@@ -121,7 +122,7 @@ def simulate(
     for shard_index, first in enumerate(range(0, games, shard_size), start=1):
         with store.shard_path(sim_dir, shard_index).open("w", encoding="utf-8") as f:
             for i in range(first, min(first + shard_size, games)):
-                final, _ = play_sim_game(
+                final, _, _ = play_sim_game(
                     rs,
                     rules=rules,
                     rounds=rounds,
@@ -203,6 +204,16 @@ def tournament(
             typer.echo(f"MISMATCH {problem}", err=True)
         _fail(f"{len(problems)} sampled games do not match their rebuild", code=1)
     typer.echo(f"{min(sample_size, len(rows))} sampled games rebuilt from the seed: ok")
+
+
+@app.command()
+def report(folder: Path) -> None:
+    """Print the balance report of a tournament run and write it to <folder>/report.txt."""
+    try:
+        text = write_report(folder)
+    except ReportError as e:
+        _fail(str(e))
+    typer.echo(text, nl=False)
 
 
 @app.command()

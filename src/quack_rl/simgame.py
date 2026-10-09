@@ -1,6 +1,8 @@
 """One bot-vs-bot game, shared by `simulate` and `tournament`."""
 
+from collections import Counter
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import TextIO
 
 from quack_rl import __version__
@@ -17,6 +19,14 @@ from quack_rl.rules import Ruleset
 from quack_rl.runner import play_game
 
 
+@dataclass
+class GameStats:
+    """Counts taken from the game events while the game is played."""
+
+    draws: dict[str, int] = field(default_factory=lambda: dict.fromkeys(SEATS, 0))
+    buys: dict[str, Counter[str]] = field(default_factory=lambda: {s: Counter() for s in SEATS})
+
+
 def play_sim_game(
     rs: Ruleset,
     *,
@@ -27,11 +37,12 @@ def play_sim_game(
     p2: str,
     game_seed: int,
     stream: TextIO | None = None,
-) -> tuple[GameState, dict[str, int]]:
+) -> tuple[GameState, dict[str, int], GameStats]:
     """Play one game of two bot seats with chance seed `game_seed`.
 
     The bot seats get the seeds 2 * game_seed + 1 and + 2. With a `stream` the game is recorded
-    in it. Returns the final state and the number of explosions of each seat.
+    in it. Returns the final state, the number of explosions of each seat, and the draw and
+    purchase counts of each seat.
     """
     seats = {
         "p1": parse_seat(p1, 2 * game_seed + 1, rs=rs),
@@ -54,15 +65,20 @@ def play_sim_game(
         )
         recorder = GameRecorder(stream, header)
     explosions = dict.fromkeys(SEATS, 0)
+    stats = GameStats()
 
     def on_step(result: StepResult, decision_ms: dict[str, int]) -> None:
         for event in result.events:
             if event.get("kind") == "explode":
                 explosions[event["seat"]] += 1
+            elif event.get("kind") == "place":
+                stats.draws[event["seat"]] += 1
+            elif event.get("kind") == "buy":
+                stats.buys[event["seat"]][event["item"]] += 1
         if recorder is not None:
             recorder.on_step(result, decision_ms)
 
     final = play_game(rs, seats, RngChance(game_seed), on_step)
     if recorder is not None:
         recorder.close(final)
-    return final, explosions
+    return final, explosions, stats
