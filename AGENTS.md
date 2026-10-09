@@ -21,7 +21,7 @@ Test command: uv run --with pytest pytest. Never report tests as passed if no te
 
 ## Skills and subagents
 
-- Project skills go to `.agents/skills/<name>/SKILL.md`. `.claude/skills` is a symlink to `.agents/skills`.
+- Project skills go to `.agents/skills/<name>/SKILL.md`. `.claude/skills` is created as a symlink to `.agents/skills` together with the first project skill.
 - Subagent definitions go to `.claude/agents/`. They point to the role files in `docs/team/`.
 - When the owner asks for a Codex review, use the `codex-review` skill.
 
