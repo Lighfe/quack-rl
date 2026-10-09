@@ -27,16 +27,16 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
     title = f"Round {state.round}/{rs.rounds} · {state.phase.value} · step {state.step}"
     table = Table(title=title, show_lines=True)
     for column in ("seat", "status", "droplet", "field", "white", "points", "money", "chips"):
-        table.add_column(column)
+        table.add_column(column, no_wrap=column in ("droplet", "field"))
     for seat in SEATS:
         p = state.players[seat]
         scoring = scoring_field(p.field, rs)
         ruby = "yes" if scoring in rs.rubies else "no"
-        field_text = f"field {p.field}\nscore {scoring} · ${rs.money[scoring]}\nruby: {ruby}"
+        field_text = f"field {p.field}\nscore {scoring} ${rs.money[scoring]}\nruby: {ruby}"
         table.add_row(
             seat,
             p.status.value,
-            f"droplet {p.droplet_halves / 2:g}\nstart {start_field(p, rs)}",
+            f"drop {p.droplet_halves / 2:g}\nstart {start_field(p, rs)}",
             field_text,
             f"{p.white_total}/{rs.explosion_limit}",
             str(p.points),

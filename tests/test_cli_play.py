@@ -64,7 +64,7 @@ def test_board_new_game_shows_round_phase_seats_and_numbers():
     for expected in ("Round 1/9", "brew", "p1", "p2", "brewing", "start 0", "0/7"):
         assert expected in text
     assert "next ruby" not in text
-    assert "field 0" in text and "score 1 · $1" in text
+    assert "field 0" in text and "score 1 $1" in text
     assert "ruby: no" in text and "points" in text
 
 
@@ -101,7 +101,7 @@ def test_board_field_cell_shows_scoring_field_money_and_ruby(landing, scoring, r
     lines = field_cell(landing)
     assert lines == [
         f"field {landing}",
-        f"score {scoring} · ${RS.money[scoring]}",
+        f"score {scoring} ${RS.money[scoring]}",
         f"ruby: {ruby}",
     ]
 
@@ -112,7 +112,7 @@ def test_board_past_last_ruby_shows_scoring_field_53_and_money_35():
     for width in (80, 120):
         text = board(s, width=width)
         assert "None" not in text and "next ruby" not in text
-        assert "score 53 · $35" in text
+        assert "score 53 $35" in text
 
 
 def test_board_full_v1_values_fit_in_80_columns():
@@ -127,6 +127,13 @@ def test_board_full_v1_values_fit_in_80_columns():
         p.placed = ["orange_1", "blue_1", "green_1", "white_1", "orange_1", "blue_1"]
     text = board(s, width=80)
     assert max(len(line) for line in text.splitlines()) <= 80
+    # the field cell stays three lines: nothing wraps
+    assert text.count("field 53") == 2
+    assert text.count("score 53 $35") == 2
+    assert text.count("ruby: no") == 2
+    row = text.splitlines()
+    first = next(i for i, line in enumerate(row) if "field 53" in line)
+    assert "score 53 $35" in row[first + 1] and "ruby: no" in row[first + 2]
 
 
 def die_result(*events) -> StepResult:
