@@ -220,11 +220,7 @@ def test_brew_ends_with_one_stopped_and_one_exploded():
     assert r.state.players["p2"].final_field == r.state.players["p2"].field == 1
 
 
-def test_resolve_and_shop_are_not_implemented_yet():
-    s = new_game(RS)
-    s.phase = Phase.RESOLVE
-    with pytest.raises(NotImplementedError):
-        step(s, RS, None, ScriptedChance([]))
+def test_shop_is_not_implemented_yet():
     s = new_game(RS)
     s.phase = Phase.SHOP
     with pytest.raises(NotImplementedError):
