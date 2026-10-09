@@ -3,20 +3,18 @@
 import csv
 import json
 import math
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from quack_rl.bots import parse_bot_name
 from quack_rl.bots.heuristic import BASELINE_NAME
-from quack_rl.rules import Ruleset
+from quack_rl.rules import Ruleset, load_ruleset
 from quack_rl.tournament import BASE_COLUMNS, SEAT_CHECK_PREFIX, Sweep, TournamentConfig, _rules_for
 
 Z95 = 1.959964  # two-sided 95% normal quantile
 SWEEP_STRATEGIES = ("blue", "green", "cleaner", "balanced")
 NEEDED_COLUMNS = [*BASE_COLUMNS, "p1_draws", "p2_draws"]
-_BUY = re.compile(r"p[12]_buy_(.+)")
 
 
 class ReportError(ValueError):
@@ -187,9 +185,10 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
         for column in NEEDED_COLUMNS:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
-        buy_items = list(dict.fromkeys(m[1] for c in columns if (m := _BUY.fullmatch(c))))
-        if not buy_items:
-            raise ReportError(f"results.csv in {folder} lacks the columns 'p1_buy_<item>'")
+        try:
+            buy_items = [item.id for item in load_ruleset(config.get("rules", "v1")).shop]
+        except (ValueError, KeyError, TypeError, OSError) as e:
+            raise ReportError(f"config.json in {folder} names no usable ruleset: {e}") from None
         for item in buy_items:
             for seat in ("p1", "p2"):
                 if f"{seat}_buy_{item}" not in columns:
