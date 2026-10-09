@@ -1,7 +1,10 @@
+import gzip
 import json
+import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import IO
 
 from pydantic import ValidationError
 
@@ -31,11 +34,26 @@ def _check_header_rounds(path: Path, number: int, text: str) -> None:
         )
 
 
+def _open_text(path: Path) -> IO[str]:
+    """Open a record file as text; a `.gz` file is read through gzip."""
+    if path.suffix == ".gz":
+        return gzip.open(path, "rt", encoding="utf-8")
+    return path.open(encoding="utf-8")
+
+
+def _lines(path: Path, f: IO[str]) -> Iterator[str]:
+    """Lines of the open file; a damaged gzip stream becomes a RecordFormatError."""
+    try:
+        yield from f
+    except (OSError, EOFError, zlib.error, UnicodeDecodeError) as e:
+        raise RecordFormatError(f"{path}: unreadable record file: {e}") from e
+
+
 def read_games(path: Path) -> Iterator[RecordedGame]:
     """Yield each game of a record file. An unfinished game is yielded with footer None."""
     current: RecordedGame | None = None
-    with path.open(encoding="utf-8") as f:
-        for number, text in enumerate(f, start=1):
+    with _open_text(path) as f:
+        for number, text in enumerate(_lines(path, f), start=1):
             if not text.strip():
                 continue
             _check_header_rounds(path, number, text)

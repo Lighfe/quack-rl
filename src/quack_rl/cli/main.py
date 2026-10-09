@@ -25,6 +25,15 @@ from quack_rl.record import (
 )
 from quack_rl.rules import UnsupportedRulesVersion, apply_overrides, load_ruleset, with_rounds
 from quack_rl.runner import play_game
+from quack_rl.simgame import play_sim_game
+from quack_rl.tournament import (
+    DEFAULT_SAMPLE_SIZE,
+    TournamentConfig,
+    TournamentError,
+    parse_sweep,
+    verify_sample,
+    write_run,
+)
 
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
 
@@ -112,30 +121,88 @@ def simulate(
     for shard_index, first in enumerate(range(0, games, shard_size), start=1):
         with store.shard_path(sim_dir, shard_index).open("w", encoding="utf-8") as f:
             for i in range(first, min(first + shard_size, games)):
-                game_seed = seed + i
-                seats = {
-                    "p1": parse_seat(p1, 2 * game_seed + 1, rs=rs),
-                    "p2": parse_seat(p2, 2 * game_seed + 2, rs=rs),
-                }
-                header = HeaderLine(
-                    game_id=new_game_id(),
-                    schema_version=RECORD_SCHEMA_VERSION,
-                    rules_version=rules,
+                final, _ = play_sim_game(
+                    rs,
+                    rules=rules,
                     rounds=rounds,
                     overrides=overrides,
-                    seed=game_seed,
-                    mode="sim",
-                    seats={s: seat_info(x) for s, x in seats.items()},
-                    ui={},
-                    engine_version=__version__,
-                    started_at=berlin_iso(),
+                    p1=p1,
+                    p2=p2,
+                    game_seed=seed + i,
+                    stream=f,
                 )
-                recorder = GameRecorder(f, header)
-                final = play_game(rs, seats, RngChance(game_seed), recorder.on_step)
-                recorder.close(final)
                 wins[final.winner or "?"] += 1
     typer.echo(f"{games} games written to {sim_dir}")
     typer.echo(f"wins: p1 {wins['p1']}, p2 {wins['p2']}, draws {wins['draw']}")
+
+
+@app.command()
+def tournament(
+    bots: Annotated[
+        list[str],
+        typer.Option(
+            "--bots", help="Bot seat specs of the field, bot:<name> (comma list or repeat)."
+        ),
+    ],
+    games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
+    seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
+    rules: Annotated[str, typer.Option(help="Base rules version.")] = "v1",
+    rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
+    set_: Annotated[
+        list[str] | None,
+        typer.Option("--set", help="Override a rule number, key=value (repeatable)."),
+    ] = None,
+    sweep: Annotated[
+        str | None,
+        typer.Option(
+            help="One parameter with values: draw_limit=15,30 or points_round=3,8 "
+            "or a rule key such as shop.droplet_1.price=6,8."
+        ),
+    ] = None,
+    workers: Annotated[
+        int, typer.Option(help="Worker processes, one pairing each (1 or more).")
+    ] = 1,
+    name: Annotated[str, typer.Option(help="Run name, part of the folder name.")] = "run",
+    seat_check: Annotated[
+        bool,
+        typer.Option(
+            "--seat-check", help="Seat sanity check: each bot plays itself, no other pairings."
+        ),
+    ] = False,
+    keep_records: Annotated[
+        bool, typer.Option("--keep-records", help="Write gzipped game records to records/.")
+    ] = False,
+    sample_size: Annotated[
+        int, typer.Option(help="Games rebuilt from the seed and verified after the run.")
+    ] = DEFAULT_SAMPLE_SIZE,
+    out: Annotated[Path, typer.Option(help="Tournament root folder.")] = Path("data/tournaments"),
+) -> None:
+    """Every pair of the field plays; writes config.json and results.csv to its own folder."""
+    try:
+        config = TournamentConfig(
+            bots=tuple(b.strip() for item in bots for b in item.split(",") if b.strip()),
+            games=games,
+            seed=seed,
+            rules=rules,
+            rounds=rounds,
+            overrides=_parse_sets(set_),
+            sweep=parse_sweep(sweep) if sweep is not None else None,
+            workers=workers,
+            seat_check=seat_check,
+            keep_records=keep_records,
+            sample_size=sample_size,
+            name=name,
+        )
+        run_dir, rows = write_run(config, out)
+    except TournamentError as e:
+        _fail(str(e), code=2)
+    typer.echo(f"{len(rows)} games written to {run_dir}")
+    problems = verify_sample(config, rows)
+    if problems:
+        for problem in problems:
+            typer.echo(f"MISMATCH {problem}", err=True)
+        _fail(f"{len(problems)} sampled games do not match their rebuild", code=1)
+    typer.echo(f"{min(sample_size, len(rows))} sampled games rebuilt from the seed: ok")
 
 
 @app.command()

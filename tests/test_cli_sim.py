@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-import quack_rl.cli.main as cli_main
+import quack_rl.simgame as simgame
 from quack_rl.cli.main import app
 from quack_rl.record import read_games
 
@@ -82,14 +82,14 @@ def test_simulate_output_names_run_folder_and_wins(tmp_path):
 
 
 def test_simulate_counts_engine_draw_as_draw(tmp_path, monkeypatch):
-    real_play_game = cli_main.play_game
+    real_play_game = simgame.play_game
 
     def play_draw(*args, **kwargs):
         state = real_play_game(*args, **kwargs)
         state.winner = "draw"
         return state
 
-    monkeypatch.setattr(cli_main, "play_game", play_draw)
+    monkeypatch.setattr(simgame, "play_game", play_draw)
     result = sim(tmp_path, games="3")
     assert result.exit_code == 0, result.output
     assert "wins: p1 0, p2 0, draws 3" in result.output
