@@ -22,7 +22,10 @@ def _apply_face(p: PlayerState, face: DieFace) -> int:
 def apply_resolve(
     state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2)."""
+    """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2).
+
+    In the last round the money is multiplied by last_round_money_percent // 100.
+    """
     extra_money = {seat: 0 for seat in SEATS}
     for seat in SEATS:
         p = state.players[seat]
@@ -53,7 +56,10 @@ def apply_resolve(
         money = rs.money[scoring_field(p.final_field, rs)]
         if p.status is Status.EXPLODED:
             money //= 2
-        p.money = money + extra_money[seat]
+        money += extra_money[seat]
+        if state.round == rs.rounds:
+            money = money * rs.last_round_money_percent // 100
+        p.money = money
         p.purchases = 0
         p.shop_done = False
         events.append({"seat": seat, "kind": "money", "amount": p.money})

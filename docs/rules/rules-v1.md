@@ -120,7 +120,7 @@ In this order, for each player:
 1. **Ruby:** if the scoring field is a ruby field, the droplet advances by 0.5. This also applies after an explosion.
 2. **Green chips:** for each green chip among the last two placed chips, the droplet advances by 0.5. Two green chips give 1. This also applies after an explosion.
 3. **Bonus die:** the player with the furthest scoring field whose potion did not explode rolls the bonus die. If players are tied for furthest scoring field, each tied player rolls. A player whose potion exploded never rolls.
-4. **Money:** the player receives the money of the scoring field. If the potion exploded, the money is halved, rounded down. Add +1 if the bonus die gave +1 money.
+4. **Money:** the player receives the money of the scoring field. If the potion exploded, the money is halved, rounded down. Add +1 if the bonus die gave +1 money. In the last round (round 9) the result is multiplied by 1.5 and rounded down (`last_round_money_percent = 150`, money x 150 // 100), after the halving and the die money. Example: field money 25 gives 37; exploded, 25 gives 12, then 18; 25 plus a +1 die gives 26, then 39. The `money` event in the game record carries the multiplied amount.
 
 Droplet changes take effect from the next round.
 

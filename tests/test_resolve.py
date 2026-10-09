@@ -1,6 +1,6 @@
 from helpers import RS, auto, play
 
-from quack_rl.engine import DRAW, STOP, Phase, Status, new_game
+from quack_rl.engine import DRAW, STOP, Phase, ScriptedChance, Status, new_game, step
 
 
 def brewed(p1_field, p2_field, p1_placed=("white_1",), p2_placed=("white_1",), exploded=()):
@@ -186,3 +186,55 @@ def test_exploded_potion_halves_scoring_field_money_and_keeps_ruby():
     r = auto(brewed(51, 0, exploded=("p1",)), "point_1")
     assert r.state.players["p1"].money == 33 // 2
     assert r.state.players["p1"].droplet_halves == 1
+
+
+# Issue #20: last round money x last_round_money_percent // 100
+
+
+def last_round(state, rnd=None):
+    state.round = RS.rounds if rnd is None else rnd
+    return state
+
+
+def test_last_round_money_is_multiplied():
+    # landing 34 -> scoring field 35 -> money 25
+    r = auto(last_round(brewed(34, 0)), "point_1")
+    assert r.state.players["p1"].money == 25 * 150 // 100 == 37
+
+
+def test_last_round_exploded_halves_first_then_multiplies():
+    r = auto(last_round(brewed(34, 0, exploded=("p1",))), "point_1")
+    assert r.state.players["p1"].money == 12 * 150 // 100 == 18
+
+
+def test_last_round_die_money_is_multiplied_too():
+    r = auto(last_round(brewed(34, 0)), "money_1")
+    assert r.state.players["p1"].money == 26 * 150 // 100 == 39
+
+
+def test_last_round_both_exploded_both_halved_and_multiplied_nobody_rolls():
+    r = auto(last_round(brewed(34, 34, exploded=("p1", "p2"))))
+    assert r.chance == []
+    assert (r.state.players["p1"].money, r.state.players["p2"].money) == (18, 18)
+
+
+def test_last_round_money_event_carries_multiplied_amount():
+    r = auto(last_round(brewed(34, 0)), "point_1")
+    assert {"seat": "p1", "kind": "money", "amount": 37} in r.events
+
+
+def test_round_1_money_is_unchanged():
+    r = auto(last_round(brewed(34, 0), 1), "point_1")
+    assert r.state.players["p1"].money == 25
+
+
+def test_round_before_last_money_is_unchanged():
+    r = auto(last_round(brewed(34, 0), RS.rounds - 1), "money_1")
+    assert r.state.players["p1"].money == 26
+
+
+def test_factor_comes_from_the_ruleset():
+    rs = RS.model_copy(update={"last_round_money_percent": 200})
+    s = last_round(brewed(34, 0))
+    r = step(s, rs, None, ScriptedChance(("point_1",)))
+    assert r.state.players["p1"].money == 50

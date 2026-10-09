@@ -287,6 +287,18 @@ BOUNDARY_CASES: dict[
     "die_weight_0": (_die("money_1", "weight", 0), _die("money_1", "weight", 1)),
     "die_weight_minus_1": (_die("money_1", "weight", -1), _die("money_1", "weight", 1)),
     "rounds_0": (_top("rounds", 0), _top("rounds", 1)),
+    "last_round_money_percent_99": (
+        _top("last_round_money_percent", 99),
+        _top("last_round_money_percent", 100),
+    ),
+    "last_round_money_percent_float": (
+        _top("last_round_money_percent", 150.5),
+        _top("last_round_money_percent", 150),
+    ),
+    "last_round_money_percent_string": (
+        _top("last_round_money_percent", "150"),
+        _top("last_round_money_percent", 150),
+    ),
     "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
     "max_purchases_0": (_top("max_purchases", 0), _top("max_purchases", 1)),
     "track_end_0": (_track_end(0), _track_end(1)),
@@ -327,3 +339,7 @@ def test_boundary_value_validates(case: str):
     data = _v1_data()
     BOUNDARY_CASES[case][1](data)
     Ruleset.model_validate(data)
+
+
+def test_v1_last_round_money_percent_is_150():
+    assert load_ruleset("v1").last_round_money_percent == 150

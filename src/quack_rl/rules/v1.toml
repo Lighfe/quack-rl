@@ -6,6 +6,7 @@ rounds = 9
 explosion_limit = 7      # potion explodes when the white total is more than this
 max_purchases = 3        # per player per round
 track_end = 53
+last_round_money_percent = 150  # money in the last round x this // 100
 
 # money per field, index = field 0..53
 money = [

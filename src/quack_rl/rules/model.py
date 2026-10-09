@@ -58,6 +58,7 @@ class Ruleset(_Frozen):
     explosion_limit: int = Field(ge=1)
     max_purchases: int = Field(ge=1)
     track_end: int = Field(ge=1)
+    last_round_money_percent: int = Field(ge=100, strict=True)
     money: list[Annotated[int, Field(ge=0)]]
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
