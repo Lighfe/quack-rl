@@ -16,7 +16,7 @@ from quack_rl.tournament import BASE_COLUMNS, SEAT_CHECK_PREFIX, Sweep, Tourname
 Z95 = 1.959964  # two-sided 95% normal quantile
 SWEEP_STRATEGIES = ("blue", "green", "cleaner", "balanced")
 NEEDED_COLUMNS = [*BASE_COLUMNS, "p1_draws", "p2_draws"]
-_BUY = re.compile(r"p1_buy_(.+)")
+_BUY = re.compile(r"p[12]_buy_(.+)")
 
 
 class ReportError(ValueError):
@@ -187,49 +187,58 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
         for column in NEEDED_COLUMNS:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
-        buy_items = [m[1] for c in columns if (m := _BUY.fullmatch(c))]
+        buy_items = list(dict.fromkeys(m[1] for c in columns if (m := _BUY.fullmatch(c))))
         if not buy_items:
             raise ReportError(f"results.csv in {folder} lacks the columns 'p1_buy_<item>'")
         for item in buy_items:
-            if f"p2_buy_{item}" not in columns:
-                raise ReportError(f"results.csv in {folder} lacks the column 'p2_buy_{item}'")
+            for seat in ("p1", "p2"):
+                if f"{seat}_buy_{item}" not in columns:
+                    raise ReportError(
+                        f"results.csv in {folder} lacks the column '{seat}_buy_{item}'"
+                    )
         rows = list(reader)
     if not rows:
         raise ReportError(f"results.csv in {folder} has no games")
 
     data = Data(rounds=rounds, buy_items=buy_items)
+    seat_data = Data(rounds=rounds, buy_items=buy_items)  # bot view of the seat check rows
     for n, row in enumerate(rows, start=2):
         winner = row["winner"]
         points = {s: _int(row, f"{s}_points", n) for s in ("p1", "p2")}
         expl = {s: _int(row, f"{s}_explosions", n) for s in ("p1", "p2")}
         draws = {s: _int(row, f"{s}_draws", n) for s in ("p1", "p2")}
         halves = {s: 2 if winner == s else 1 if winner == "draw" else 0 for s in ("p1", "p2")}
+        target = data
         if row["pairing"].startswith(SEAT_CHECK_PREFIX):
             data.seat.add(halves["p1"], points["p1"], expl["p1"], rounds)
             data.seat_draws += winner == "draw"
-            continue
-        data.games += 1
+            target = seat_data
+        target.games += 1
         bots = {"p1": row["p1"], "p2": row["p2"]}
         for seat, bot in bots.items():
-            data.bots.setdefault(bot, Agg()).add(halves[seat], points[seat], expl[seat], rounds)
+            target.bots.setdefault(bot, Agg()).add(halves[seat], points[seat], expl[seat], rounds)
             label = label_of(bot)
             if winner == seat:
-                data.won_games[label] = data.won_games.get(label, 0) + 1
-                bucket = data.won_buys.setdefault(label, dict.fromkeys(buy_items, 0))
+                target.won_games[label] = target.won_games.get(label, 0) + 1
+                bucket = target.won_buys.setdefault(label, dict.fromkeys(buy_items, 0))
                 for item in buy_items:
                     bucket[item] += _int(row, f"{seat}_buy_{item}", n)
             if bot == BASELINE_NAME:
-                data.baseline_rows[row["sweep_value"]] = (
-                    data.baseline_rows.get(row["sweep_value"], 0) + 1
+                target.baseline_rows[row["sweep_value"]] = (
+                    target.baseline_rows.get(row["sweep_value"], 0) + 1
                 )
-                data.baseline_points += points[seat]
+                target.baseline_points += points[seat]
         total = draws["p1"] + draws["p2"]
         for label in {label_of(b) for b in bots.values()}:
-            entry = data.length.setdefault(label, [0, 0])
+            entry = target.length.setdefault(label, [0, 0])
             entry[0] += 1
             entry[1] += total
-        data.all_length[0] += 1
-        data.all_length[1] += total
+        target.all_length[0] += 1
+        target.all_length[1] += total
+    if data.games == 0:
+        # a pure seat check run: the bot sections read its rows
+        seat_data.seat, seat_data.seat_draws = data.seat, data.seat_draws
+        data = seat_data
     return data, config
 
 

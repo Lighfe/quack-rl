@@ -160,3 +160,30 @@ def test_new_columns_match_the_record(tmp_path):
             placed = sum(1 for e in events if e["kind"] == "place" and e["seat"] == seat)
             assert sum(v for k, v in row.items() if k.startswith(f"{seat}_buy_")) == buys
             assert row[f"{seat}_draws"] == placed
+
+
+def test_missing_p1_buy_column_is_an_error(run):
+    with (run / "results.csv").open(newline="") as f:
+        rows = list(csv.reader(f))
+    drop = rows[0].index("p1_buy_blue_1")
+    (run / "results.csv").write_text(
+        "".join(",".join(c for i, c in enumerate(r) if i != drop) + "\n" for r in rows)
+    )
+    result = runner.invoke(app, ["report", str(run)])
+    assert result.exit_code != 0
+    assert "Error:" in result.output and "p1_buy_blue_1" in result.output
+    assert not (run / "report.txt").exists()
+
+
+def test_seat_check_only_run_fills_bot_sections(run):
+    rows = seat_rows(3, 2, 1)
+    rows[0].update(p1_points=9, p2_points=2, p1_draws=4, p2_draws=5, p1_buy_blue_1=2)
+    write_rows(run, rows)
+    text = build_report(run)
+    assert "No games." not in text
+    assert "No heuristic bot" not in text
+    assert "Seat check: " in text and "draw30-pts3-blue" in text
+    explosions = text.split("== Explosion share and game length ==")[1]
+    assert "blue" in explosions and "overall" in explosions
+    items = text.split("== Item usage of winning bots ==")[1]
+    assert "blue_1" in items and "-" in items
