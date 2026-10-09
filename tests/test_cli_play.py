@@ -12,8 +12,8 @@ from typer.testing import CliRunner
 from quack_rl.cli import human
 from quack_rl.cli.human import HumanSeat
 from quack_rl.cli.main import app
-from quack_rl.cli.render import render_board
-from quack_rl.engine import DRAW, STOP, Phase, buy, new_game
+from quack_rl.cli.render import render_board, render_step
+from quack_rl.engine import DRAW, STOP, Phase, StepResult, buy, new_game
 from quack_rl.record import read_games, verify_game
 
 runner = CliRunner()
@@ -63,8 +63,9 @@ def test_board_new_game_shows_round_phase_seats_and_numbers():
     text = board(width=80)
     for expected in ("Round 1/9", "brew", "p1", "p2", "brewing", "start 0", "0/7"):
         assert expected in text
-    assert "next ruby 5" in text
-    assert "money 0" in text and "points" in text
+    assert "next ruby" not in text
+    assert "field 0" in text and "score 1 · $1" in text
+    assert "ruby: no" in text and "points" in text
 
 
 def test_board_shows_placed_chips_and_dash_when_none():
@@ -76,13 +77,98 @@ def test_board_shows_placed_chips_and_dash_when_none():
         assert re.search(r"│ -\s*│\s*$", text, re.MULTILINE)
 
 
-def test_board_past_last_ruby_shows_dash_and_money():
+def field_cell(landing: int) -> list[str]:
+    """The three lines of p1's field cell when p1 is on `landing`."""
+    s = new_game(RS)
+    s.players["p1"].field = landing
+    row = next(line for line in board(s, width=120).splitlines() if line.startswith("│ p1"))
+    cells = [c.strip() for c in row.strip("│").split("│")]
+    lines = [cells[3]]
+    rows = board(s, width=120).splitlines()
+    i = rows.index(row)
+    for extra in rows[i + 1 : i + 3]:
+        lines.append([c.strip() for c in extra.strip("│").split("│")][3])
+    return lines
+
+
+@pytest.mark.parametrize(
+    ("landing", "scoring", "ruby"),
+    [(4, 5, "yes"), (3, 4, "no"), (0, 1, "no"), (53, 53, "no")],
+)
+def test_board_field_cell_shows_scoring_field_money_and_ruby(landing, scoring, ruby):
+    expected_ruby = "yes" if scoring in RS.rubies else "no"
+    assert expected_ruby == ruby or landing == 53
+    lines = field_cell(landing)
+    assert lines == [
+        f"field {landing}",
+        f"score {scoring} · ${RS.money[scoring]}",
+        f"ruby: {ruby}",
+    ]
+
+
+def test_board_past_last_ruby_shows_scoring_field_53_and_money_35():
     s = new_game(RS)
     s.players["p1"].field = 53
     for width in (80, 120):
         text = board(s, width=width)
-        assert "next ruby -" in text and "None" not in text
-        assert "money 35" in text
+        assert "None" not in text and "next ruby" not in text
+        assert "score 53 · $35" in text
+
+
+def test_board_full_v1_values_fit_in_80_columns():
+    s = new_game(RS)
+    s.round = 9
+    for seat in ("p1", "p2"):
+        p = s.players[seat]
+        p.field = 53
+        p.money = 88
+        p.points = 77
+        p.droplet_halves = 99
+        p.placed = ["orange_1", "blue_1", "green_1", "white_1", "orange_1", "blue_1"]
+    text = board(s, width=80)
+    assert max(len(line) for line in text.splitlines()) <= 80
+
+
+def die_result(*events) -> StepResult:
+    return StepResult(new_game(RS), 1, 1, Phase.RESOLVE, None, None, [], list(events))
+
+
+def test_render_step_bonus_die_lines_one_per_roller():
+    events = [
+        {"seat": "p1", "kind": "die", "face": "money_1"},
+        {"seat": "p2", "kind": "die", "face": "point_1"},
+    ]
+    lines = render_step(die_result(*events), RS).splitlines()
+    assert "bonus die p1: +1 money" in lines
+    assert "bonus die p2: +1 point" in lines
+
+
+@pytest.mark.parametrize(
+    ("face", "effect"),
+    [
+        ("droplet_1", "+1 droplet"),
+        ("droplet_half", "+0.5 droplet"),
+        ("orange_1", "+1 orange_1 chip"),
+    ],
+)
+def test_render_step_bonus_die_effects(face, effect):
+    lines = render_step(die_result({"seat": "p1", "kind": "die", "face": face}), RS).splitlines()
+    assert f"bonus die p1: {effect}" in lines
+
+
+def test_render_step_no_die_line_without_roll():
+    text = render_step(die_result({"seat": "p1", "kind": "money", "amount": 3}), RS)
+    assert "bonus die" not in text
+
+
+def test_render_step_die_not_joined_with_other_seat_events():
+    events = [
+        {"seat": "p1", "kind": "money", "amount": 3},
+        {"seat": "p1", "kind": "die", "face": "money_1"},
+    ]
+    lines = render_step(die_result(*events), RS).splitlines()
+    assert any(line == "bonus die p1: +1 money" for line in lines)
+    assert not any(line.startswith("p1:") and "die" in line for line in lines)
 
 
 def test_board_bag_lines_only_with_assist():

@@ -217,7 +217,7 @@ def play(
 
         def on_step(result, decision_ms):
             recorder.on_step(result, decision_ms)
-            console.print(render_step(result), markup=False, highlight=False)
+            console.print(render_step(result, rs), markup=False, highlight=False)
 
         try:
             final = play_game(rs, seats, RngChance(game_seed), on_step)

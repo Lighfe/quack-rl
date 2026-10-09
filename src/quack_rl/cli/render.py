@@ -3,6 +3,7 @@ from rich.table import Table
 from rich.text import Text
 
 from quack_rl.engine import SEATS, GameState, StepResult, start_field
+from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
 
 CHIP_STYLE = {
@@ -29,8 +30,9 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
         table.add_column(column)
     for seat in SEATS:
         p = state.players[seat]
-        next_ruby = next((str(f) for f in rs.rubies if f > p.field), "-")
-        field_text = f"field {p.field}\nmoney {rs.money[p.field]}\nnext ruby {next_ruby}"
+        scoring = scoring_field(p.field, rs)
+        ruby = "yes" if scoring in rs.rubies else "no"
+        field_text = f"field {p.field}\nscore {scoring} · ${rs.money[scoring]}\nruby: {ruby}"
         table.add_row(
             seat,
             p.status.value,
@@ -56,13 +58,29 @@ def _fields(event: dict, skip: tuple[str, ...] = ("seat",)) -> str:
     return " ".join(f"{k}={v}" for k, v in event.items() if k not in skip)
 
 
-def render_step(result: StepResult) -> str:
+def _die_effect(face_id: str, rs: Ruleset) -> str:
+    face = next(f for f in rs.die if f.id == face_id)
+    match face.kind:
+        case "money":
+            return f"+{face.amount} money"
+        case "points":
+            return f"+{face.points} point" + ("s" if face.points != 1 else "")
+        case "droplet":
+            return f"+{face.halves / 2:g} droplet"
+        case _:
+            return f"+1 {face.chip} chip"
+
+
+def render_step(result: StepResult, rs: Ruleset) -> str:
     lines = []
     for seat in SEATS:
         action = (result.actions or {}).get(seat, "-")
-        events = [e for e in result.events if e.get("seat") == seat]
+        events = [e for e in result.events if e.get("seat") == seat and e.get("kind") != "die"]
         summary = ", ".join(_fields(e) for e in events)
         lines.append(f"{seat}: {action}  {summary}".rstrip())
+    for e in result.events:
+        if e.get("kind") == "die":
+            lines.append(f"bonus die {e['seat']}: {_die_effect(e['face'], rs)}")
     for e in result.events:
         if e.get("seat") is None:
             lines.append(_fields(e))
