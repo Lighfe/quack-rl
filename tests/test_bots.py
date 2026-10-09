@@ -354,11 +354,16 @@ def test_all_bot_specs_are_accepted(draw, pts, strategy):
     name = f"draw{draw}-pts{pts}-{strategy}"
     assert parse_bot_name(name) == (draw, pts, strategy)
     assert HeuristicBot(RS, draw, pts, strategy).name == name
+    assert parse_bot_name(f"bot:{name}") == (draw, pts, strategy)
 
 
 def test_unknown_strategy_lists_known_ones():
     with pytest.raises(UnknownStrategy) as e:
         parse_bot_name("draw30-pts3-nosuch")
+    for key in STRATEGIES:
+        assert key in str(e.value)
+    with pytest.raises(UnknownStrategy) as e:
+        parse_bot_name("bot:draw30-pts3-nosuch")
     for key in STRATEGIES:
         assert key in str(e.value)
 

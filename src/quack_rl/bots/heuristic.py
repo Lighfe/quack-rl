@@ -34,8 +34,8 @@ def bot_name(draw_limit: int, points_round: int, strategy: str) -> str:
 
 
 def parse_bot_name(name: str) -> tuple[int, int, str]:
-    """Split `draw30-pts3-blue` into its parameters. Raise ValueError on a bad name."""
-    m = _NAME.fullmatch(name)
+    """Split `draw30-pts3-blue` (or `bot:draw30-pts3-blue`) into its parameters. Raise ValueError on a bad name."""
+    m = _NAME.fullmatch(name.removeprefix("bot:"))
     if m is None:
         raise ValueError(f"bad bot name {name!r} (expected draw<percent>-pts<round>-<strategy>)")
     draw_limit, points_round, strategy = int(m[1]), int(m[2]), m[3]
