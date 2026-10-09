@@ -6,6 +6,7 @@ from quack_rl.engine.actions import legal_actions
 from quack_rl.engine.brew import apply_brew
 from quack_rl.engine.chance import ChanceLog, ChanceSource
 from quack_rl.engine.resolve import apply_resolve
+from quack_rl.engine.shop import apply_shop
 from quack_rl.engine.state import SEATS, GameState, Phase
 from quack_rl.rules import Ruleset
 
@@ -55,7 +56,7 @@ def step(
         if state.phase is Phase.BREW:
             apply_brew(new, rs, actions, log, events)
         else:
-            raise NotImplementedError("shop: Task 7")
+            apply_shop(new, rs, actions, events)
     else:
         if actions is not None:
             raise IllegalAction("this step takes no actions")

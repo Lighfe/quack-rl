@@ -5,7 +5,6 @@ from helpers import RS, play
 
 import quack_rl.engine as engine
 from quack_rl.engine import (
-    DONE,
     DRAW,
     STOP,
     WAIT,
@@ -218,13 +217,6 @@ def test_brew_ends_with_one_stopped_and_one_exploded():
     assert r.phase is Phase.BREW
     assert r.state.players["p1"].final_field == r.state.players["p1"].field == 3
     assert r.state.players["p2"].final_field == r.state.players["p2"].field == 1
-
-
-def test_shop_is_not_implemented_yet():
-    s = new_game(RS)
-    s.phase = Phase.SHOP
-    with pytest.raises(NotImplementedError):
-        step(s, RS, {"p1": DONE, "p2": DONE}, ScriptedChance([]))
 
 
 def test_step_after_game_over_raises():
