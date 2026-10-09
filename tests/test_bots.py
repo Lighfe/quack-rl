@@ -232,3 +232,70 @@ def test_verify_passes_on_bot_game(tmp_path):
     v = runner.invoke(app, ["verify", str(shard)])
     assert v.exit_code == 0, v.output
     assert "3 games ok" in v.output
+
+
+# --- strategy weights, seeded ties, spending after points -------------------------
+
+
+def test_strategy_weights_rank_before_priority_order():
+    from quack_rl.bots import Strategy
+
+    s = Strategy("t", ("orange_1", "blue_1", "green_1"), (("green_1", 2.0), ("blue_1", 1.0)))
+    assert s.ranked() == ["green_1", "blue_1", "orange_1"]
+    assert Strategy("u", ("orange_1", "blue_1")).ranked() == ["orange_1", "blue_1"]
+
+
+def test_weights_change_what_the_bot_buys():
+    from quack_rl.bots import Strategy
+
+    s = Strategy("t", ("orange_1", "green_1"), (("green_1", 1.0),))
+    bot = HeuristicBot(RS, 30, 5, s, seed=1)
+    state = shop_state(10, rnd=1)
+    assert bot.choose(state, "p1", shop_legal(state)) == "buy:green_1"
+
+
+def test_spends_remaining_money_by_strategy_after_points():
+    from quack_rl.bots import Strategy
+
+    bot = HeuristicBot(RS, 30, 1, Strategy("t", ("orange_1",)), seed=1)
+    state = shop_state(25)
+    assert bot.choose(state, "p1", shop_legal(state)) == "buy:points_10"
+    state.players["p1"].money = 3
+    state.players["p1"].purchases = 1
+    assert bot.choose(state, "p1", shop_legal(state)) == "buy:orange_1"
+
+
+def test_equal_points_items_tie_is_seeded():
+    from quack_rl.engine import legal_actions
+    from quack_rl.rules.model import ShopItem
+
+    twin = ShopItem(id="points_10b", price=22, kind="points", points=10)
+    rs2 = RS.model_copy(update={"shop": [*RS.shop, twin]})
+    state = new_game(rs2)
+    state.phase = Phase.SHOP
+    state.round = 1
+    state.players["p1"].money = 22
+
+    def picks(seed):
+        bot = HeuristicBot(rs2, 30, 1, "points", seed=seed)
+        return [bot.choose(state, "p1", legal_actions(state, rs2, "p1")) for _ in range(12)]
+
+    assert picks(1) == picks(1)
+    assert set(picks(1) + picks(2) + picks(3)) == {"buy:points_10", "buy:points_10b"}
+
+
+def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
+    # game_id is random and the times are clock values, by design (verify --game selects
+    # by id). Everything else must be identical, including the full step lines.
+    a, b = tmp_path / "a", tmp_path / "b"
+    for out in (a, b):
+        r = sim(out, "bot:draw30-pts1-points", "bot:draw50-pts3-points")
+        assert r.exit_code == 0, r.output
+    ra, rb = records(a), records(b)
+    assert len(ra) == len(rb) > 1
+    assert ra[0]["game_id"] != rb[0]["game_id"]
+    for x, y in zip(ra, rb):
+        for key in ("game_id", "started_at", "finished_at"):
+            x.pop(key, None)
+            y.pop(key, None)
+        assert x == y

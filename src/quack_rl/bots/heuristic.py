@@ -99,7 +99,7 @@ class HeuristicBot:
             if points:
                 best = max(i.points for i in points)
                 return buy(self._rng.choice([i.id for i in points if i.points == best]))
-        for item_id in self._strategy.priority:
+        for item_id in self._strategy.ranked():
             if item_id in affordable:
                 return buy(item_id)
         return DONE
