@@ -79,9 +79,7 @@ def test_rounds_and_version_are_refused_with_a_pointer(key, flag):
 
 
 def test_simulate_set_stores_overrides_and_verify_passes(tmp_path):
-    result = sim(
-        tmp_path, "--set", "shop.orange_1.price=4", "--set", "explosion_limit=8"
-    )
+    result = sim(tmp_path, "--set", "shop.orange_1.price=4", "--set", "explosion_limit=8")
     assert result.exit_code == 0, result.output
     games = games_of(tmp_path)
     assert len(games) == 3
@@ -167,4 +165,3 @@ def test_edited_overrides_make_verify_fail(tmp_path):
         result = runner.invoke(app, ["verify", str(edited)])
         assert result.exit_code != 0, result.output
         assert "differ" in result.output
-

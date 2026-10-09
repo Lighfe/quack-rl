@@ -71,8 +71,8 @@ def _load_games(path: Path) -> list[RecordedGame]:
 
 @app.command()
 def simulate(
-    p1: Annotated[str, typer.Option(help="Seat p1 (bot:random).")] = "bot:random",
-    p2: Annotated[str, typer.Option(help="Seat p2 (bot:random).")] = "bot:random",
+    p1: Annotated[str, typer.Option(help="Seat p1 (bot:random or bot:<name>).")] = "bot:random",
+    p2: Annotated[str, typer.Option(help="Seat p2 (bot:random or bot:<name>).")] = "bot:random",
     games: Annotated[int, typer.Option(help="Number of games (at least 1).")] = 100,
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
     shard_size: Annotated[int, typer.Option(help="Games per shard file (at least 1).")] = 1000,
@@ -114,8 +114,8 @@ def simulate(
             for i in range(first, min(first + shard_size, games)):
                 game_seed = seed + i
                 seats = {
-                    "p1": parse_seat(p1, 2 * game_seed + 1),
-                    "p2": parse_seat(p2, 2 * game_seed + 2),
+                    "p1": parse_seat(p1, 2 * game_seed + 1, rs=rs),
+                    "p2": parse_seat(p2, 2 * game_seed + 2, rs=rs),
                 }
                 header = HeaderLine(
                     game_id=new_game_id(),

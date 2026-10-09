@@ -15,7 +15,13 @@ from quack_rl.engine import (
     step,
 )
 from quack_rl.record.reader import RecordedGame
-from quack_rl.rules import SUPPORTED_RULES_VERSIONS, DieFace, apply_overrides, load_ruleset, with_rounds
+from quack_rl.rules import (
+    SUPPORTED_RULES_VERSIONS,
+    DieFace,
+    apply_overrides,
+    load_ruleset,
+    with_rounds,
+)
 
 
 class ChanceMismatch(ValueError):
