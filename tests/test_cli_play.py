@@ -1,5 +1,6 @@
 import io
 import itertools
+import re
 from pathlib import Path
 
 import pytest
@@ -19,14 +20,14 @@ runner = CliRunner()
 TRACEBACK = "Traceback (most recent call last)"
 
 
-def text_of(renderable) -> str:
-    console = Console(file=io.StringIO(), width=120, color_system=None)
+def text_of(renderable, width: int = 120) -> str:
+    console = Console(file=io.StringIO(), width=width, color_system=None)
     console.print(renderable)
     return console.file.getvalue()  # type: ignore[attr-defined]
 
 
-def board(state=None, bag_assist=True) -> str:
-    return text_of(render_board(state or new_game(RS), RS, bag_assist))
+def board(state=None, bag_assist=True, width: int = 120) -> str:
+    return text_of(render_board(state or new_game(RS), RS, bag_assist), width)
 
 
 def seat_with(keys, label="Player 1"):
@@ -59,7 +60,7 @@ def only_game(tmp_path: Path):
 
 
 def test_board_new_game_shows_round_phase_seats_and_numbers():
-    text = board()
+    text = board(width=80)
     for expected in ("Round 1/9", "brew", "p1", "p2", "brewing", "start 0", "0/7"):
         assert expected in text
     assert "next ruby 5" in text
@@ -69,18 +70,19 @@ def test_board_new_game_shows_round_phase_seats_and_numbers():
 def test_board_shows_placed_chips_and_dash_when_none():
     s = new_game(RS)
     s.players["p1"].placed = ["white_1", "orange_1"]
-    text = board(s)
-    assert "W1 O1" in text
-    p2_line = next(line for line in text.splitlines() if "p2" in line and "brewing" in line)
-    assert p2_line.rstrip(" │┃|").endswith("-")
+    for width in (80, 120):
+        text = board(s, width=width)
+        assert "W1 O1" in text
+        assert re.search(r"│ -\s*│\s*$", text, re.MULTILINE)
 
 
 def test_board_past_last_ruby_shows_dash_and_money():
     s = new_game(RS)
     s.players["p1"].field = 53
-    text = board(s)
-    assert "next ruby -" in text and "None" not in text
-    assert "35" in text
+    for width in (80, 120):
+        text = board(s, width=width)
+        assert "next ruby -" in text and "None" not in text
+        assert "money 35" in text
 
 
 def test_board_bag_lines_only_with_assist():
@@ -172,6 +174,9 @@ def test_play_human_vs_bot_records_a_verifiable_game(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert TRACEBACK not in result.output
     assert "winner:" in result.output and "points" in result.output
+    assert "p1: draw" in result.output and "p2: " in result.output  # step reveals
+    assert "game_over" in result.output  # final board
+    assert re.search(r"points: p1 \d+, p2 \d+", result.output)
     path, game = only_game(tmp_path)
     assert f"record: {path}" in result.output.replace("\n", "")
     assert game.header.mode == "play" and game.header.ui == {"bag_assist": True}
@@ -222,7 +227,9 @@ def test_same_seed_and_keys_give_the_same_game(tmp_path, monkeypatch):
     assert [s.actions for s in a.steps] == [s.actions for s in b.steps]
     assert [s.chance for s in a.steps] == [s.chance for s in b.steps]
     assert a.footer is not None and b.footer is not None
+    # the game id is random per game; everything else in the footer must match
     assert a.footer.model_dump(exclude={"game_id"}) == b.footer.model_dump(exclude={"game_id"})
+    assert a.footer.winner == b.footer.winner and a.footer.points == b.footer.points
 
 
 def interrupting(exc, at):
