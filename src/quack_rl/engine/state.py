@@ -48,6 +48,11 @@ class GameState:
     winner: str | None = None
 
 
+def scoring_field(landing_field: int, rs: Ruleset) -> int:
+    """The first free field after the last chip: ruby and money come from here."""
+    return min(landing_field + 1, rs.track_end)
+
+
 def start_field(p: PlayerState, rs: Ruleset) -> int:
     return min(p.droplet_halves // 2, rs.track_end)
 

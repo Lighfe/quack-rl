@@ -107,18 +107,20 @@ Chips placed this round cannot go back into the bag during the round. They go ba
 
 Brewing ends when no player brews anymore.
 
-### 4.2 Final field
+### 4.2 Final field and scoring field
 
-A player's final field is the field of the player's last placed chip when brewing ends. It is the round result: it is settled once, cashed out once in Resolve (ruby, bonus die, money), and used as the tie-break after round 9. Nothing after brewing changes it: not the shop (also not removing a placed White 1), not droplet moves.
+A player's final field is the field of the player's last placed chip when brewing ends. It is the round result: it is settled once, cashed out once in Resolve (ruby, bonus die, money), and stored as the landing field. Nothing after brewing changes it: not the shop (also not removing a placed White 1), not droplet moves.
+
+The **scoring field** is the first free field after the last placed chip: `min(final field + 1, last field)`. Ruby, bonus die and money in Resolve, and the tie-break after round 9, use the scoring field, not the final field. Example: a last chip on field 1 scores field 2 (money 2); a last chip on field 4 scores field 5 (ruby); a last chip on field 53 scores field 53 (money 35), so players on 52 and 53 are tied. The scoring field is derived from the final field and not stored.
 
 ### 4.3 Resolve
 
 In this order, for each player:
 
-1. **Ruby:** if the final field is a ruby field, the droplet advances by 0.5. This also applies after an explosion.
+1. **Ruby:** if the scoring field is a ruby field, the droplet advances by 0.5. This also applies after an explosion.
 2. **Green chips:** for each green chip among the last two placed chips, the droplet advances by 0.5. Two green chips give 1. This also applies after an explosion.
-3. **Bonus die:** the player with the furthest final field whose potion did not explode rolls the bonus die. If players are tied for furthest, each tied player rolls. A player whose potion exploded never rolls.
-4. **Money:** the player receives the money of the final field. If the potion exploded, the money is halved, rounded down. Add +1 if the bonus die gave +1 money.
+3. **Bonus die:** the player with the furthest scoring field whose potion did not explode rolls the bonus die. If players are tied for furthest scoring field, each tied player rolls. A player whose potion exploded never rolls.
+4. **Money:** the player receives the money of the scoring field. If the potion exploded, the money is halved, rounded down. Add +1 if the bonus die gave +1 money.
 
 Droplet changes take effect from the next round.
 
@@ -146,7 +148,7 @@ Shopping ends when no player shops anymore.
 The game ends after the shop of round 9.
 
 1. The player with the most victory points wins
-2. On a tie: the player with the furthest final field in round 9 (as settled at the end of brewing, 4.2) wins
+2. On a tie: the player with the furthest scoring field in round 9 (4.2) wins
 3. If that is tied too: the game is a draw
 
 ## 6. Planned rule changes (not in v1)

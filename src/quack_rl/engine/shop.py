@@ -1,7 +1,15 @@
 from typing import Any
 
 from quack_rl.engine.actions import BUY_PREFIX, DONE
-from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, start_field
+from quack_rl.engine.state import (
+    SEATS,
+    GameState,
+    Phase,
+    PlayerState,
+    Status,
+    scoring_field,
+    start_field,
+)
 from quack_rl.rules import Ruleset, ShopItem
 
 
@@ -21,11 +29,11 @@ def _apply_item(p: PlayerState, item: ShopItem) -> None:
         p.points += item.points
 
 
-def decide_winner(state: GameState) -> str:
-    """Rule 5: most points; tie -> furthest final field; tie again -> draw."""
+def decide_winner(state: GameState, rs: Ruleset) -> str:
+    """Rule 5: most points; tie -> furthest scoring field; tie again -> draw."""
     p1, p2 = state.players["p1"], state.players["p2"]
-    key1 = (p1.points, p1.final_field or 0)
-    key2 = (p2.points, p2.final_field or 0)
+    key1 = (p1.points, scoring_field(p1.final_field or 0, rs))
+    key2 = (p2.points, scoring_field(p2.final_field or 0, rs))
     if key1 == key2:
         return "draw"
     return "p1" if key1 > key2 else "p2"
@@ -33,7 +41,7 @@ def decide_winner(state: GameState) -> str:
 
 def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
     if state.round >= rs.rounds:
-        state.winner = decide_winner(state)
+        state.winner = decide_winner(state, rs)
         state.phase = Phase.GAME_OVER
         events.append(
             {

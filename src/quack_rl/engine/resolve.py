@@ -2,7 +2,7 @@ from typing import Any
 
 from quack_rl.components import get_component
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status
+from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, scoring_field
 from quack_rl.rules import DieFace, Ruleset
 
 
@@ -22,12 +22,12 @@ def _apply_face(p: PlayerState, face: DieFace) -> int:
 def apply_resolve(
     state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.3: ruby and green bonus, then the bonus die, then money (seats p1, p2)."""
+    """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2)."""
     extra_money = {seat: 0 for seat in SEATS}
     for seat in SEATS:
         p = state.players[seat]
         assert p.final_field is not None
-        if p.final_field in rs.rubies:
+        if scoring_field(p.final_field, rs) in rs.rubies:
             p.droplet_halves += 1
             events.append({"seat": seat, "kind": "ruby", "halves": 1})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
@@ -40,17 +40,17 @@ def apply_resolve(
                 )
     eligible = [s for s in SEATS if state.players[s].status is not Status.EXPLODED]
     if eligible:
-        best = max(state.players[s].final_field or 0 for s in eligible)
+        best = max(scoring_field(state.players[s].final_field or 0, rs) for s in eligible)
         for seat in eligible:
             p = state.players[seat]
-            if p.final_field == best:
+            if scoring_field(p.final_field or 0, rs) == best:
                 face = chance.roll_die(seat)
                 extra_money[seat] += _apply_face(p, face)
                 events.append({"seat": seat, "kind": "die", "face": face.id})
     for seat in SEATS:
         p = state.players[seat]
         assert p.final_field is not None
-        money = rs.money[p.final_field]
+        money = rs.money[scoring_field(p.final_field, rs)]
         if p.status is Status.EXPLODED:
             money //= 2
         p.money = money + extra_money[seat]

@@ -180,3 +180,9 @@ def test_step_after_game_over_raises():
     r = play(last_round(1, 0, 3, 3), DONE, DONE)
     with pytest.raises(GameOver):
         step(r.state, RS, {"p1": WAIT, "p2": WAIT}, RngChance(0))
+
+
+def test_tie_break_compares_scoring_fields_so_52_and_53_draw():
+    r = play(last_round(8, 8, 52, 53), DONE, DONE)
+    assert r.state.winner == "draw"
+    assert r.events[-1]["final_fields"] == {"p1": 52, "p2": 53}
