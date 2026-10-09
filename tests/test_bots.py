@@ -299,3 +299,142 @@ def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
             x.pop(key, None)
             y.pop(key, None)
         assert x == y
+
+
+# --- the four shop strategies -----------------------------------------------------
+
+from quack_rl.bots import STRATEGIES  # noqa: E402
+
+BLUE = {"blue_1", "blue_2", "blue_4"}
+GREEN = {"green_1", "green_2", "green_4"}
+
+
+def test_strategies_registry_keys_and_names():
+    assert set(STRATEGIES) == {"points", "blue", "green", "cleaner", "balanced"}
+    for key, s in STRATEGIES.items():
+        assert s.name == key
+        assert load_strategy(key) is s
+
+
+def test_blue_strategy_data():
+    s = load_strategy("blue")
+    assert set(s.priority) == BLUE
+    assert s.ranked()[0] == "blue_4"
+
+
+def test_green_strategy_data():
+    s = load_strategy("green")
+    assert set(s.priority) == GREEN | {"droplet_1"}
+    assert set(s.ranked()) == GREEN | {"droplet_1"}
+
+
+def test_cleaner_strategy_data():
+    s = load_strategy("cleaner")
+    assert s.ranked()[0] == "remove_white_1"
+    assert len(set(s.priority) - {"remove_white_1"}) >= 1
+    assert "droplet_1" not in s.priority
+
+
+def test_balanced_strategy_data():
+    p = set(load_strategy("balanced").priority)
+    assert "orange_1" in p and "remove_white_1" in p and "droplet_1" in p
+    assert p & BLUE and p & GREEN
+
+
+def test_only_points_strategy_lists_points_items():
+    for key, s in STRATEGIES.items():
+        if key != "points":
+            assert not any(i.startswith("points_") for i in s.priority)
+
+
+@pytest.mark.parametrize("draw", [15, 30, 50])
+@pytest.mark.parametrize("pts", [3, 8])
+@pytest.mark.parametrize("strategy", ["points", "blue", "green", "cleaner", "balanced"])
+def test_all_bot_specs_are_accepted(draw, pts, strategy):
+    name = f"draw{draw}-pts{pts}-{strategy}"
+    assert parse_bot_name(name) == (draw, pts, strategy)
+    assert HeuristicBot(RS, draw, pts, strategy).name == name
+
+
+def test_unknown_strategy_lists_known_ones():
+    with pytest.raises(UnknownStrategy) as e:
+        parse_bot_name("draw30-pts3-nosuch")
+    for key in STRATEGIES:
+        assert key in str(e.value)
+
+
+def test_all_24_specs_run_as_seats(tmp_path):
+    for draw in (15, 30, 50):
+        for pts in (3, 8):
+            for strategy in ("blue", "green", "cleaner", "balanced"):
+                spec = f"bot:draw{draw}-pts{pts}-{strategy}"
+                r = sim(tmp_path / spec.replace(":", "_"), spec, "bot:random", games="1")
+                assert r.exit_code == 0, r.output
+                header = records(tmp_path / spec.replace(":", "_"))[0]
+                assert f"bot:{header['seats']['p1']['name']}" == spec
+
+
+def purchases(out: Path) -> list[list[str]]:
+    """Per game, the bought item ids of both seats."""
+    games: dict[str, list[str]] = {}
+    for line in records(out):
+        if line.get("type") != "step":
+            continue
+        bought = [e["item"] for e in line["events"] if e["kind"] == "buy"]
+        games.setdefault(line["game_id"], []).extend(bought)
+    return list(games.values())
+
+
+@pytest.fixture(scope="module")
+def batches(tmp_path_factory):
+    out = {}
+    for strategy in ("blue", "green", "cleaner", "balanced"):
+        d = tmp_path_factory.mktemp(strategy)
+        spec = f"bot:draw30-pts8-{strategy}"
+        r = sim(d, spec, spec, seed="7", games="30")
+        assert r.exit_code == 0, r.output
+        out[strategy] = purchases(d)
+        assert len(out[strategy]) == 30
+    return out
+
+
+def flat(games):
+    return [i for g in games for i in g]
+
+
+def test_blue_buys_blue_only(batches):
+    bought = set(flat(batches["blue"]))
+    assert bought & BLUE
+    assert not bought & (GREEN | {"droplet_1", "remove_white_1"})
+
+
+def test_green_buys_green_and_droplets(batches):
+    bought = set(flat(batches["green"]))
+    assert bought & GREEN
+    assert "droplet_1" in bought
+    assert not bought & BLUE
+
+
+def test_cleaner_removes_white_most_and_no_droplet(batches):
+    count = {s: flat(g).count("remove_white_1") for s, g in batches.items()}
+    assert count["cleaner"] >= 1
+    assert "droplet_1" not in flat(batches["cleaner"])
+    for other in ("blue", "green", "balanced"):
+        assert count["cleaner"] > count[other]
+
+
+def test_balanced_buys_a_bit_of_everything(batches):
+    bought = set(flat(batches["balanced"]))
+    assert {"orange_1", "remove_white_1", "droplet_1"} <= bought
+    assert bought & BLUE
+    assert bought & GREEN
+
+
+@pytest.mark.parametrize("strategy", ["blue", "green", "cleaner", "balanced"])
+def test_strategy_games_verify(tmp_path, strategy):
+    r = sim(tmp_path, f"bot:draw30-pts3-{strategy}", "bot:random", games="3")
+    assert r.exit_code == 0, r.output
+    (shard,) = tmp_path.glob("**/shard-0001.jsonl")
+    v = runner.invoke(app, ["verify", str(shard)])
+    assert v.exit_code == 0, v.output
+    assert "3 games ok" in v.output
