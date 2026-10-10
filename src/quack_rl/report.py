@@ -149,19 +149,27 @@ def _brew_outcomes(
     return go(bag, 0, None, None)
 
 
-def _points_for_money(rs: Ruleset, money: int) -> int:
-    """Points the shop rule of the `points` bot buys with `money` (points round reached)."""
+def _points_for_money(rs: Ruleset, money: int) -> float:
+    """Expected points the shop rule of the `points` bot buys with `money` (points round reached).
+
+    The bot buys the affordable points item with the most points; on a tie it picks one of the
+    tied items at random, so the result is the average over the tied items.
+    """
     items = [i for i in rs.shop if i.kind == "points"]
-    total = 0
-    for _ in range(rs.max_purchases):
-        affordable = [i for i in items if i.price <= money]
+
+    def best(money_left: int, purchases_left: int) -> float:
+        if purchases_left == 0:
+            return 0.0
+        affordable = [i for i in items if i.price <= money_left]
         if not affordable:
-            break
-        best = max(i.points for i in affordable)
-        item = min((i for i in affordable if i.points == best), key=lambda i: i.price)
-        money -= item.price
-        total += item.points
-    return total
+            return 0.0
+        top = max(i.points for i in affordable)
+        tied = [i for i in affordable if i.points == top]
+        return sum(i.points + best(money_left - i.price, purchases_left - 1) for i in tied) / len(
+            tied
+        )
+
+    return best(money, rs.max_purchases)
 
 
 def _bags(rs: Ruleset) -> list[_Bag]:
@@ -254,7 +262,8 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
       game against a bot, only the player with the furthest field rolls, so this is slightly
       generous (it is the one place where the number is above the truth);
     - purchases follow the bot rule: up to `max_purchases` times the points item with the most
-      points that it can afford (the cheaper one on a tie); money does not carry over;
+      points that it can afford (one of the tied items at random, as the bot does, so the
+      average over the tied items counts); money does not carry over;
     - the last round money is multiplied by `last_round_money_percent // 100`; an exploded
       potion halves its money (rounded down) and does not roll the die;
     - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips

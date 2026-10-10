@@ -12,6 +12,7 @@ from quack_rl.report import (
     CONFIRM_TOLERANCE,
     baseline_maximum,
     build_report,
+    _points_for_money,
     realistic_baseline_maximum,
     wilson,
 )
@@ -152,6 +153,19 @@ def test_realistic_maximum_other_rulesets():
     assert 0 < one <= three
     cheap = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "1"}))
     assert cheap > realistic_baseline_maximum(rs)
+
+
+def test_purchase_tie_is_the_average_over_the_tied_items():
+    # The bot picks one of the items with the most points at random, not the cheapest.
+    rs = load_ruleset("v1")
+    a = next(i for i in rs.shop if i.kind == "points")
+    cheap = a.model_copy(update={"id": "t_cheap", "price": 2, "points": 2})
+    dear = a.model_copy(update={"id": "t_dear", "price": 6, "points": 2})
+    one = rs.model_copy(update={"shop": [cheap, dear], "max_purchases": 1})
+    two = rs.model_copy(update={"shop": [cheap, dear], "max_purchases": 2})
+    assert _points_for_money(one, 6) == 2
+    # cheap first: 2 + 2 (4 money left buys cheap again); dear first: 2 + nothing; average 3
+    assert _points_for_money(two, 6) == 3
 
 
 def test_realistic_maximum_one_round_by_hand():
