@@ -72,3 +72,14 @@ Load it:
     import polars as pl
     seats = pl.read_parquet("data/tournaments/<run folder>/seats.parquet")
     # or: import pandas as pd; seats = pd.read_parquet(".../seats.parquet")
+
+### Notebook
+
+`notebooks/tournament_run.py` is a [marimo](https://marimo.io) notebook for one run folder: the ranking with average end points, the end bag per bot, and line charts of the average money and average points total per round, with a bot filter. marimo, altair and polars are in the `dev` dependency group (`uv sync` installs them).
+
+    uv run marimo edit notebooks/tournament_run.py
+
+A drop-down lists the subfolders of `data/tournaments/` that hold `config.json`, `results.csv` and `seats.parquet`; the newest one is the default. Run folders without `seats.parquet` (written before it existed, issue #43) do not show up. To pass a run folder:
+
+    uv run marimo edit notebooks/tournament_run.py -- --run-folder data/tournaments/<run folder>
+    uv run marimo export html notebooks/tournament_run.py -o run.html -- --run-folder data/tournaments/<run folder>
