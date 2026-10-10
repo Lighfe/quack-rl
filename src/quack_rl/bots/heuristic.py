@@ -93,13 +93,24 @@ class HeuristicBot:
         if self._rs.max_purchases is not None and p.purchases >= self._rs.max_purchases:
             return DONE
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
+        # The v1.1 chip rule (max_chip_purchases): only points from the points round on,
+        # and a fallback before it. Without it (v1) the shop works as before.
+        chip_rule = self._rs.max_chip_purchases is not None
         if state.round >= self.points_round:
             points = [self._rs.shop_item(i) for i in affordable]
             points = [i for i in points if i.kind == "points"]
             if points:
                 best = max(i.points for i in points)
                 return buy(self._rng.choice([i.id for i in points if i.points == best]))
+            if chip_rule:
+                return DONE
+        # Items of the list that the shop lacks are never legal, so they are skipped here.
         for item_id in self._strategy.ranked():
             if item_id in affordable:
                 return buy(item_id)
+        if chip_rule:
+            # The most expensive legal non-points item; on a tie the first in shop order.
+            rest = [i for i in self._rs.shop if i.id in affordable and i.kind != "points"]
+            if rest:
+                return buy(max(rest, key=lambda i: i.price).id)
         return DONE
