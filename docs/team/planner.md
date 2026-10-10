@@ -116,8 +116,8 @@ Then:
   - The label applies only to issues you file. When an open issue already covers the item (the check above), do not change the labels of that issue
   - A filed issue reads on its own: no references such as "Option 2" or "point 3"; restate the content of the item in words
   - Tell the owner every issue you filed (number and title) and every to-be-filed item you did not file, with the reason: covered by an open issue, already in the new stage, or the owner said not to file it
-- File each finding of the review that proposes a change and belongs to no option (a doc drift finding, such as a failing fact test or a prompt audit finding, or a run-note conclusion that asks for a change) as a follow-up, with the rules of the entry above: the duplicate check, the skips (already in the new stage, or the owner says not to file it), the label `later` and, in the same cases, `needs-owner`, no parent issue, the line `Source: <URL of the review comment>`, a body that reads on its own, and the report to the owner of what you filed and did not file. Do this before the close below as well
-  - Do not file a finding that proposes no change (for example "the fact tests passed", or an observation with no action)
+- File each finding of the review that proposes a change and belongs to no option (a doc drift finding, such as a failing test or a prompt audit finding, or a run-note conclusion that asks for a change) as a follow-up, with the rules of the entry above: the duplicate check, the skips (already in the new stage, or the owner says not to file it), the label `later` and, in the same cases, `needs-owner`, no parent issue, the line `Source: <URL of the review comment>`, a body that reads on its own, and the report to the owner of what you filed and did not file. Do this before the close below as well
+  - Do not file a finding that proposes no change (for example "the tests passed", or an observation with no action)
 - Close the finished stage issue with exactly `gh issue close <number>` as the whole command. The close check allows it only when all its sub-issues are closed
 - Follow-ups that the owner decided to close: name them for the owner to close. Do not close them yourself: the close check denies a task issue without `## QA: PASS`
 - Archive the plan: move it from `docs/plans/` to `docs/archive/` once every stage issue made from it has been set up. A plan with several stages stays in `docs/plans/` until its last stage is set up. Commit the move
@@ -155,7 +155,7 @@ Post exactly one comment on the stage issue. Write the body to a file with a lit
 
 1. **Purpose check**: was the `## Purpose` of the stage met? Give evidence: closed issues, commits, reports
 2. **Run notes**: the orchestrator's run notes, and what you conclude from them. Or "No run notes were given". Also list every entry with ` - set` in the `Permissions:` line of a closed sub-issue of the stage, as a permission the owner may remove now
-3. **Doc drift**: findings from the fact tests and from the prompt audit. Say which checks ran and which could not. See "Doc drift checks" below the example
+3. **Doc drift**: findings from the test run and from the prompt audit. Say which checks ran and which could not. See "Doc drift checks" below the example
 4. **Follow-ups**: every open parked issue whose `Source:` line points into this stage (the stage issue, a sub-issue, or a comment or review on one), and every older parked issue you see as relevant. Give each one a proposed placement: next stage, a later stage, stay parked, or close
 5. **Next-stage options**: one to three. Each has a purpose, sub-issues (existing, or to be filed), order and blockers. Then your recommendation
 6. Last line, exactly: `/stage-start`
@@ -185,13 +185,11 @@ Example:
 
 Doc drift checks: they give part 3 "Doc drift". Run them from the repo root.
 
-Fact tests:
+Test run:
 
 1. Run the test command `uv run --with pytest pytest` (Bash timeout 600000 ms)
-2. The fact tests are the tests in `tests/test_doc_paths.py` and `tests/test_spec_citations.py`
-3. Report each failing fact test: its test name and the failure message lines that name the file and the path, anchor or ID. When none fails, write "the fact tests passed"
-4. On a separate line, give the count of failures in other test files. They are not doc drift, but do not hide them
-5. When the test command cannot run (an error before any test runs, or "no tests ran"), write that the fact tests could not run and quote the error. Never report them as passed
+2. Report the result as "failures in test files": the test name of each failing test and the failure message lines that name the file. When none fails, write "no failures in test files"
+3. When the test command cannot run (an error before any test runs, or "no tests ran"), write that the tests could not run and quote the error. Never report them as passed
 
 Prompt audit:
 
