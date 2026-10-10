@@ -355,6 +355,26 @@ def test_run_folders_lists_only_complete_folders(tmp_path):
     assert nb.missing_files(root / "2026-10-10_12-00-00+0200-old") == ["seats.parquet"]
 
 
+@pytest.mark.parametrize("make_root", [False, True], ids=["root-missing", "root-empty"])
+def test_no_folder_message_names_folder_and_missing_files(tmp_path, make_root):
+    # a fresh checkout: data/ is not committed, so data/tournaments may not exist
+    root = tmp_path / "tournaments"
+    if make_root:
+        root.mkdir()
+    text = nb.no_folder_message(root)
+    assert str(root) in text
+    assert "missing" in text.lower()
+    for name in ("config.json", "results.csv", "seats.parquet"):
+        assert name in text
+
+
+def test_no_folder_message_lists_each_folder_with_its_missing_file(tmp_path):
+    root = tmp_path / "tournaments"
+    write_run(root / "2026-10-10_12-00-00+0200-old", GAMES, SEATS, with_seats=False)
+    text = nb.no_folder_message(root)
+    assert "`2026-10-10_12-00-00+0200-old` lacks seats.parquet" in text
+
+
 # --- whole notebook --------------------------------------------------------------------
 
 
@@ -397,3 +417,37 @@ def test_notebook_without_seats_parquet_shows_message(tmp_path):
     html = out.read_text(encoding="utf-8")
     assert "before-43-run" in html
     assert "lacks seats.parquet" in html
+
+
+def test_notebook_in_fresh_checkout_names_folder_and_missing_files(tmp_path):
+    # fresh checkout: no data/tournaments next to the notebook, and no --run-folder
+    copy = tmp_path / "checkout" / "notebooks" / "tournament_run.py"
+    copy.parent.mkdir(parents=True)
+    copy.write_text(NOTEBOOK.read_text(encoding="utf-8"), encoding="utf-8")
+    out = tmp_path / "out.html"
+    proc = subprocess.run(
+        # without the code, so the checks below only see the rendered output
+        [
+            sys.executable,
+            "-m",
+            "marimo",
+            "export",
+            "html",
+            "--no-include-code",
+            str(copy),
+            "-o",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=ROOT,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    html = out.read_text(encoding="utf-8")
+    assert "No run folder to show" in html
+    assert "Missing files" in html
+    assert "def no_folder_message" not in html  # the code is left out
+    assert str(copy.parent.parent / "data" / "tournaments") in html
+    for name in ("config.json", "results.csv", "seats.parquet"):
+        assert name in html

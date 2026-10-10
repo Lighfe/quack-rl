@@ -41,10 +41,18 @@ def no_folder_message(root: Path) -> str:
     """Markdown text for the case that no run folder qualifies."""
     files = ", ".join(NEEDED_FILES)
     if not root.is_dir():
-        return f"**No run folder to show.** The folder `{root}` does not exist."
-    lines = [f"**No run folder to show.** No subfolder of `{root}` holds {files}."]
-    for p in sorted(q for q in root.iterdir() if q.is_dir()):
-        lines.append(f"- `{p.name}` lacks {', '.join(missing_files(p))}")
+        lines = [
+            f"**No run folder to show.** The folder `{root}` does not exist "
+            f"(`data/` is not committed), so a run folder with {files} is missing.",
+            f"\nMissing files: {files}.",
+        ]
+    else:
+        lines = [f"**No run folder to show.** No subfolder of `{root}` holds {files}."]
+        subfolders = sorted(q for q in root.iterdir() if q.is_dir())
+        if not subfolders:
+            lines.append(f"\nMissing files: {files}.")
+        for p in subfolders:
+            lines.append(f"- `{p.name}` lacks {', '.join(missing_files(p))}")
     lines.append("\nRun folders from before the `seats.parquet` file (issue #43) do not show up.")
     return "\n".join(lines)
 
