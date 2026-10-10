@@ -56,7 +56,11 @@ class Ruleset(_Frozen):
     version: str
     rounds: int = Field(ge=1)
     explosion_limit: int = Field(ge=1)
-    max_purchases: int = Field(ge=1)
+    # Shop limits per player per round. None means no limit. Only shop items of kind "chip"
+    # count for `max_chip_purchases` and `distinct_chip_colours` (one chip per colour).
+    max_purchases: int | None = Field(default=None, ge=1)
+    max_chip_purchases: int | None = Field(default=None, ge=0)
+    distinct_chip_colours: bool = False
     track_end: int = Field(ge=1)
     last_round_money_percent: int = Field(ge=100, strict=True)
     money: list[Annotated[int, Field(ge=0)]]

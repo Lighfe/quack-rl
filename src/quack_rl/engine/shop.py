@@ -62,6 +62,8 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.status = Status.BREWING
         p.final_field = None
         p.purchases = 0
+        p.chip_purchases = 0
+        p.chip_colours = []
         p.shop_done = False
         p.field = start_field(p, rs)
     state.round += 1
@@ -83,9 +85,12 @@ def apply_shop(
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price
             p.purchases += 1
+            if item.kind == "chip" and item.chip is not None:
+                p.chip_purchases += 1
+                p.chip_colours.append(rs.chip(item.chip).colour)
             _apply_item(p, item)
             events.append({"seat": seat, "kind": "buy", "item": item.id, "price": item.price})
-            if p.purchases >= rs.max_purchases:
+            if rs.max_purchases is not None and p.purchases >= rs.max_purchases:
                 p.shop_done = True
     if all(p.shop_done for p in state.players.values()):
         _end_round(state, rs, events)

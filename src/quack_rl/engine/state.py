@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -31,6 +32,8 @@ class PlayerState:
     points: int = 0
     money: int = 0
     purchases: int = 0
+    chip_purchases: int = 0  # shop items of kind chip bought this round
+    chip_colours: list[str] = dataclasses.field(default_factory=list)  # their colours, in buy order
     shop_done: bool = False
     final_field: int | None = None
 

@@ -5,7 +5,7 @@ from typing import Any
 
 from quack_rl.rules.model import Ruleset
 
-SUPPORTED_RULES_VERSIONS: tuple[str, ...] = ("v1",)
+SUPPORTED_RULES_VERSIONS: tuple[str, ...] = ("v1", "v1.1")
 
 
 class UnsupportedRulesVersion(ValueError):
@@ -36,6 +36,8 @@ _REFUSED_KEYS = {
 
 def _parse_value(key: str, raw: Any, current: Any) -> Any:
     """Parse an override value by the type of the field it replaces."""
+    if current is None:
+        raise ValueError(f"override {key!r}: the key is not set in this ruleset")
     if isinstance(current, bool):
         if isinstance(raw, bool):
             return raw

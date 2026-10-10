@@ -5,7 +5,7 @@ import json
 import math
 from dataclasses import dataclass, field
 from fractions import Fraction
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +49,8 @@ def baseline_maximum(rs: Ruleset) -> float:
       the bound ignores: both are added, so the bound stays an upper bound);
     - money does not carry over (it resets every round), so each round is independent: with
       that money and at most `max_purchases` purchases it buys the points items that give the
-      most points (a knapsack over the points items of the shop, items may repeat).
+      most points (a knapsack over the points items of the shop, items may repeat). A ruleset
+      without `max_purchases` has no purchase cap: the points items are limited only by money.
     The maximum is the sum over all rounds of (best purchase points + best die points).
     """
     items = [(i.price, i.points) for i in rs.shop if i.kind == "points"]
@@ -62,16 +63,32 @@ def baseline_maximum(rs: Ruleset) -> float:
         money = base_money
         if round_no == rs.rounds:
             money = money * rs.last_round_money_percent // 100
+        cap = _purchase_cap(rs, money)
         # best[k][m]: most points with k purchases and at most m money
-        best = [[0] * (money + 1) for _ in range(rs.max_purchases + 1)]
-        for k in range(1, rs.max_purchases + 1):
+        best = [[0] * (money + 1) for _ in range(cap + 1)]
+        for k in range(1, cap + 1):
             for m in range(money + 1):
                 best[k][m] = best[k - 1][m]
                 for price, points in items:
                     if price <= m:
                         best[k][m] = max(best[k][m], best[k - 1][m - price] + points)
-        total += best[rs.max_purchases][money] + die_points
+        total += best[cap][money] + die_points
     return float(total)
+
+
+def _purchase_cap(rs: Ruleset, money: int) -> int:
+    """Most purchases of points items with `money`: `max_purchases`, or without it the money.
+
+    Without `max_purchases`, the number of purchases is limited by money only. Each purchase of
+    a priced item costs at least the cheapest price; an item with price 0 would allow endless
+    purchases, so it is counted at most `money + 1` times to keep the number finite.
+    """
+    if rs.max_purchases is not None:
+        return rs.max_purchases
+    prices = [i.price for i in rs.shop if i.kind == "points"]
+    if not prices or min(prices) == 0:
+        return money + 1
+    return money // min(prices)
 
 
 # Tolerance of the confirmation by simulation: the best simulated average over the draw limits
@@ -157,6 +174,7 @@ def _points_for_money(rs: Ruleset, money: int) -> float:
     """
     items = [i for i in rs.shop if i.kind == "points"]
 
+    @cache
     def best(money_left: int, purchases_left: int) -> float:
         if purchases_left == 0:
             return 0.0
@@ -169,7 +187,7 @@ def _points_for_money(rs: Ruleset, money: int) -> float:
             tied
         )
 
-    return best(money, rs.max_purchases)
+    return best(money, _purchase_cap(rs, money))
 
 
 def _bags(rs: Ruleset) -> list[_Bag]:
@@ -261,9 +279,10 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - the bot plays alone: it always rolls the bonus die when its potion did not explode. In a
       game against a bot, only the player with the furthest field rolls, so this is slightly
       generous (it is the one place where the number is above the truth);
-    - purchases follow the bot rule: up to `max_purchases` times the points item with the most
-      points that it can afford (one of the tied items at random, as the bot does, so the
-      average over the tied items counts); money does not carry over;
+    - purchases follow the bot rule: up to `max_purchases` times (without `max_purchases`: until
+      no points item is affordable) the points item with the most points that it can afford
+      (one of the tied items at random, as the bot does, so the average over the tied items
+      counts); money does not carry over;
     - the last round money is multiplied by `last_round_money_percent // 100`; an exploded
       potion halves its money (rounded down) and does not roll the die;
     - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips

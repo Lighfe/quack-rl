@@ -1,4 +1,4 @@
-from quack_rl.engine.state import GameState, Phase, Status
+from quack_rl.engine.state import GameState, Phase, PlayerState, Status
 from quack_rl.rules import Ruleset, ShopItem
 
 WAIT = "wait"
@@ -16,11 +16,16 @@ def action_names(rs: Ruleset) -> list[str]:
     return [WAIT, DRAW, STOP, DONE, *(buy(item.id) for item in rs.shop)]
 
 
-def _can_buy(item: ShopItem, money: int, owned: int) -> bool:
-    if item.price > money:
+def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState) -> bool:
+    if item.price > p.money:
         return False
     if item.kind == "remove_chip":
-        return owned > 0
+        return item.chip is not None and p.owned(item.chip) > 0
+    if item.kind == "chip" and item.chip is not None:
+        if rs.max_chip_purchases is not None and p.chip_purchases >= rs.max_chip_purchases:
+            return False
+        if rs.distinct_chip_colours and rs.chip(item.chip).colour in p.chip_colours:
+            return False
     return True
 
 
@@ -33,10 +38,6 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
     if state.phase is Phase.SHOP:
         if p.shop_done:
             return [WAIT]
-        buys = [
-            buy(item.id)
-            for item in rs.shop
-            if _can_buy(item, p.money, p.owned(item.chip) if item.chip else 0)
-        ]
+        buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p)]
         return [DONE, *buys]
     return []

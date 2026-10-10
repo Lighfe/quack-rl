@@ -61,6 +61,8 @@ def apply_resolve(
             money = money * rs.last_round_money_percent // 100
         p.money = money
         p.purchases = 0
+        p.chip_purchases = 0
+        p.chip_colours = []
         p.shop_done = False
         events.append({"seat": seat, "kind": "money", "amount": p.money})
     state.phase = Phase.SHOP

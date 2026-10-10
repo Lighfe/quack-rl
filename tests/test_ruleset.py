@@ -29,7 +29,7 @@ def doc_money(field: int) -> int:
 
 
 def test_supported_versions_is_v1_only():
-    assert SUPPORTED_RULES_VERSIONS == ("v1",)
+    assert SUPPORTED_RULES_VERSIONS == ("v1", "v1.1")
 
 
 def test_load_v1_returns_ruleset():
@@ -42,7 +42,7 @@ def test_unsupported_version_is_value_error():
     assert issubclass(UnsupportedRulesVersion, ValueError)
 
 
-@pytest.mark.parametrize("version", ["v0", "v1.1", "V1", ""])
+@pytest.mark.parametrize("version", ["v0", "v1.2", "V1", ""])
 def test_unknown_version_is_refused(version: str):
     with pytest.raises(UnsupportedRulesVersion):
         load_ruleset(version)

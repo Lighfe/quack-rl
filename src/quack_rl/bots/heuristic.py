@@ -90,7 +90,7 @@ class HeuristicBot:
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
         p = state.players[seat]
-        if p.purchases >= self._rs.max_purchases:
+        if self._rs.max_purchases is not None and p.purchases >= self._rs.max_purchases:
             return DONE
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
         if state.round >= self.points_round:

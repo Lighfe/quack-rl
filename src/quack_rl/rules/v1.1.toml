@@ -1,0 +1,186 @@
+# Quack RL ruleset v1.1. Human-readable rules: docs/rules/rules-v1.1.md
+# Differences to v1: new shop prices, no shop droplet item, and the shop rule
+# "at most 2 chip purchases per round, of different colours" in place of "at most 3 purchases".
+# Every number here is a tuning default. Never edit a version that has recorded games:
+# make a new version file instead.
+version = "v1.1"
+rounds = 9
+explosion_limit = 7      # potion explodes when the white total is more than this
+# no max_purchases: no overall cap; points items and remove White 1 have no count limit
+max_chip_purchases = 2   # shop items of kind "chip" per player per round
+distinct_chip_colours = true  # at most one chip of each colour per player per round
+track_end = 53
+last_round_money_percent = 150  # money in the last round x this // 100
+
+# money per field, index = field 0..53
+money = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+    15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24,
+    25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 30, 30, 31, 31, 32, 32, 33, 33,
+    35,
+]
+
+rubies = [5, 9, 13, 16, 20, 24, 28, 30, 34, 36, 40, 42, 46, 50, 52]
+
+[start_bag]
+white_1 = 4
+white_2 = 2
+white_3 = 1
+orange_1 = 1
+green_1 = 1
+
+[[chips]]
+id = "white_1"
+colour = "white"
+value = 1
+component = "white@1"
+
+[[chips]]
+id = "white_2"
+colour = "white"
+value = 2
+component = "white@1"
+
+[[chips]]
+id = "white_3"
+colour = "white"
+value = 3
+component = "white@1"
+
+[[chips]]
+id = "orange_1"
+colour = "orange"
+value = 1
+component = "orange@1"
+
+[[chips]]
+id = "blue_1"
+colour = "blue"
+value = 1
+component = "blue@1"
+
+[[chips]]
+id = "blue_2"
+colour = "blue"
+value = 2
+component = "blue@1"
+
+[[chips]]
+id = "blue_4"
+colour = "blue"
+value = 4
+component = "blue@1"
+
+[[chips]]
+id = "green_1"
+colour = "green"
+value = 1
+component = "green@1"
+
+[[chips]]
+id = "green_2"
+colour = "green"
+value = 2
+component = "green@1"
+
+[[chips]]
+id = "green_4"
+colour = "green"
+value = 4
+component = "green@1"
+
+[[shop]]
+id = "orange_1"
+price = 3
+kind = "chip"
+chip = "orange_1"
+
+[[shop]]
+id = "blue_1"
+price = 5
+kind = "chip"
+chip = "blue_1"
+
+[[shop]]
+id = "blue_2"
+price = 8
+kind = "chip"
+chip = "blue_2"
+
+[[shop]]
+id = "blue_4"
+price = 15
+kind = "chip"
+chip = "blue_4"
+
+[[shop]]
+id = "green_1"
+price = 4
+kind = "chip"
+chip = "green_1"
+
+[[shop]]
+id = "green_2"
+price = 9
+kind = "chip"
+chip = "green_2"
+
+[[shop]]
+id = "green_4"
+price = 13
+kind = "chip"
+chip = "green_4"
+
+[[shop]]
+id = "remove_white_1"
+price = 14
+kind = "remove_chip"
+chip = "white_1"
+
+[[shop]]
+id = "points_2"
+price = 7
+kind = "points"
+points = 2
+
+[[shop]]
+id = "points_5"
+price = 13
+kind = "points"
+points = 5
+
+[[shop]]
+id = "points_10"
+price = 21
+kind = "points"
+points = 10
+
+[[die]]
+id = "droplet_1"
+weight = 1
+kind = "droplet"
+halves = 2
+
+[[die]]
+id = "droplet_half"
+weight = 1
+kind = "droplet"
+halves = 1
+
+[[die]]
+id = "orange_1"
+weight = 1
+kind = "chip"
+chip = "orange_1"
+
+[[die]]
+id = "money_1"
+weight = 2
+kind = "money"
+amount = 1
+
+[[die]]
+id = "point_1"
+weight = 1
+kind = "points"
+points = 1
