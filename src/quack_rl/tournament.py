@@ -1,4 +1,14 @@
-"""Tournament: every pair of a bot field plays, optionally for each value of one sweep."""
+"""Tournament: every pair of a bot field plays, optionally for each value of one sweep.
+
+Seed scheme: every game has its own seed, a pure function of the run seed, the sweep value index
+v (0 without a sweep), the pairing index p inside that sweep value and the game index g:
+
+    game_seed = run_seed + (v * pairings_per_value + p) * games + g
+
+So no two games of a run share a seed. The `seed` column of results.csv holds it, and config.json
+holds the scheme in `seed_scheme`. The chance source uses the game seed, and the bot seats use
+2 * game_seed + 1 and 2 * game_seed + 2 (see `play_sim_game`).
+"""
 
 import csv
 import gzip
@@ -49,6 +59,10 @@ def csv_columns(rs: Ruleset) -> list[str]:
 
 
 CSV_COLUMNS: list[str] = csv_columns(load_ruleset("v1"))
+SEED_SCHEME = (
+    "game_seed = run_seed + (sweep_value_index * pairings_per_value + pairing_index) * games"
+    " + game_index"
+)
 SEAT_CHECK_PREFIX = "seatcheck:"
 DEFAULT_SAMPLE_SIZE = 20
 _NAME_OK = re.compile(r"[A-Za-z0-9._-]+")
@@ -87,6 +101,16 @@ class _Task:
     p1: str
     p2: str
     sweep_value: str  # "" without a sweep
+    value_index: int = 0
+    pairing_index: int = 0  # inside the sweep value
+    pairings_per_value: int = 1
+
+
+def game_seed(
+    run_seed: int, value_index: int, pairing_index: int, game: int, pairings: int, games: int
+) -> int:
+    """Seed of one game, see the module docstring."""
+    return run_seed + (value_index * pairings + pairing_index) * games + game
 
 
 def parse_sweep(text: str) -> Sweep:
@@ -187,7 +211,7 @@ def _tasks(config: TournamentConfig) -> list[_Task]:
     sweep = config.sweep
     values = sweep.values if sweep else ("",)
     tasks: list[_Task] = []
-    for value in values:
+    for value_index, value in enumerate(values):
         specs = [_spec_for(s, sweep, value) for s in config.bots]
         if config.seat_check:
             pairs = [(s, s) for s in specs]
@@ -195,10 +219,12 @@ def _tasks(config: TournamentConfig) -> list[_Task]:
             pairs = [
                 (specs[i], specs[j]) for i in range(len(specs)) for j in range(i + 1, len(specs))
             ]
-        for p1, p2 in pairs:
+        for pairing_index, (p1, p2) in enumerate(pairs):
             a, b = p1.removeprefix("bot:"), p2.removeprefix("bot:")
             label = f"{SEAT_CHECK_PREFIX}{a}" if config.seat_check else f"{a} vs {b}"
-            tasks.append(_Task(len(tasks), label, p1, p2, value))
+            tasks.append(
+                _Task(len(tasks), label, p1, p2, value, value_index, pairing_index, len(pairs))
+            )
     return tasks
 
 
@@ -247,7 +273,14 @@ def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[st
     )
     try:
         for i in range(config.games):
-            seed = config.seed + i
+            seed = game_seed(
+                config.seed,
+                task.value_index,
+                task.pairing_index,
+                i,
+                task.pairings_per_value,
+                config.games,
+            )
             final, explosions, stats = play_sim_game(
                 rs,
                 rules=config.rules,
@@ -290,6 +323,7 @@ def results_csv(rows: Sequence[dict[str, Any]]) -> str:
 def _config_json(config: TournamentConfig, created_at: str) -> str:
     data = asdict(config)
     data["bots"] = list(config.bots)
+    data["seed_scheme"] = SEED_SCHEME
     data["engine_version"] = __version__
     data["created_at"] = created_at
     return json.dumps(data, indent=2) + "\n"

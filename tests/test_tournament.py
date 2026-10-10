@@ -362,3 +362,72 @@ def test_config_json_of_a_field_run_stores_the_specs(tmp_path):
 def test_help_documents_field():
     result = runner.invoke(app, ["tournament", "--help"])
     assert "--field" in result.output and "full" in result.output
+
+
+def test_game_seed_is_unique_across_pairings_and_sweep_values(tmp_path):
+    # 3 bots = 3 pairings, 2 sweep values, 3 games each
+    assert tour(tmp_path, "--sweep", "points_round=2,6").exit_code == 0
+    (run,) = runs(tmp_path)
+    seeds = [row["seed"] for row in read_rows(run)]
+    assert len(seeds) == 18
+    assert len(set(seeds)) == len(seeds)
+
+
+def test_game_seed_formula_is_stored_and_followed(tmp_path):
+    from quack_rl.tournament import game_seed
+
+    assert tour(tmp_path, "--sweep", "points_round=2,6").exit_code == 0
+    (run,) = runs(tmp_path)
+    config = json.loads((run / "config.json").read_text())
+    assert "seed_scheme" in config
+    rows = read_rows(run)
+    # order of rows: sweep value, pairing, game; 3 pairings, 3 games
+    expected = [game_seed(5, v, p, g, 3, 3) for v in range(2) for p in range(3) for g in range(3)]
+    assert [int(r["seed"]) for r in rows] == expected
+
+
+def test_seat_check_seeds_are_unique(tmp_path):
+    assert tour(tmp_path, "--seat-check", "--sweep", "points_round=2,6").exit_code == 0
+    (run,) = runs(tmp_path)
+    seeds = [row["seed"] for row in read_rows(run)]
+    assert len(seeds) == 18 and len(set(seeds)) == 18
+
+
+def test_keep_records_with_new_seeds_pass_seed_check(tmp_path):
+    assert tour(tmp_path, "--keep-records", "--sweep", "points_round=2,6").exit_code == 0
+    (run,) = runs(tmp_path)
+    for shard in sorted((run / "records").glob("*.jsonl.gz")):
+        assert runner.invoke(app, ["verify", str(shard), "--seed-check"]).exit_code == 0
+
+
+def _play(seed, p1="bot:draw30-pts3-blue", p2="bot:random"):
+    import io
+
+    from quack_rl.rules import load_ruleset
+    from quack_rl.simgame import play_sim_game
+
+    rs = load_ruleset("v1")
+    buf = io.StringIO()
+    play_sim_game(
+        rs, rules="v1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf
+    )
+    lines = [json.loads(x) for x in buf.getvalue().splitlines()]
+    for line in lines:
+        for key in ("game_id", "started_at", "finished_at"):
+            line.pop(key, None)
+    return lines
+
+
+def test_same_seed_same_bots_give_the_same_record():
+    assert _play(7) == _play(7)
+
+
+def test_different_seeds_give_different_games():
+    assert _play(7) != _play(8)
+
+
+def test_results_csv_is_byte_identical_for_one_and_two_workers(tmp_path):
+    assert tour(tmp_path / "w1", "--workers", "1", "--games", "2").exit_code == 0
+    assert tour(tmp_path / "w2", "--workers", "2", "--games", "2").exit_code == 0
+    (a,), (b,) = runs(tmp_path / "w1"), runs(tmp_path / "w2")
+    assert (a / "results.csv").read_bytes() == (b / "results.csv").read_bytes()
