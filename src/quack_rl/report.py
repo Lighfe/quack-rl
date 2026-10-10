@@ -4,11 +4,14 @@ import csv
 import json
 import math
 from dataclasses import dataclass, field
+from fractions import Fraction
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from quack_rl.bots import parse_bot_name
 from quack_rl.bots.heuristic import BASELINE_NAME
+from quack_rl.components import get_component
 from quack_rl.rules import Ruleset, load_ruleset
 from quack_rl.tournament import BASE_COLUMNS, SEAT_CHECK_PREFIX, Sweep, TournamentConfig, _rules_for
 
@@ -33,7 +36,10 @@ def wilson(wins: float, n: int) -> tuple[float, float]:
 
 
 def baseline_maximum(rs: Ruleset) -> float:
-    """Upper bound of the final points of a bot that buys only points items.
+    """Loose upper bound of the final points of a bot that buys only points items.
+
+    This is a loose bound that no bot can reach. The number to compare a simulation with is
+    `realistic_baseline_maximum`.
 
     Assumptions (a bound, not a number a 30% draw limit can reach):
     - in every round the bot ends on the best money field of the track and rolls the best
@@ -66,6 +72,205 @@ def baseline_maximum(rs: Ruleset) -> float:
                         best[k][m] = max(best[k][m], best[k - 1][m - price] + points)
         total += best[rs.max_purchases][money] + die_points
     return float(total)
+
+
+# Tolerance of the confirmation by simulation: the best simulated average over the draw limits
+# is at least `realistic_baseline_maximum` minus this share of it
+# (`tests/test_baseline_maximum.py`, constant TOLERANCE).
+CONFIRM_TOLERANCE = 0.02
+CONFIRM_TEST = "tests/test_baseline_maximum.py"
+
+_Bag = tuple[tuple[str, int], ...]
+
+
+def _brew_outcomes(
+    rs: Ruleset, bag: _Bag, draw_limit: int, fractions: set[Fraction] | None = None
+) -> dict[tuple[int, bool, int], float]:
+    """Chance of each end of a brew for a bot with `draw_limit`: (advance, exploded, green halves).
+
+    The bot rule of `HeuristicBot`: the first chip is always drawn; then it stops when the chance
+    to explode is more than the draw limit. A brew also ends on an explosion or an empty bag.
+    The advance is the sum of the chip advances (blue bonus included), so the final field is
+    `min(start field + advance, track_end)`. Green halves are the droplet halves of the green
+    chips among the last two placed chips.
+    """
+    # With `fractions`, the explosion chances (in percent) met at the stop decisions are added.
+    memo: dict[tuple, dict[tuple[int, bool, int], float]] = {}
+    chips = {chip.id: chip for chip in rs.chips}
+    parts = {i: get_component(c.component) for i, c in chips.items()}
+    weight = {i: parts[i].explosion_weight(c) for i, c in chips.items()}
+
+    def end_bonus(last: str | None, prev: str | None) -> int:
+        halves = 0
+        for position, chip_id in enumerate((last, prev)):
+            if chip_id is not None:
+                halves += parts[chip_id].round_end_droplet_halves(chips[chip_id], position)
+        return halves
+
+    def go(
+        remaining: _Bag, white: int, last: str | None, prev: str | None
+    ) -> dict[tuple[int, bool, int], float]:
+        """Outcomes from this state on; the advance counts from now."""
+        key = (remaining, white, last, prev)
+        if key in memo:
+            return memo[key]
+        size = sum(n for _, n in remaining)
+        out: dict[tuple[int, bool, int], float] = {}
+        if last is not None:
+            bad = sum(n for i, n in remaining if white + weight[i] > rs.explosion_limit)
+            if fractions is not None:
+                fractions.add(Fraction(100 * bad, size))
+            if bad * 100 > draw_limit * size:
+                out[(0, False, end_bonus(last, prev))] = 1.0
+                memo[key] = out
+                return out
+        previous = chips[last] if last is not None else None
+        for i, (chip_id, count) in enumerate(remaining):
+            chip = chips[chip_id]
+            gain = chip.value + parts[chip_id].place_bonus(chip, previous)
+            new_white = white + weight[chip_id]
+            chance = count / size
+            if new_white > rs.explosion_limit:
+                results = {(0, True, end_bonus(chip_id, last)): 1.0}
+            else:
+                left = list(remaining)
+                left[i] = (chip_id, count - 1)
+                new_remaining = tuple(x for x in left if x[1] > 0)
+                if new_remaining:
+                    results = go(new_remaining, new_white, chip_id, last)
+                else:
+                    results = {(0, False, end_bonus(chip_id, last)): 1.0}
+            for (advance, exploded, green), p in results.items():
+                outcome = (advance + gain, exploded, green)
+                out[outcome] = out.get(outcome, 0.0) + chance * p
+        memo[key] = out
+        return out
+
+    return go(bag, 0, None, None)
+
+
+def _points_for_money(rs: Ruleset, money: int) -> int:
+    """Points the shop rule of the `points` bot buys with `money` (points round reached)."""
+    items = [i for i in rs.shop if i.kind == "points"]
+    total = 0
+    for _ in range(rs.max_purchases):
+        affordable = [i for i in items if i.price <= money]
+        if not affordable:
+            break
+        best = max(i.points for i in affordable)
+        item = min((i for i in affordable if i.points == best), key=lambda i: i.price)
+        money -= item.price
+        total += item.points
+    return total
+
+
+def _bags(rs: Ruleset) -> list[_Bag]:
+    """Every bag a player can start a round with: the start bag plus chips of the die faces."""
+    gifts = sorted({f.chip for f in rs.die if f.kind == "chip" and f.chip is not None})
+    seen = {tuple(sorted(rs.start_bag.items()))}
+    frontier = set(seen)
+    for _ in range(rs.rounds - 1):
+        step: set[_Bag] = set()
+        for bag in frontier:
+            for gift in gifts:
+                counts = dict(bag)
+                counts[gift] = counts.get(gift, 0) + 1
+                step.add(tuple(sorted(counts.items())))
+        frontier = step - seen
+        seen |= step
+    return sorted(seen)
+
+
+def _draw_limit_classes(rs: Ruleset) -> list[int]:
+    """One draw limit (0 to 100 percent) for each way the limit can change the bot's choices.
+
+    The bot stops when the explosion chance in percent is more than the limit, so two limits
+    act the same when the same chances lie above both.
+    """
+    chances: set[Fraction] = set()
+    for bag in _bags(rs):
+        _brew_outcomes(rs, bag, 100, chances)  # at 100 the bot never stops: all states are met
+    reps: dict[int, int] = {}
+    for limit in range(101):
+        reps.setdefault(sum(1 for c in chances if c <= limit), limit)
+    return sorted(reps.values())
+
+
+def _expected_points(rs: Ruleset, draw_limit: int) -> float:
+    """Average final points of the `points` bot (points round 1) with one draw limit."""
+    start = tuple(sorted(rs.start_bag.items()))
+    die_total = sum(f.weight for f in rs.die)
+    brews: dict[_Bag, dict[tuple[int, bool, int], float]] = {}
+    purchases = lru_cache(maxsize=None)(lambda money: _points_for_money(rs, money))
+    states: dict[tuple[int, _Bag], float] = {(0, start): 1.0}  # (droplet halves, bag) -> chance
+    expected = 0.0
+    for round_no in range(1, rs.rounds + 1):
+        nxt: dict[tuple[int, _Bag], float] = {}
+        for (halves, bag), p_state in states.items():
+            if bag not in brews:
+                brews[bag] = _brew_outcomes(rs, bag, draw_limit)
+            begin = min(halves // 2, rs.track_end)
+            for (advance, exploded, green), p_brew in brews[bag].items():
+                p = p_state * p_brew
+                scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
+                base_halves = halves + green + (1 if scoring in rs.rubies else 0)
+                money = rs.money[scoring] // 2 if exploded else rs.money[scoring]
+                faces = [None] if exploded else rs.die  # an exploded potion never rolls
+                for face in faces:
+                    chance = p if face is None else p * face.weight / die_total
+                    new_halves, new_bag, extra_money, die_points = base_halves, bag, 0, 0
+                    if face is not None:
+                        if face.kind == "droplet":
+                            new_halves += face.halves
+                        elif face.kind == "chip" and face.chip is not None:
+                            counts = dict(bag)
+                            counts[face.chip] = counts.get(face.chip, 0) + 1
+                            new_bag = tuple(sorted(counts.items()))
+                        elif face.kind == "points":
+                            die_points = face.points
+                        elif face.kind == "money":
+                            extra_money = face.amount
+                    total_money = money + extra_money
+                    if round_no == rs.rounds:
+                        total_money = total_money * rs.last_round_money_percent // 100
+                    expected += chance * (purchases(total_money) + die_points)
+                    key = (new_halves, new_bag)
+                    nxt[key] = nxt.get(key, 0.0) + chance
+        states = nxt
+    return expected
+
+
+def realistic_baseline_maximum(rs: Ruleset) -> float:
+    """Best average final points of a bot with strategy `points` (never buys chips).
+
+    The bot has any draw limit (0 to 100 percent) and points round 1 (a later points round only
+    gives up purchases). The number is calculated from the ruleset only, no simulation: for each
+    draw limit, the chance of every end of a brew is summed over all draw orders of the bag, and
+    the rounds are followed as a chain over (droplet position, bag); the result is the best
+    draw limit.
+
+    Assumptions:
+    - the bot plays alone: it always rolls the bonus die when its potion did not explode. In a
+      game against a bot, only the player with the furthest field rolls, so this is slightly
+      generous (it is the one place where the number is above the truth);
+    - purchases follow the bot rule: up to `max_purchases` times the points item with the most
+      points that it can afford (the cheaper one on a tie); money does not carry over;
+    - the last round money is multiplied by `last_round_money_percent // 100`; an exploded
+      potion halves its money (rounded down) and does not roll the die;
+    - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips
+      to the bag.
+
+    It is confirmed by simulation in `tests/test_baseline_maximum.py`: no simulated average
+    over the draw limits 0 to 50 is above it by more than 3 standard errors, and the best one
+    is at most 2 percent below it (`CONFIRM_TOLERANCE`).
+    """
+    return _realistic_cached(rs.model_dump_json())
+
+
+@lru_cache(maxsize=32)
+def _realistic_cached(ruleset_json: str) -> float:
+    rs = Ruleset.model_validate_json(ruleset_json)
+    return max(_expected_points(rs, limit) for limit in _draw_limit_classes(rs))
 
 
 @dataclass
@@ -386,9 +591,12 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         sweep=Sweep(sweep["param"], tuple(sweep["values"])) if sweep else None,
     )
     try:
+        rulesets = {v: _rules_for(cfg, v) for v in data.baseline_rows}
         maximum = (
-            sum(baseline_maximum(_rules_for(cfg, v)) * g for v, g in data.baseline_rows.items()) / n
+            sum(realistic_baseline_maximum(rulesets[v]) * g for v, g in data.baseline_rows.items())
+            / n
         )
+        loose = sum(baseline_maximum(rulesets[v]) * g for v, g in data.baseline_rows.items()) / n
     except (ValueError, KeyError, TypeError) as e:
         raise ReportError(f"config.json cannot be turned into a ruleset: {e}") from None
     simulated = data.baseline_points / n
@@ -396,8 +604,11 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         *out,
         f"Baseline {BASELINE_NAME}: {n} games",
         f"Simulated average final points: {simulated:.1f}",
-        f"Calculated maximum (upper bound, see baseline_maximum): {maximum:.1f}",
+        f"Calculated maximum (realistic, see realistic_baseline_maximum): {maximum:.1f}",
         f"Difference (maximum - simulated): {maximum - simulated:.1f}",
+        f"The maximum is confirmed by simulation in {CONFIRM_TEST}: the best simulated draw limit"
+        f" is at most {100 * CONFIRM_TOLERANCE:.0f}% below it.",
+        f"Calculated maximum (loose upper bound, see baseline_maximum): {loose:.1f}",
     ]
 
 
@@ -428,4 +639,11 @@ def write_report(folder: Path) -> str:
     return text
 
 
-__all__ = ["ReportError", "build_report", "write_report", "wilson", "baseline_maximum"]
+__all__ = [
+    "ReportError",
+    "build_report",
+    "write_report",
+    "wilson",
+    "baseline_maximum",
+    "realistic_baseline_maximum",
+]

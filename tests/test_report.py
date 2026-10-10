@@ -1,4 +1,5 @@
 import csv
+import json
 import shutil
 from pathlib import Path
 
@@ -6,8 +7,15 @@ import pytest
 from typer.testing import CliRunner
 
 from quack_rl.cli.main import app
-from quack_rl.report import baseline_maximum, build_report, wilson
-from quack_rl.rules import load_ruleset, with_rounds
+from quack_rl.report import (
+    CONFIRM_TEST,
+    CONFIRM_TOLERANCE,
+    baseline_maximum,
+    build_report,
+    realistic_baseline_maximum,
+    wilson,
+)
+from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 from quack_rl.tournament import CSV_COLUMNS, TournamentConfig, write_run
 
 FIXTURE = Path(__file__).parent / "fixtures" / "report"
@@ -117,6 +125,84 @@ def test_baseline_maximum_v1():
     # 8 rounds: money 35 + 1 -> 36, three purchases: 22 + 13 = 35 money -> 15 points, +1 die point
     # last round: 36 * 150 // 100 = 54 -> 22 + 22 + 6 = 50 money -> 22 points (10+10+2), +1
     assert baseline_maximum(rs) == 8 * (15 + 1) + (22 + 1)
+
+
+def number_after(text: str, label: str) -> float:
+    (line,) = [x for x in text.splitlines() if x.startswith(label)]
+    return float(line.rsplit(":", 1)[1])
+
+
+def test_loose_bound_stays_and_is_labelled():
+    assert "loose upper bound" in baseline_maximum.__doc__.lower()
+
+
+def test_realistic_maximum_v1_is_between_baseline_and_loose_bound(run):
+    rs = load_ruleset("v1")
+    realistic = realistic_baseline_maximum(rs)
+    base = build_report(run).split("== Baseline ==")[1]
+    simulated = number_after(base, "Simulated average final points")  # 15.2 in the fixture
+    assert simulated < realistic < baseline_maximum(rs) == 151
+    assert 20 < realistic < 35  # the draw limit sweep in test_baseline_maximum.py shows 25 to 27
+
+
+def test_realistic_maximum_other_rulesets():
+    rs = load_ruleset("v1")
+    one = realistic_baseline_maximum(with_rounds(rs, 1))
+    three = realistic_baseline_maximum(with_rounds(rs, 3))
+    assert 0 < one <= three
+    cheap = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "1"}))
+    assert cheap > realistic_baseline_maximum(rs)
+
+
+def test_realistic_maximum_one_round_by_hand():
+    # Round 1 is also the last round (money x 1.5), with at most 3 purchases: a short brew
+    # gives a few points, far below the loose bound of one round.
+    value = realistic_baseline_maximum(with_rounds(load_ruleset("v1"), 1))
+    assert 2 < value < 12
+
+
+def test_baseline_labels_and_order(run):
+    base = build_report(run).split("== Baseline ==")[1].strip().splitlines()
+    starts = [
+        "Baseline draw30-pts1-points: 24 games",
+        "Simulated average final points:",
+        "Calculated maximum (realistic, ",
+        "Difference (maximum - simulated):",
+        "The maximum is confirmed by simulation in ",
+        "Calculated maximum (loose upper bound",
+    ]
+    assert len(base) == len(starts)
+    for line, start in zip(base, starts, strict=True):
+        assert line.startswith(start), (line, start)
+    assert CONFIRM_TEST in base[4] and f"{100 * CONFIRM_TOLERANCE:.0f}%" in base[4]
+    assert number_after("\n".join(base), "Calculated maximum (loose") == 151.0
+
+
+def test_baseline_maximum_is_games_weighted_over_a_sweep(run):
+    config = json.loads((run / "config.json").read_text())
+    config["sweep"] = {"param": "shop.points_2.price", "values": ["1", "6"]}
+    (run / "config.json").write_text(json.dumps(config))
+    rows = []
+    for value, games in (("1", 2), ("6", 1)):
+        for _ in range(games):
+            r = dict.fromkeys(CSV_COLUMNS, 0)
+            r.update(
+                pairing="draw30-pts1-points vs draw30-pts3-blue",
+                p1="draw30-pts1-points",
+                p2="draw30-pts3-blue",
+                sweep_value=value,
+                winner="p1",
+                p1_points=10,
+            )
+            rows.append(r)
+    write_rows(run, rows)
+    rs = with_rounds(load_ruleset("v1"), 9)
+    low = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "1"}))
+    high = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "6"}))
+    assert low != high
+    base = build_report(run).split("== Baseline ==")[1]
+    expected = (2 * low + high) / 3
+    assert number_after(base, "Calculated maximum (realistic") == pytest.approx(expected, abs=0.05)
 
 
 def test_missing_column_and_files(run, tmp_path):
