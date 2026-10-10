@@ -21,6 +21,9 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.6",
     "pyright[nodejs]>=1.1.380",
+    "marimo>=0.25.1",
+    "altair>=6.3.0",
+    "polars>=2.0.0",
 ]
 
 [build-system]
