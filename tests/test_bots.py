@@ -443,3 +443,192 @@ def test_strategy_games_verify(tmp_path, strategy):
     v = runner.invoke(app, ["verify", str(shard)])
     assert v.exit_code == 0, v.output
     assert "3 games ok" in v.output
+
+
+# --- v1.1 chip rule (max_chip_purchases) --------------------------------------
+
+RS11 = load_ruleset("v1.1")
+
+
+def shop_state11(money, rnd, rs=RS11):
+    state = new_game(rs)
+    state.phase = Phase.SHOP
+    state.round = rnd
+    state.players["p1"].money = money
+    return state
+
+
+def legal11(state, rs=RS11):
+    from quack_rl.engine import legal_actions
+
+    return legal_actions(state, rs, "p1")
+
+
+def apply11(state, action, rs=RS11):
+    """Apply one shop action of p1 with the engine (p2 waits, so the round does not end)."""
+    from quack_rl.engine.shop import apply_shop
+
+    apply_shop(state, rs, {"p1": action, "p2": "wait"}, [])
+
+
+def play_shop(bot, state, rs=RS11, limit=20):
+    """The bot's actions until `done`, each checked against the legal list of its step."""
+    actions = []
+    for _ in range(limit):
+        legal = legal11(state, rs)
+        action = bot.choose(state, "p1", legal)
+        assert action in legal, (action, legal)
+        actions.append(action)
+        if action == DONE:
+            return actions
+        apply11(state, action, rs)
+    raise AssertionError(f"no done after {limit} actions: {actions}")
+
+
+def test_v1_1_points_round_buys_points_then_done():
+    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
+    state = shop_state11(30, rnd=1)
+    assert play_shop(bot, state) == ["buy:points_10", "buy:points_2", DONE]
+    assert state.players["p1"].money == 2
+
+
+def test_v1_1_points_round_buys_no_chips_after_points():
+    bot = HeuristicBot(RS11, 20, 1, "cleaner", seed=1)
+    state = shop_state11(12, rnd=1)
+    assert "buy:orange_1" in legal11(state)
+    assert bot.choose(state, "p1", legal11(state)) == "buy:points_2"
+    apply11(state, "buy:points_2")
+    assert state.players["p1"].money == 5
+    assert "buy:orange_1" in legal11(state)
+    assert bot.choose(state, "p1", legal11(state)) == DONE
+
+
+def test_v1_1_points_round_has_no_cap_of_three():
+    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
+    state = shop_state11(70, rnd=1)
+    assert play_shop(bot, state) == ["buy:points_10"] * 3 + ["buy:points_2", DONE]
+    assert state.players["p1"].money == 0
+
+
+def test_v1_1_before_points_round_strategy_list_first():
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
+    state = shop_state11(20, rnd=2)
+    assert bot.choose(state, "p1", legal11(state)) == "buy:blue_4"
+
+
+def test_v1_1_before_points_round_fallback_most_expensive_non_points():
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
+    state = shop_state11(20, rnd=2)
+    apply11(state, "buy:blue_4")
+    assert state.players["p1"].money == 5
+    legal = legal11(state)
+    assert "buy:blue_1" not in legal
+    assert bot.choose(state, "p1", legal) == "buy:green_1"
+    apply11(state, "buy:green_1")
+    assert bot.choose(state, "p1", legal11(state)) == DONE
+
+
+def test_v1_1_fallback_includes_remove_white_and_repeats():
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
+    state = shop_state11(40, rnd=2)
+    assert play_shop(bot, state) == [
+        "buy:blue_4",
+        "buy:remove_white_1",
+        "buy:green_2",
+        DONE,
+    ]
+    assert state.players["p1"].money == 2
+
+
+@pytest.mark.parametrize("money", range(7, 14))
+def test_v1_1_fallback_never_buys_points(money):
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
+    state = shop_state11(100, rnd=2)
+    apply11(state, "buy:blue_4")
+    apply11(state, "buy:green_4")
+    state.players["p1"].money = money
+    legal = legal11(state)
+    assert "buy:points_2" in legal
+    assert bot.choose(state, "p1", legal) == DONE
+
+
+@pytest.mark.parametrize("strategy", ["green", "balanced"])
+@pytest.mark.parametrize("rnd", [2, 4])
+def test_v1_1_items_not_in_the_shop_are_skipped(strategy, rnd):
+    assert "droplet_1" in load_strategy(strategy).priority
+    for money in range(0, 41):
+        bot = HeuristicBot(RS11, 20, 4, strategy, seed=1)
+        actions = play_shop(bot, shop_state11(money, rnd=rnd))
+        assert "buy:droplet_1" not in actions
+
+
+@pytest.mark.parametrize("strategy", ["points", "blue", "green", "cleaner", "balanced"])
+@pytest.mark.parametrize("rnd", [2, 4])
+def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
+    for money in range(0, 41):
+        bot = HeuristicBot(RS11, 20, 4, strategy, seed=1)
+        actions = play_shop(bot, shop_state11(money, rnd=rnd))
+        assert actions[-1] == DONE and len(actions) <= 20
+
+
+@pytest.mark.parametrize(
+    "changes,money,expected",
+    [
+        # remove_white_1 at 13 ties green_4 (13): green_4 comes first in the shop
+        ({"remove_white_1": 13}, 13, "buy:green_4"),
+        # blue_2 at 9 ties green_2 (9): blue_2 comes first in the shop
+        ({"blue_2": 9}, 9, "buy:blue_2"),
+    ],
+)
+def test_v1_1_fallback_tie_takes_the_first_in_shop_order(changes, money, expected):
+    from quack_rl.bots import Strategy
+
+    shop = [i.model_copy(update={"price": changes.get(i.id, i.price)}) for i in RS11.shop]
+    rs = RS11.model_copy(update={"shop": shop})
+    state = shop_state11(money, rnd=2, rs=rs)
+    legal = legal11(state, rs)
+    tied = [i for i in rs.shop if i.kind != "points" and i.price == money]
+    assert len(tied) == 2 and all(f"buy:{i.id}" in legal for i in tied)
+    bot = HeuristicBot(rs, 20, 4, Strategy("t"), seed=1)
+    assert bot.choose(state, "p1", legal) == expected
+
+
+# --- v1 games unchanged (golden results.csv) ----------------------------------
+
+GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v1_bots_results.csv"
+GOLDEN_V1_BOTS = (
+    "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
+    "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
+)
+
+
+def test_v1_tournament_matches_the_golden_results_csv(tmp_path):
+    import csv
+
+    r = runner.invoke(
+        app,
+        [
+            "tournament",
+            "--bots",
+            GOLDEN_V1_BOTS,
+            "--rules",
+            "v1",
+            "--games",
+            "10",
+            "--seed",
+            "7",
+            "--name",
+            "v1golden",
+            "--out",
+            str(tmp_path),
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    (results,) = tmp_path.glob("*/results.csv")
+    with GOLDEN_V1.open(encoding="utf-8", newline="") as f:
+        golden = list(csv.DictReader(f))
+    with results.open(encoding="utf-8", newline="") as f:
+        new = list(csv.DictReader(f))
+    assert len(golden) == len(new) == 150
+    for column in golden[0]:
+        assert [row[column] for row in golden] == [row.get(column) for row in new], column
