@@ -431,3 +431,272 @@ def test_results_csv_is_byte_identical_for_one_and_two_workers(tmp_path):
     assert tour(tmp_path / "w2", "--workers", "2", "--games", "2").exit_code == 0
     (a,), (b,) = runs(tmp_path / "w1"), runs(tmp_path / "w2")
     assert (a / "results.csv").read_bytes() == (b / "results.csv").read_bytes()
+
+
+# --- seats.parquet (issue #43) ---------------------------------------------------------------
+
+TWO_BOTS = "bot:draw30-pts3-blue,bot:draw15-pts8-cleaner"
+
+
+def _expected_schema(rounds: int, rules: str = "v1"):
+    import pyarrow as pa
+
+    from quack_rl.rules import load_ruleset
+
+    rs = load_ruleset(rules)
+    fields = [
+        ("pairing", pa.string()),
+        ("sweep_value", pa.string()),
+        ("game", pa.int64()),
+        ("seed", pa.int64()),
+        ("seat", pa.string()),
+        ("bot", pa.string()),
+    ]
+    fields += [(f"money_r{k}", pa.int64()) for k in range(1, rounds + 1)]
+    fields += [(f"points_r{k}", pa.int64()) for k in range(1, rounds + 1)]
+    fields += [(f"bag_{c.id}", pa.int64()) for c in rs.chips]
+    return pa.schema(fields)
+
+
+def read_seats(run: Path):
+    import pyarrow.parquet as pq
+
+    return pq.read_table(run / "seats.parquet")
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        (),
+        ("--keep-records",),
+        ("--seat-check",),
+        ("--sweep", "points_round=2,6"),
+    ],
+)
+def test_every_run_writes_seats_parquet_with_the_schema(tmp_path, extra):
+    result = tour(tmp_path, *extra, games="2")
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    table = read_seats(run)
+    assert table.schema.remove_metadata().equals(_expected_schema(9))
+    assert table.schema.names == _expected_schema(9).names
+
+
+def test_seats_has_two_rows_per_results_row(tmp_path):
+    result = tour(tmp_path, "--sweep", "points_round=2,6", bots=TWO_BOTS, games="3")
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    rows = read_rows(run)
+    seats = read_seats(run).to_pylist()
+    assert len(rows) == 6 and len(seats) == 2 * len(rows)
+    for i, row in enumerate(rows):
+        for j, seat in enumerate(("p1", "p2")):
+            s = seats[2 * i + j]
+            assert s["seat"] == seat
+            assert s["pairing"] == row["pairing"]
+            assert s["sweep_value"] == row["sweep_value"]
+            assert s["game"] == int(row["game"]) and s["seed"] == int(row["seed"])
+            assert s["bot"] == row[seat]
+
+
+@pytest.mark.parametrize("rules", ["v1", "v1.1"])
+@pytest.mark.parametrize("rounds", [3, 9])
+def test_round_and_bag_columns_follow_rounds_and_rules(tmp_path, rules, rounds):
+    result = tour(tmp_path, "--rules", rules, "--rounds", str(rounds), bots=TWO_BOTS, games="1")
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    table = read_seats(run)
+    assert table.schema.remove_metadata().equals(_expected_schema(rounds, rules))
+    names = table.schema.names
+    assert f"money_r{rounds}" in names and f"points_r{rounds}" in names
+    assert f"money_r{rounds + 1}" not in names and f"points_r{rounds + 1}" not in names
+
+
+def test_points_end_at_the_final_points_and_never_drop(tmp_path):
+    assert tour(tmp_path, games="3").exit_code == 0
+    (run,) = runs(tmp_path)
+    rows = read_rows(run)
+    seats = read_seats(run).to_pylist()
+    for i, row in enumerate(rows):
+        for j, seat in enumerate(("p1", "p2")):
+            s = seats[2 * i + j]
+            assert s["points_r9"] == int(row[f"{seat}_points"])
+            for k in range(1, 9):
+                assert s[f"points_r{k + 1}"] >= s[f"points_r{k}"]
+
+
+def _first_recorded_game(run: Path):
+    shard = sorted((run / "records").glob("shard-*.jsonl.gz"))[0]
+    return next(iter(read_games(shard)))
+
+
+def _seat_rows_of(run: Path, seed: int) -> dict[str, dict]:
+    return {s["seat"]: s for s in read_seats(run).to_pylist() if s["seed"] == seed}
+
+
+@pytest.mark.parametrize("rules", ["v1", "v1.1"])
+def test_end_bag_matches_the_game_record(tmp_path, rules):
+    from quack_rl.rules import load_ruleset
+
+    rs = load_ruleset(rules)
+    assert tour(tmp_path, "--keep-records", "--rules", rules, games="2").exit_code == 0
+    (run,) = runs(tmp_path)
+    game = _first_recorded_game(run)
+    faces = {f.id: f for f in rs.die}
+    expected = {seat: dict.fromkeys((c.id for c in rs.chips), 0) for seat in ("p1", "p2")}
+    for seat in expected:
+        for chip_id, n in rs.start_bag.items():
+            expected[seat][chip_id] += n
+    for step in game.steps:
+        for event in step.events:
+            if event["kind"] == "buy":
+                item = rs.shop_item(event["item"])
+                if item.kind == "chip":
+                    expected[event["seat"]][item.chip] += 1
+                elif item.kind == "remove_chip":
+                    expected[event["seat"]][item.chip] -= 1
+            elif event["kind"] == "die":
+                face = faces[event["face"]]
+                if face.kind == "chip":
+                    expected[event["seat"]][face.chip] += 1
+    seats = _seat_rows_of(run, game.header.seed)
+    for seat in ("p1", "p2"):
+        got = {c.id: seats[seat][f"bag_{c.id}"] for c in rs.chips}
+        assert got == expected[seat], seat
+
+
+def test_money_matches_the_money_events_of_the_game_record(tmp_path):
+    assert tour(tmp_path, "--keep-records", games="2").exit_code == 0
+    (run,) = runs(tmp_path)
+    game = _first_recorded_game(run)
+    money: dict[tuple[str, int], int] = {}
+    for step in game.steps:
+        for event in step.events:
+            if event["kind"] == "money":
+                money[(event["seat"], step.round)] = event["amount"]
+    assert len(money) == 18
+    seats = _seat_rows_of(run, game.header.seed)
+    for (seat, k), amount in money.items():
+        assert seats[seat][f"money_r{k}"] == amount, (seat, k)
+
+
+def test_no_money_or_points_value_is_missing(tmp_path):
+    assert tour(tmp_path, "--sweep", "points_round=2,6", games="2").exit_code == 0
+    (run,) = runs(tmp_path)
+    table = read_seats(run)
+    columns = [n for n in table.schema.names if n.startswith(("money_r", "points_r"))]
+    assert len(columns) == 18
+    for name in columns:
+        assert table.column(name).null_count == 0, name
+
+
+def test_a_missing_round_value_raises_and_never_fills():
+    from quack_rl.simgame import GameStats
+    from quack_rl.tournament import SeatsError, seat_rows
+
+    stats = GameStats()
+    for seat in ("p1", "p2"):
+        for k in (1, 2, 3):
+            stats.points[seat][k] = k
+        for k in (1, 3):  # round 2 money is missing
+            stats.money[seat][k] = 5
+    from quack_rl.engine import new_game
+    from quack_rl.rules import load_ruleset, with_rounds
+
+    rs = with_rounds(load_ruleset("v1"), 3)
+    final = new_game(rs)
+    task_row = {"pairing": "a vs b", "p1": "a", "p2": "b", "game": 0, "seed": 1, "sweep_value": ""}
+    with pytest.raises(SeatsError, match="money_r2"):
+        seat_rows(task_row, final, stats, rs)
+
+
+def test_seats_parquet_is_equal_for_one_and_two_workers(tmp_path):
+    assert tour(tmp_path / "w1", "--workers", "1", "--games", "2").exit_code == 0
+    assert tour(tmp_path / "w2", "--workers", "2", "--games", "2").exit_code == 0
+    (a,), (b,) = runs(tmp_path / "w1"), runs(tmp_path / "w2")
+    ta, tb = read_seats(a), read_seats(b)
+    assert ta.equals(tb, check_metadata=True)
+    for name in ("game_id", "started_at", "finished_at"):
+        assert name not in ta.schema.names
+
+
+def test_small_field_is_the_17_specs_in_order():
+    from quack_rl.bots import parse_bot_name
+    from quack_rl.tournament import field_specs
+
+    specs = field_specs("small")
+    expected = [
+        f"bot:draw{limit}-pts{rnd}-{strategy}"
+        for limit in (10, 20)
+        for rnd in (4, 6)
+        for strategy in ("blue", "green", "cleaner", "balanced")
+    ] + ["bot:draw20-pts1-points"]
+    assert list(specs) == expected
+    assert len(specs) == 17
+    assert specs[0] == "bot:draw10-pts4-blue" and specs[15] == "bot:draw20-pts6-balanced"
+    for spec in specs:
+        parse_bot_name(spec)
+
+
+def test_unknown_field_error_lists_full_and_small():
+    from quack_rl.tournament import field_specs
+
+    with pytest.raises(TournamentError) as e:
+        field_specs("nope")
+    assert "full" in str(e.value) and "small" in str(e.value)
+
+
+def test_help_names_the_small_field():
+    result = runner.invoke(app, ["tournament", "--help"])
+    assert "small" in result.output and "17 bots" in result.output
+
+
+def test_small_field_run_has_136_pairings(tmp_path):
+    result = runner.invoke(
+        app,
+        [
+            "tournament",
+            "--field",
+            "small",
+            "--games",
+            "1",
+            "--workers",
+            "1",
+            "--sample-size",
+            "0",
+            "--out",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    assert len(read_rows(run)) == 136
+    assert read_seats(run).num_rows == 272
+
+
+def test_report_works_on_a_run_with_seats_parquet(tmp_path):
+    assert tour(tmp_path, games="2").exit_code == 0
+    (run,) = runs(tmp_path)
+    assert (run / "seats.parquet").exists()
+    result = runner.invoke(app, ["report", str(run)])
+    assert result.exit_code == 0, result.output
+
+
+def test_results_csv_columns_are_unchanged(tmp_path):
+    assert tour(tmp_path, games="1").exit_code == 0
+    (run,) = runs(tmp_path)
+    with (run / "results.csv").open(encoding="utf-8", newline="") as f:
+        header = next(csv.reader(f))
+    assert header == CSV_COLUMNS
+
+
+def test_cli_and_worker_modules_do_not_import_pyarrow():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, quack_rl.cli.main, quack_rl.tournament, quack_rl.simgame; "
+        "print('pyarrow' in sys.modules)"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "False"

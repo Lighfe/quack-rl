@@ -151,7 +151,8 @@ def tournament(
         typer.Option(
             "--field",
             help="Named field of bots, put before --bots. Known: full "
-            "(24 bots of the balance run plus the baseline = 25).",
+            "(24 bots of the balance run plus the baseline = 25), small (17 bots: "
+            "draw 10/20, points round 4/6, 4 strategies, plus the baseline).",
         ),
     ] = None,
     games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
@@ -187,7 +188,8 @@ def tournament(
     ] = DEFAULT_SAMPLE_SIZE,
     out: Annotated[Path, typer.Option(help="Tournament root folder.")] = Path("data/tournaments"),
 ) -> None:
-    """Every pair of the field plays; writes config.json and results.csv to its own folder."""
+    """Every pair of the field plays; writes config.json, results.csv and seats.parquet
+    to its own folder."""
     try:
         if field is None and not bots:
             raise TournamentError("give --field or --bots")

@@ -28,6 +28,7 @@ from typing import Any
 from quack_rl import __version__
 from quack_rl.bots import bot_name, parse_bot_name
 from quack_rl.cli.seats import check_seat
+from quack_rl.engine import GameState
 from quack_rl.record import berlin_iso, berlin_stamp, read_games, verify_game, verify_seed
 from quack_rl.rules import Ruleset, apply_overrides, load_ruleset, with_rounds
 from quack_rl.simgame import GameStats, play_sim_game
@@ -37,6 +38,11 @@ FIELD_DRAW_LIMITS = (0, 20, 40)
 FIELD_POINTS_ROUNDS = (4, 7)
 FIELD_STRATEGIES = ("blue", "green", "cleaner", "balanced")
 FIELD_BASELINE = "draw20-pts1-points"
+SMALL_DRAW_LIMITS = (10, 20)
+SMALL_POINTS_ROUNDS = (4, 6)
+FIELDS = ("full", "small")
+SEATS_FILE = "seats.parquet"
+SEATS_KEY_COLUMNS = ("pairing", "sweep_value", "game", "seed", "seat", "bot")
 BASE_COLUMNS: list[str] = [
     "pairing",
     "p1",
@@ -70,6 +76,10 @@ _NAME_OK = re.compile(r"[A-Za-z0-9._-]+")
 
 class TournamentError(ValueError):
     """The inputs of a tournament are not valid."""
+
+
+class SeatsError(RuntimeError):
+    """A value of seats.parquet is missing. Never filled in: the run stops."""
 
 
 @dataclass(frozen=True)
@@ -153,12 +163,16 @@ def _overrides_for(config: TournamentConfig, value: str) -> dict[str, str]:
 
 def field_specs(name: str) -> tuple[str, ...]:
     """The seat specs of a named field. Raises TournamentError on an unknown name."""
-    if name != "full":
-        raise TournamentError(f"unknown field {name!r} (known fields: full)")
+    if name == "full":
+        limits, rounds = FIELD_DRAW_LIMITS, FIELD_POINTS_ROUNDS
+    elif name == "small":
+        limits, rounds = SMALL_DRAW_LIMITS, SMALL_POINTS_ROUNDS
+    else:
+        raise TournamentError(f"unknown field {name!r} (known fields: {', '.join(FIELDS)})")
     specs = [
         "bot:" + bot_name(limit, rnd, strategy)
-        for limit in FIELD_DRAW_LIMITS
-        for rnd in FIELD_POINTS_ROUNDS
+        for limit in limits
+        for rnd in rounds
         for strategy in FIELD_STRATEGIES
     ]
     return (*specs, "bot:" + FIELD_BASELINE)
@@ -258,12 +272,74 @@ def _row(
     return row
 
 
-def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[str, Any]]:
-    """Play all games of one pairing (runs in a worker). Optionally write a gzipped shard."""
+def seat_columns(rs: Ruleset) -> list[str]:
+    """Columns of seats.parquet, in order (see the README section on the run folder)."""
+    rounds = range(1, rs.rounds + 1)
+    return [
+        *SEATS_KEY_COLUMNS,
+        *(f"money_r{k}" for k in rounds),
+        *(f"points_r{k}" for k in rounds),
+        *(f"bag_{c.id}" for c in rs.chips),
+    ]
+
+
+def seat_rows(
+    row: dict[str, Any], final: GameState, stats: GameStats, rs: Ruleset
+) -> list[dict[str, Any]]:
+    """The two seats.parquet rows (p1, then p2) of one results.csv row.
+
+    Raises SeatsError when a money or points value of a round is missing; no value is filled in.
+    """
+    out: list[dict[str, Any]] = []
+    for seat in ("p1", "p2"):
+        seat_row: dict[str, Any] = {
+            "pairing": row["pairing"],
+            "sweep_value": row["sweep_value"],
+            "game": row["game"],
+            "seed": row["seed"],
+            "seat": seat,
+            "bot": row[seat],
+        }
+        for prefix, values in (("money", stats.money[seat]), ("points", stats.points[seat])):
+            for k in range(1, rs.rounds + 1):
+                if k not in values:
+                    raise SeatsError(
+                        f"{prefix}_r{k} of seat {seat} is missing in game {row['game']} "
+                        f"(seed {row['seed']}) of pairing {row['pairing']!r}"
+                    )
+                seat_row[f"{prefix}_r{k}"] = values[k]
+        player = final.players[seat]
+        for chip in rs.chips:
+            seat_row[f"bag_{chip.id}"] = player.owned(chip.id)
+        out.append(seat_row)
+    return out
+
+
+def write_seats_parquet(path: Path, rows: Sequence[dict[str, Any]], rs: Ruleset) -> None:
+    """Write seats.parquet with pyarrow (imported here only, in the main process)."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    columns = seat_columns(rs)
+    strings = {"pairing", "sweep_value", "seat", "bot"}
+    schema = pa.schema([(c, pa.string() if c in strings else pa.int64()) for c in columns])
+    table = pa.Table.from_pydict({c: [r[c] for r in rows] for c in columns}, schema=schema)
+    pq.write_table(table, path, compression="zstd")
+
+
+_Played = tuple[list[dict[str, Any]], list[dict[str, Any]]]
+
+
+def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> _Played:
+    """Play all games of one pairing (runs in a worker). Optionally write a gzipped shard.
+
+    Returns the results.csv rows and the seats.parquet rows of the pairing.
+    """
     config, task, records_dir = args
     rs = _rules_for(config, task.sweep_value)
     overrides = _overrides_for(config, task.sweep_value)
     rows: list[dict[str, Any]] = []
+    seats: list[dict[str, Any]] = []
     shard = (
         gzip.open(
             Path(records_dir) / f"shard-{task.index + 1:04d}.jsonl.gz", "wt", encoding="utf-8"
@@ -291,15 +367,18 @@ def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> list[dict[st
                 game_seed=seed,
                 stream=shard,
             )
-            rows.append(_row(task, i, seed, final, explosions, stats, rs))
+            row = _row(task, i, seed, final, explosions, stats, rs)
+            rows.append(row)
+            seats.extend(seat_rows(row, final, stats, rs))
     finally:
         if shard is not None:
             shard.close()
-    return rows
+    return rows, seats
 
 
-def run_games(config: TournamentConfig, records_dir: Path | None = None) -> list[dict[str, Any]]:
-    """Play every pairing and return the rows in a fixed order (sweep value, pairing, game)."""
+def play_all(config: TournamentConfig, records_dir: Path | None = None) -> _Played:
+    """Play every pairing. Returns the results.csv rows in a fixed order (sweep value, pairing,
+    game) and the seats.parquet rows in the same order (p1, then p2 inside a game)."""
     tasks = _tasks(config)
     jobs = [(config, t, str(records_dir) if records_dir else None) for t in tasks]
     if config.workers == 1 or len(jobs) == 1:
@@ -308,7 +387,14 @@ def run_games(config: TournamentConfig, records_dir: Path | None = None) -> list
         ctx = multiprocessing.get_context("spawn")
         with ProcessPoolExecutor(max_workers=config.workers, mp_context=ctx) as pool:
             per_task = list(pool.map(_play_task, jobs))
-    return [row for rows in per_task for row in rows]
+    rows = [row for task_rows, _ in per_task for row in task_rows]
+    seats = [row for _, task_seats in per_task for row in task_seats]
+    return rows, seats
+
+
+def run_games(config: TournamentConfig, records_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Play every pairing and return the results.csv rows (see `play_all`)."""
+    return play_all(config, records_dir)[0]
 
 
 def results_csv(rows: Sequence[dict[str, Any]]) -> str:
@@ -383,7 +469,10 @@ def verify_sample(config: TournamentConfig, rows: Sequence[dict[str, Any]]) -> l
 
 
 def write_run(config: TournamentConfig, out: Path) -> tuple[Path, list[dict[str, Any]]]:
-    """Validate, play and write config.json and results.csv. Returns the folder and the rows."""
+    """Validate, play and write config.json, results.csv and seats.parquet.
+
+    Returns the folder and the results.csv rows.
+    """
     validate(config)
     run_dir = new_run_dir(out, config.name)
     (run_dir / "config.json").write_text(_config_json(config, berlin_iso()), encoding="utf-8")
@@ -391,6 +480,8 @@ def write_run(config: TournamentConfig, out: Path) -> tuple[Path, list[dict[str,
     if config.keep_records:
         records_dir = run_dir / "records"
         records_dir.mkdir()
-    rows = run_games(config, records_dir)
+    rows, seats = play_all(config, records_dir)
     (run_dir / "results.csv").write_text(results_csv(rows), encoding="utf-8", newline="")
+    first_value = config.sweep.values[0] if config.sweep else ""
+    write_seats_parquet(run_dir / SEATS_FILE, seats, _rules_for(config, first_value))
     return run_dir, rows

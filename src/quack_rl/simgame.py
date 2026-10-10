@@ -21,10 +21,17 @@ from quack_rl.runner import play_game
 
 @dataclass
 class GameStats:
-    """Counts taken from the game events while the game is played."""
+    """Counts and per-round values taken from the game steps while the game is played.
+
+    `money[seat][k]` is the amount of the seat's `money` event in round k (its money when the
+    shop phase of round k starts), `points[seat][k]` its points total at the end of round k
+    (after the shop).
+    """
 
     draws: dict[str, int] = field(default_factory=lambda: dict.fromkeys(SEATS, 0))
     buys: dict[str, Counter[str]] = field(default_factory=lambda: {s: Counter() for s in SEATS})
+    money: dict[str, dict[int, int]] = field(default_factory=lambda: {s: {} for s in SEATS})
+    points: dict[str, dict[int, int]] = field(default_factory=lambda: {s: {} for s in SEATS})
 
 
 def play_sim_game(
@@ -42,7 +49,7 @@ def play_sim_game(
 
     The bot seats get the seeds 2 * game_seed + 1 and + 2. With a `stream` the game is recorded
     in it. Returns the final state, the number of explosions of each seat, and the draw and
-    purchase counts of each seat.
+    purchase counts, the money and points per round of each seat.
     """
     seats = {
         "p1": parse_seat(p1, 2 * game_seed + 1, rs=rs),
@@ -75,6 +82,11 @@ def play_sim_game(
                 stats.draws[event["seat"]] += 1
             elif event.get("kind") == "buy":
                 stats.buys[event["seat"]][event["item"]] += 1
+            elif event.get("kind") == "money":
+                stats.money[event["seat"]][result.round] = event["amount"]
+            elif event.get("kind") in ("round_end", "game_end"):
+                for seat in SEATS:
+                    stats.points[seat][result.round] = result.state.players[seat].points
         if recorder is not None:
             recorder.on_step(result, decision_ms)
 
