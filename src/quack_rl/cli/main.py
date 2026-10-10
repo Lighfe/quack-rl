@@ -31,6 +31,7 @@ from quack_rl.tournament import (
     DEFAULT_SAMPLE_SIZE,
     TournamentConfig,
     TournamentError,
+    field_specs,
     parse_sweep,
     verify_sample,
     write_run,
@@ -140,11 +141,19 @@ def simulate(
 @app.command()
 def tournament(
     bots: Annotated[
-        list[str],
+        list[str] | None,
         typer.Option(
             "--bots", help="Bot seat specs of the field, bot:<name> (comma list or repeat)."
         ),
-    ],
+    ] = None,
+    field: Annotated[
+        str | None,
+        typer.Option(
+            "--field",
+            help="Named field of bots, put before --bots. Known: full "
+            "(24 bots of the balance run plus the baseline = 25).",
+        ),
+    ] = None,
     games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
     rules: Annotated[str, typer.Option(help="Base rules version.")] = "v1",
@@ -180,8 +189,14 @@ def tournament(
 ) -> None:
     """Every pair of the field plays; writes config.json and results.csv to its own folder."""
     try:
+        if field is None and not bots:
+            raise TournamentError("give --field or --bots")
+        specs = field_specs(field) if field is not None else ()
         config = TournamentConfig(
-            bots=tuple(b.strip() for item in bots for b in item.split(",") if b.strip()),
+            bots=(
+                *specs,
+                *(b.strip() for item in bots or [] for b in item.split(",") if b.strip()),
+            ),
             games=games,
             seed=seed,
             rules=rules,

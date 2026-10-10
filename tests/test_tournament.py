@@ -274,3 +274,91 @@ def test_validate_rejects_sweep_that_is_also_set():
     )
     with pytest.raises(TournamentError):
         validate(config)
+
+
+def test_full_field_is_the_25_specs_in_order():
+    from quack_rl.bots import parse_bot_name
+    from quack_rl.tournament import field_specs
+
+    specs = field_specs("full")
+    expected = [
+        f"bot:draw{limit}-pts{rnd}-{strategy}"
+        for limit in (0, 20, 40)
+        for rnd in (4, 7)
+        for strategy in ("blue", "green", "cleaner", "balanced")
+    ] + ["bot:draw20-pts1-points"]
+    assert list(specs) == expected
+    assert len(specs) == 25 and len(set(specs)) == 25
+    assert specs[0] == "bot:draw0-pts4-blue" and specs[23] == "bot:draw40-pts7-balanced"
+    for spec in specs:
+        parse_bot_name(spec)
+
+
+def _capture_config(monkeypatch):
+    seen = {}
+
+    def fake_write_run(config, out):
+        seen["config"] = config
+        raise TournamentError("stop here")
+
+    monkeypatch.setattr(cli_main, "write_run", fake_write_run)
+    return seen
+
+
+def test_field_full_without_bots_expands_to_25_specs(monkeypatch, tmp_path):
+    from quack_rl.tournament import field_specs
+
+    seen = _capture_config(monkeypatch)
+    runner.invoke(app, ["tournament", "--field", "full", "--out", str(tmp_path)])
+    assert seen["config"].bots == field_specs("full")
+
+
+def test_field_then_bots_adds_extra_bot_after_the_field(monkeypatch, tmp_path):
+    seen = _capture_config(monkeypatch)
+    runner.invoke(
+        app, ["tournament", "--field", "full", "--bots", "bot:random", "--out", str(tmp_path)]
+    )
+    bots = seen["config"].bots
+    assert len(bots) == 26 and bots[-1] == "bot:random" and bots[0] == "bot:draw0-pts4-blue"
+
+
+def test_field_with_a_bot_of_the_field_is_a_duplicate_error(tmp_path):
+    result = runner.invoke(
+        app,
+        ["tournament", "--field", "full", "--bots", "bot:draw0-pts4-blue", "--out", str(tmp_path)],
+    )
+    assert result.exit_code == 2
+    assert "Error:" in result.output and "the field lists a bot twice" in result.output
+    assert TRACEBACK not in result.output
+    assert not list(tmp_path.glob("*"))
+
+
+def test_neither_field_nor_bots_is_an_error(tmp_path):
+    result = runner.invoke(app, ["tournament", "--out", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "Error:" in result.output and "--field" in result.output and "--bots" in result.output
+    assert TRACEBACK not in result.output
+
+
+def test_unknown_field_lists_known_names(tmp_path):
+    result = runner.invoke(app, ["tournament", "--field", "nope", "--out", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "Error:" in result.output and "full" in result.output
+    assert TRACEBACK not in result.output
+    assert not list(tmp_path.glob("*"))
+
+
+def test_config_json_of_a_field_run_stores_the_specs(tmp_path):
+    from quack_rl.tournament import field_specs, write_run
+
+    run_dir, _ = write_run(
+        TournamentConfig(bots=field_specs("full")[:2], games=1, seed=1, sample_size=0), tmp_path
+    )
+    config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    assert config["bots"] == list(field_specs("full")[:2])
+    assert all(b.startswith("bot:") for b in config["bots"])
+
+
+def test_help_documents_field():
+    result = runner.invoke(app, ["tournament", "--help"])
+    assert "--field" in result.output and "full" in result.output

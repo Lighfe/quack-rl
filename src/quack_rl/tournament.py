@@ -23,6 +23,10 @@ from quack_rl.rules import Ruleset, apply_overrides, load_ruleset, with_rounds
 from quack_rl.simgame import GameStats, play_sim_game
 
 BOT_SWEEPS = ("draw_limit", "points_round")
+FIELD_DRAW_LIMITS = (0, 20, 40)
+FIELD_POINTS_ROUNDS = (4, 7)
+FIELD_STRATEGIES = ("blue", "green", "cleaner", "balanced")
+FIELD_BASELINE = "draw20-pts1-points"
 BASE_COLUMNS: list[str] = [
     "pairing",
     "p1",
@@ -121,6 +125,19 @@ def _overrides_for(config: TournamentConfig, value: str) -> dict[str, str]:
     if sweep is None or sweep.param in BOT_SWEEPS:
         return dict(config.overrides)
     return {**config.overrides, sweep.param: value}
+
+
+def field_specs(name: str) -> tuple[str, ...]:
+    """The seat specs of a named field. Raises TournamentError on an unknown name."""
+    if name != "full":
+        raise TournamentError(f"unknown field {name!r} (known fields: full)")
+    specs = [
+        "bot:" + bot_name(limit, rnd, strategy)
+        for limit in FIELD_DRAW_LIMITS
+        for rnd in FIELD_POINTS_ROUNDS
+        for strategy in FIELD_STRATEGIES
+    ]
+    return (*specs, "bot:" + FIELD_BASELINE)
 
 
 def validate(config: TournamentConfig) -> None:
