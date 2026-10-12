@@ -310,3 +310,14 @@ def test_pending_choice_of_the_opponent_does_not_change_the_vector(version):
         assert np.array_equal(vectorize(observe(state, rs, "p1"), rs), before)
         outcomes.append(p2_choice)
     assert len(outcomes) > 1
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_derived_entries_come_before_the_map_block(version):
+    from quack_rl.rl.derive import derived_names
+
+    rs = load_ruleset(version)
+    names = vector_names(rs)
+    first = names.index(derived_names()[0])
+    assert names[first : first + len(derived_names())] == derived_names()
+    assert first + len(derived_names()) == map_slice(rs).start

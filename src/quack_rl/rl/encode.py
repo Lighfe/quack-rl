@@ -2,15 +2,17 @@
 
 The view holds only what the seat may know: no draw order, no opponent bag, no simultaneous
 choice of the opponent. Observation layout 2: a board map of the placed chips, both bags
-(remaining and complete), and the rule scalars.
+(remaining and complete), the rule scalars and derived features of the generic rules.
 """
 
 from typing import Any
 
 import numpy as np
 
+from quack_rl.components import get_component
 from quack_rl.engine import SEATS, GameState, Phase, Status, action_names, legal_actions
 from quack_rl.engine.state import PlayerState, scoring_field
+from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
 OBSERVATION_LAYOUT = 2
@@ -85,6 +87,7 @@ def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
         "phase": state.phase.value,
         "own": _public(state.players[seat], rs),
         "opponent": _public(state.players[other_seat(seat)], rs),
+        "derived": derived(state, rs, seat),
     }
 
 
@@ -118,6 +121,7 @@ def vector_names(rs: Ruleset) -> list[str]:
         *(f"phase.{p}" for p in PHASES),
         *_player_names("own", rs),
         *_player_names("opponent", rs),
+        *derived_names(),
         *_map_names(rs),
     ]
 
@@ -163,6 +167,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *(obs["phase"] == p for p in PHASES),
         *_player_values(obs["own"], rs),
         *_player_values(obs["opponent"], rs),
+        *(obs["derived"][n] for n in derived_names()),
         *_map_values(obs, rs),
     ]
     return np.asarray(values, dtype=np.float32)
@@ -196,6 +201,23 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     cell = [float(max(rs.money)), 1.0]
     for _ in range(2):
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
+    # A seat explodes on the draw that passes the limit, so its white total ends below
+    # limit + the largest explosion weight of a chip.
+    max_weight = max(get_component(c.component).explosion_weight(c) for c in rs.chips)
+    money_cap = float(max(rs.money) * rs.last_round_money_percent // 100)
+    # Derived entries. `limit_distance` is negative after an explosion; `point_delta` has no bound.
+    derived_bounds = {
+        "scoring_field": (0.0, float(rs.track_end)),
+        "ruby_at_scoring_field": (0.0, 1.0),
+        "money_if_stop": (0.0, max(money_cap, float(max(rs.money)))),
+        "limit_distance": (float(-max_weight), float(rs.explosion_limit)),
+        "explosion_chance": (0.0, 1.0),
+        "rolls_die": (0.0, 1.0),
+        "chips_placed": (0.0, inf),
+        "point_delta": (-inf, inf),
+    }
+    derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names()]
+    derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names()]
     high = [
         float(rs.rounds),
         float(rs.rounds),
@@ -203,9 +225,18 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *[1.0] * len(PHASES),
         *player,
         *player,
+        *derived_high,
         *cell * (rs.track_end + 1),
     ]
-    low = [1.0, 1.0, 1.0, *[0.0] * (len(high) - 3)]
+    n_before = 3 + len(PHASES) + 2 * len(player)
+    low = [
+        1.0,
+        1.0,
+        1.0,
+        *[0.0] * (n_before - 3),
+        *derived_low,
+        *[0.0] * (len(high) - n_before - len(derived_low)),
+    ]
     return np.asarray(low, dtype=np.float32), np.asarray(high, dtype=np.float32)
 
 

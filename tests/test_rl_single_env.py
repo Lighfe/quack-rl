@@ -42,6 +42,8 @@ def test_check_env_without_warnings_and_bounded_entries(version):
         warnings.simplefilter("error")
         # points and bag counts have no real upper bound: that warning stays
         warnings.filterwarnings("ignore", message=".*maximum value is infinity.*")
+        # the point difference has no real lower bound either
+        warnings.filterwarnings("ignore", message=".*minimum value is -infinity.*")
         check_env(env, skip_render_check=True)
     box = env.observation_space
     names = vector_names(env.rs)
