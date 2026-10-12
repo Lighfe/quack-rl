@@ -6,6 +6,7 @@ import pytest
 
 from quack_rl.engine import (
     RngChance,
+    ScriptedChance,
     action_names,
     legal_actions,
     needs_actions,
@@ -138,3 +139,27 @@ def test_reward_win_loss_draw():
     state.players["p2"].points = 10
     assert reward(state, "p1") == 0.0
     assert reward(state, "p2") == 0.0
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_draw_order_does_not_change_the_observation(version):
+    """Two games draw the same chips in a different order: the states differ in the order
+    of `placed` (the draw order), the observations do not."""
+    rs = load_ruleset(version)
+
+    def two_draws(first, second):
+        state = new_game(rs)
+        for chip in (first, second):
+            # one chip per seat and step (scripted chance: p1 first, then p2)
+            state = step(
+                state, rs, {"p1": "draw", "p2": "draw"}, ScriptedChance([chip, chip])
+            ).state
+        return state
+
+    a = two_draws("white_1", "white_2")
+    b = two_draws("white_2", "white_1")
+    assert a.players["p1"].placed != b.players["p1"].placed
+    for seat in ("p1", "p2"):
+        obs_a, obs_b = observe(a, rs, seat), observe(b, rs, seat)
+        assert obs_a == obs_b
+        assert np.array_equal(vectorize(obs_a, rs), vectorize(obs_b, rs))
