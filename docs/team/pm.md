@@ -67,7 +67,7 @@ Example criterion:
 
 ## Criteria for reproducible records
 
-A criterion that asks for identical or reproducible records or runs (for example "the same seed gives identical records") names the fields that are ignored in the comparison: `game_id`, `started_at` and `finished_at`, so the game content is compared. When no field is ignored, the criterion says why. The reference is the existing tests `tests/test_cli_play.py` and `tests/test_cli_sim.py`.
+A criterion that asks for identical or reproducible records or runs (for example "the same seed gives identical records") names the fields that are ignored in the comparison: `game_id`, `started_at` and `finished_at`, so the game content is compared. When no field is ignored, the criterion says why. The reference is the existing tests in `tests/test_bots.py` that compare records (`test_simulate_same_seed_same_records` and `test_simulate_same_seed_only_ids_and_times_differ`).
 
 ## Permissions
 
