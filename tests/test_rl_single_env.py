@@ -143,3 +143,57 @@ def test_illegal_action_is_replaced_and_flagged():
     illegal = int(np.flatnonzero(info["action_mask"] == 0)[0])
     _, _, _, _, info = env.step(illegal)
     assert info["illegal_action"] is True
+
+
+def _explosions(env):
+    out = {"p1": 0, "p2": 0}
+    for result in env.trace:
+        for e in result.events:
+            if e["kind"] == "explode":
+                out[e["seat"]] += 1
+    return out
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+@pytest.mark.parametrize("seat", ["p1", "p2"])
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_episode_summary_on_random_games(version, seat, seed):
+    env = QuackEnv(seat=seat, rules=version)
+    rng = np.random.default_rng(seed)
+    obs, info = env.reset(seed=seed)
+    assert "episode" not in info
+    assert env.trace is env._env.trace
+    calls = 0
+    while True:
+        action = int(rng.choice(np.flatnonzero(info["action_mask"])))
+        obs, rew, term, trunc, info = env.step(action)
+        calls += 1
+        if term:
+            break
+        assert "episode" not in info
+    ep = info["episode"]
+    assert set(ep) == {"result", "points", "explosions", "decisions", "seat"}
+    assert ep["seat"] == seat
+    other = "p2" if seat == "p1" else "p1"
+    assert ep["points"] == {
+        "own": env.state.players[seat].points,
+        "opponent": env.state.players[other].points,
+    }
+    boom = _explosions(env)
+    assert ep["explosions"] == {"own": boom[seat], "opponent": boom[other]}
+    assert ep["decisions"] == calls
+    assert ep["result"] == ("win" if rew > 0 else "loss" if rew < 0 else "draw")
+
+
+def test_episode_seat_follows_random_seat():
+    env = QuackEnv(seat="random")
+    seats = set()
+    for seed in range(8):
+        _, info = env.reset(seed=seed)
+        agent = env.agent_seat
+        done = False
+        while not done:
+            _, _, done, _, info = env.step(int(np.flatnonzero(info["action_mask"])[0]))
+        assert info["episode"]["seat"] == agent
+        seats.add(agent)
+    assert seats == {"p1", "p2"}

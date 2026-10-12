@@ -188,3 +188,42 @@ def test_scripted_actions_and_scripted_chance_match_engine(version):
         env.step({s: names.index(a) for s, a in acts.items()})
     assert not env.agents
     assert state_to_dict(env.state) == state_to_dict(state)
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_trace_events_equal_direct_engine_events(version):
+    rs = load_ruleset(version)
+    seed = 21
+    rng = random.Random(5)
+    env = QuackParallelEnv(rules=rs)
+    obs, _ = env.reset(seed=seed)
+    state, chance = new_game(rs), RngChance(seed)
+    direct = []
+    while not needs_actions(state):
+        result = step(state, rs, None, chance)
+        direct += result.events
+        state = result.state
+    names = action_names(rs)
+    while env.agents:
+        idx = {a: rng.choice(np.flatnonzero(obs[a]["action_mask"]).tolist()) for a in env.agents}
+        obs, *_ = env.step(idx)
+        result = step(state, rs, {a: names[i] for a, i in idx.items()}, chance)
+        direct += result.events
+        state = result.state
+        while state.phase is not Phase.GAME_OVER and not needs_actions(state):
+            result = step(state, rs, None, chance)
+            direct += result.events
+            state = result.state
+    assert [e for r in env.trace for e in r.events] == direct
+    assert len(env.trace) > 1
+
+
+def test_trace_is_cleared_on_reset_and_readable_after_the_end():
+    env = QuackParallelEnv(rules="v1")
+    play_env(env, seed=2)
+    assert not env.agents
+    ended = len(env.trace)
+    assert ended > 0 and env.trace[-1].state is env.state
+    env.reset(seed=3)
+    assert len(env.trace) < ended  # only the steps folded inside reset
+    assert all(r.state.phase is not Phase.GAME_OVER for r in env.trace)

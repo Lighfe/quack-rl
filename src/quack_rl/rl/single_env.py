@@ -15,7 +15,7 @@ import numpy as np
 from gymnasium import spaces
 
 from quack_rl.bots.random_bot import RandomBot
-from quack_rl.engine import SEATS, GameState, Phase, legal_actions
+from quack_rl.engine import SEATS, GameState, Phase, StepResult, legal_actions
 from quack_rl.rl.encode import other_seat
 from quack_rl.rl.parallel_env import QuackParallelEnv
 from quack_rl.rl.reward import reward
@@ -47,6 +47,12 @@ class QuackEnv(gym.Env):
         self._wait = self._env._wait
         self._mask = np.zeros(self.action_space.n, dtype=np.int8)
         self._ended = True
+        self._decisions = 0
+
+    @property
+    def trace(self) -> list[StepResult]:
+        """The engine step results of the current game (the list of the parallel env)."""
+        return self._env.trace
 
     @property
     def state(self) -> GameState:
@@ -94,6 +100,24 @@ class QuackEnv(gym.Env):
             self._mask = np.zeros_like(self._mask)
         return obs["observation"]
 
+    def _episode_summary(self) -> dict[str, Any]:
+        own_seat = self.agent_seat
+        opp_seat = other_seat(own_seat)
+        own = self.state.players[own_seat].points
+        opp = self.state.players[opp_seat].points
+        explosions = {own_seat: 0, opp_seat: 0}
+        for result in self.trace:
+            for event in result.events:
+                if event["kind"] == "explode":
+                    explosions[event["seat"]] += 1
+        return {
+            "result": "win" if own > opp else "loss" if own < opp else "draw",
+            "points": {"own": own, "opponent": opp},
+            "explosions": {"own": explosions[own_seat], "opponent": explosions[opp_seat]},
+            "decisions": self._decisions,
+            "seat": own_seat,
+        }
+
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
         if self.seat == "random":
@@ -103,6 +127,7 @@ class QuackEnv(gym.Env):
         chance_seed = int(self.np_random.integers(2**32))
         self._env.reset(seed=chance_seed)
         self._ended = False
+        self._decisions = 0
         # the first decision point may already be Wait-only for the agent
         while self._wait_only(self._env._obs()[self.agent_seat]["action_mask"]):
             _, done = self._advance(None)
@@ -119,8 +144,11 @@ class QuackEnv(gym.Env):
         if illegal:  # a plain (unmasked) learner or check_env: play the first legal action
             action = int(np.flatnonzero(self._mask)[0])
         total, done = self._advance(action)
+        self._decisions += 1
         if done:
             self._ended = True
         obs = self._observation()
-        info = {"action_mask": self.action_masks(), "illegal_action": illegal}
+        info: dict[str, Any] = {"action_mask": self.action_masks(), "illegal_action": illegal}
+        if done:
+            info["episode"] = self._episode_summary()
         return obs, total, done, False, info

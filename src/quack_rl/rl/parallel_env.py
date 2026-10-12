@@ -21,6 +21,7 @@ from quack_rl.engine import (
     GameState,
     Phase,
     RngChance,
+    StepResult,
     action_names,
     needs_actions,
     new_game,
@@ -59,6 +60,7 @@ class QuackParallelEnv(ParallelEnv):
         self.state: GameState = new_game(self.rs)
         self._chance: ChanceSource = RngChance(0)
         self._ended = True
+        self.trace: list[StepResult] = []
 
     def observation_space(self, agent: str) -> spaces.Space:
         return self._observation_space
@@ -68,7 +70,9 @@ class QuackParallelEnv(ParallelEnv):
 
     def _fold(self, chance: ChanceSource) -> None:
         while self.state.phase is not Phase.GAME_OVER and not needs_actions(self.state):
-            self.state = step(self.state, self.rs, None, chance).state
+            result = step(self.state, self.rs, None, chance)
+            self.trace.append(result)
+            self.state = result.state
 
     def _obs(self) -> dict[str, dict[str, np.ndarray]]:
         out = {}
@@ -88,6 +92,7 @@ class QuackParallelEnv(ParallelEnv):
         else:
             self._chance = RngChance(random.randrange(2**32) if seed is None else seed)
         self.state = new_game(self.rs)
+        self.trace = []
         self.agents = list(self.possible_agents)
         self._ended = False
         self._fold(self._chance)
@@ -97,7 +102,9 @@ class QuackParallelEnv(ParallelEnv):
         if self._ended:
             raise RuntimeError("the episode has ended: call reset() before step()")
         joint = {seat: self._names[int(actions[seat])] for seat in self.agents}
-        self.state = step(self.state, self.rs, joint, self._chance).state
+        result = step(self.state, self.rs, joint, self._chance)
+        self.trace.append(result)
+        self.state = result.state
         self._fold(self._chance)
         done = self.state.phase is Phase.GAME_OVER
         obs = self._obs()
