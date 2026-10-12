@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="RL environment")
+app = marimo.App(width="full", app_title="RL environment")
 
 with app.setup:
     # The Gymnasium env QuackEnv against RandomBot, and a very small MaskablePPO training (a
