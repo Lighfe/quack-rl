@@ -3,7 +3,8 @@
 Built on `QuackParallelEnv`, so the engine rules live in one place. The opponent acts inside
 `step`. An action outside the mask is replaced by the first legal action and flagged with
 `info["illegal_action"]`; use `action_masks()` to avoid it. Steps where the agent can only
-`Wait` are skipped, so the agent sees real decisions only.
+`Wait` are skipped, so the agent sees real decisions only. At the terminal step the mask is
+all zero, as `legal_actions` is empty when the game is over.
 """
 
 from collections.abc import Callable
@@ -14,7 +15,7 @@ import numpy as np
 from gymnasium import spaces
 
 from quack_rl.bots.random_bot import RandomBot
-from quack_rl.engine import SEATS, GameState, legal_actions
+from quack_rl.engine import SEATS, GameState, Phase, legal_actions
 from quack_rl.rl.encode import other_seat
 from quack_rl.rl.parallel_env import QuackParallelEnv
 from quack_rl.rl.reward import reward
@@ -89,6 +90,8 @@ class QuackEnv(gym.Env):
     def _observation(self) -> np.ndarray:
         obs = self._env._obs()[self.agent_seat]
         self._mask = obs["action_mask"]
+        if self.state.phase is Phase.GAME_OVER:  # no legal action at the end: all-zero mask
+            self._mask = np.zeros_like(self._mask)
         return obs["observation"]
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):

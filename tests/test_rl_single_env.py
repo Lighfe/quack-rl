@@ -76,6 +76,9 @@ def test_no_wait_only_mask_and_mask_is_legal(seat, version):
             assert not (mask.sum() == 1 and mask[wait] == 1)
             obs, rew, done, _, info = env.step(int(rng.choice(np.flatnonzero(mask))))
             if done:
+                assert not info["action_mask"].any()
+                assert not env.action_masks().any()
+                assert legal_actions(env.state, env.rs, env.agent_seat) == []
                 assert env.state.phase is Phase.GAME_OVER
                 assert env.rs.rounds == 9 and env.state.round >= env.rs.rounds
                 assert rew == reward(env.state, env.agent_seat)
