@@ -408,9 +408,7 @@ def _play(seed, p1="bot:draw30-pts3-blue", p2="bot:random"):
 
     rs = load_ruleset("v1")
     buf = io.StringIO()
-    play_sim_game(
-        rs, rules="v1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf
-    )
+    play_sim_game(rs, rules="v1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf)
     lines = [json.loads(x) for x in buf.getvalue().splitlines()]
     for line in lines:
         for key in ("game_id", "started_at", "finished_at"):

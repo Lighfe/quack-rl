@@ -10,9 +10,9 @@ from quack_rl.cli.main import app
 from quack_rl.report import (
     CONFIRM_TEST,
     CONFIRM_TOLERANCE,
+    _points_for_money,
     baseline_maximum,
     build_report,
-    _points_for_money,
     realistic_baseline_maximum,
     wilson,
 )

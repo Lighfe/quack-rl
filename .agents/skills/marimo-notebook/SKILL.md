@@ -38,7 +38,7 @@ def _():
 
 @app.cell
 def _(np, slider):
-    np.array([1,2,3]) + slider.value
+    np.array([1, 2, 3]) + slider.value
     return
 
 
@@ -56,7 +56,6 @@ def _():
 
 if __name__ == "__main__":
     app.run()
-
 ```
 
 Notice how the notebook is structured with functions can represent cell contents. Each cell is defined with the `@app.cell` decorator and the inputs/outputs of the function are the inputs/outputs of the cell. marimo usually takes care of the dependencies between cells automatically. 
@@ -104,6 +103,7 @@ def _(ScatterWidget, mo):
     scatter_widget
     return (scatter_widget,)
 
+
 # Only change data source based on mode
 @app.cell
 def _(is_script_mode, make_moons, scatter_widget, np, torch):
@@ -119,12 +119,14 @@ def _(is_script_mode, make_moons, scatter_widget, np, torch):
         # ... process data ...
     return X_data, y_data, data_error
 
+
 # Always show sliders - use their .value in both modes
 @app.cell
 def _(mo):
     lr_slider = mo.ui.slider(start=0.001, stop=0.1, value=0.01)
     lr_slider
     return (lr_slider,)
+
 
 # Auto-run in script mode, wait for button in interactive
 @app.cell
@@ -153,15 +155,16 @@ Marimo's reactivity means cells only run when their dependencies are ready. Don'
 def _(plt, training_results):
     if training_results:  # WRONG - don't do this
         fig, ax = plt.subplots()
-        ax.plot(training_results['losses'])
+        ax.plot(training_results["losses"])
         fig
     return
+
 
 # GOOD - let marimo handle the dependency
 @app.cell
 def _(plt, training_results):
     fig, ax = plt.subplots()
-    ax.plot(training_results['losses'])
+    ax.plot(training_results["losses"])
     fig
     return
 ```
@@ -182,6 +185,7 @@ def _(scatter_widget, np, torch):
         # ...
     except Exception as e:
         return None, None, f"Error: {e}"
+
 
 # GOOD - let it fail if something is wrong
 @app.cell
@@ -207,6 +211,7 @@ def _(mo, condition):
     if condition:
         mo.md("This won't show!")  # WRONG - indented
     return
+
 
 # GOOD - final expression renders
 @app.cell

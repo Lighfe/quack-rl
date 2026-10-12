@@ -53,8 +53,8 @@ form = (
     )
     .form(
         submit_button_label="Submit",
-        show_clear_button=True,   # optional
-        clear_on_submit=False,    # keep values after submit
+        show_clear_button=True,  # optional
+        clear_on_submit=False,  # keep values after submit
     )
 )
 
@@ -72,10 +72,7 @@ group_by_form = mo.ui.dropdown(
     searchable=True,
 ).form(
     submit_button_label="Apply",
-    validate=lambda v: (
-        "Please select a column and press Apply."
-        if v is None else None
-    ),
+    validate=lambda v: "Please select a column and press Apply." if v is None else None,
 )
 ```
 

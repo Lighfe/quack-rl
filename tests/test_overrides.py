@@ -150,7 +150,6 @@ def test_edited_overrides_make_verify_fail(tmp_path):
     original = path.read_text().splitlines()
     for edit in ({"shop.orange_1.price": "9"}, None):
         lines = list(original)
-        failed = 0
         out_lines = []
         for line in lines:
             raw = json.loads(line)

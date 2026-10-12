@@ -13,7 +13,7 @@ from quack_rl.bots import (
     parse_bot_name,
 )
 from quack_rl.cli.main import app
-from quack_rl.engine import DONE, DRAW, STOP, GameState, Phase, new_game
+from quack_rl.engine import DONE, DRAW, STOP, Phase, new_game
 from quack_rl.rules import load_ruleset
 
 RS = load_ruleset("v1")
@@ -294,7 +294,7 @@ def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
     ra, rb = records(a), records(b)
     assert len(ra) == len(rb) > 1
     assert ra[0]["game_id"] != rb[0]["game_id"]
-    for x, y in zip(ra, rb):
+    for x, y in zip(ra, rb, strict=True):
         for key in ("game_id", "started_at", "finished_at"):
             x.pop(key, None)
             y.pop(key, None)

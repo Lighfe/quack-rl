@@ -7,7 +7,7 @@ def _(df, mo):
         f"""
         SELECT category, AVG(value) as mean FROM df GROUP BY category ORDER BY mean;
         """,
-        output=False
+        output=False,
     )
     return (grouped,)
 ```

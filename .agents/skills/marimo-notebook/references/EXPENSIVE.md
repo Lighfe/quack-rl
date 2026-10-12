@@ -22,6 +22,7 @@ def _(mo):
     run_btn
     return (run_btn,)
 
+
 @app.cell
 def _(mo, run_btn, data):
     mo.stop(not run_btn.value)
@@ -60,10 +61,12 @@ Defer rendering and computation until needed:
 mo.lazy(mo.ui.table(large_df))
 
 # Only compute when tab is selected
-mo.ui.tabs({
-    "Summary": summary,
-    "Details": mo.lazy(lambda: expensive_query()),
-})
+mo.ui.tabs(
+    {
+        "Summary": summary,
+        "Details": mo.lazy(lambda: expensive_query()),
+    }
+)
 ```
 
 ## Runtime Configuration
@@ -83,6 +86,7 @@ def _():
         large_data = load_everything()
         result = summarize(large_data)
         return result  # large_data is freed here
+
     output = _compute()
     return (output,)
 ```
