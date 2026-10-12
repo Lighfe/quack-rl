@@ -39,7 +39,7 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).
 - Observation: a flat `float32` vector of the agent's view (own bag, public data of the opponent, no hidden information). The entry names, in order, are `vector_names(rs)` in `quack_rl.rl`.
 - Actions: `Discrete(n)`, the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
-- The training notebook and its `train` dependency group (torch, sb3-contrib) come with task #53.
+- Training notebook: `uv sync --group train` installs torch, stable-baselines3 and sb3-contrib (the engine does not need them), then `uv run marimo edit notebooks/rl_env.py` (or `uv run python notebooks/rl_env.py` as a script). It explores `QuackEnv` and runs a very small `MaskablePPO` training, a smoke test of the tooling.
 
 ## Simulate, replay, verify
 
