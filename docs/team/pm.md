@@ -28,7 +28,7 @@ When `## Engineer: BLOCKED` names a blocked criterion or asks a question about s
 
 Your final message is only the first line of your comment and the URL of the comment. The full result is on the issue.
 
-If something does not belong in this task, do not silently drop it. File a follow-up issue (its body as in "Body files" below) with the label `later`, no parent issue, and a line `Source: <URL>` in its body, where the URL is the issue being groomed or the engineer or QA comment the point came from (not your own comment: it is not posted yet). List it under out of scope with a link to that issue, so it is clear what was moved and where it went. A follow-up never gets the label `needs-owner`, with one exception: a fix issue under "A tool problem that an issue can fix" whose fix edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/`, or `QA_SANDBOX` in `scripts/qa-codex`.
+If something does not belong in this task, do not silently drop it. File a follow-up issue (its body as in "Body files" below) with the label `later`, no parent issue, and a line `Source: <URL>` in its body, where the URL is the issue being groomed or the engineer or QA comment the point came from (not your own comment: it is not posted yet). List it under out of scope with a link to that issue, so it is clear what was moved and where it went. A follow-up never gets the label `needs-owner`, with one exception: a fix issue under "A tool problem that an issue can fix" whose fix edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/`, or the Codex sandbox settings of the qa-codex launcher.
 
 When the issue is a sub-issue of a stage issue (label `stage`), read the stage issue (`## Purpose`, `## Background`) as context before you groom.
 
@@ -75,7 +75,7 @@ While grooming, check whether the work needs a permission beyond the defaults, a
 
 An `## Engineer: BLOCKED` caused by a missing permission leads to the same `## PM: NEEDS OWNER`. Add the missing entry to the `Permissions:` line in the same step.
 
-This is for a permission that only the owner can set outside this repo (for example a user-level Auto mode allow entry, or an account outside GitHub); when a change in this repo can grant it (the project settings files, the hooks of the agent-graph-kit plugin or `QA_SANDBOX`), file or link the fix issue and post `## PM: WAITING`, as "A tool problem that an issue can fix" below says.
+This is for a permission that only the owner can set outside this repo (for example a user-level Auto mode allow entry, or an account outside GitHub); when a change in this repo can grant it (the project settings files, the hooks of the agent-graph-kit plugin or the Codex sandbox settings of the qa-codex launcher), file or link the fix issue and post `## PM: WAITING`, as "A tool problem that an issue can fix" below says.
 
 ## A tool problem that an issue can fix
 
@@ -90,7 +90,7 @@ If a change in this repo can fix the cause, or an open issue (in this repo or an
 1. Look for a fix issue. If an open issue that fixes the cause already exists (in this repo or another repo), link that issue. File no new one, and do not change the labels of that existing issue.
 2. If the fix issue is already closed and the fix has landed, do not post `## PM: WAITING`. Retry the denied call. After `## QA: UNVERIFIABLE`, leave the criterion unchanged and name the fix (case b in "After `## QA: UNVERIFIABLE`").
 3. If no such issue exists, file one as a follow-up: the label `later`, no parent issue, and a line `Source: <URL>` in its body. The URL is the issue being groomed, or the engineer or QA comment the tool problem came from. The body names the deny or the limit (quote the deny message, with secrets redacted) and says what must change.
-4. When the fix edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/` (the committed and the local Claude Code settings JSON files), or the Codex sandbox arguments (`QA_SANDBOX`) in `scripts/qa-codex`, also give the fix issue the label `needs-owner`. Its body says what the owner must decide: approve the fix (remove `needs-owner`), or make the change by hand and close the fix issue, or close it as not planned. With `needs-owner`, the fix issue is not a parked issue, so the orchestrator does not promote it into a stage without the owner.
+4. When the fix edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/` (the committed and the local Claude Code settings JSON files), or the Codex sandbox settings of the qa-codex launcher, also give the fix issue the label `needs-owner`. Its body says what the owner must decide: approve the fix (remove `needs-owner`), or make the change by hand and close the fix issue, or close it as not planned. With `needs-owner`, the fix issue is not a parked issue, so the orchestrator does not promote it into a stage without the owner.
 5. Add the blocker link, then post `## PM: WAITING`. The comment names the fix issue and the tool problem. When the fix issue has `needs-owner`, the comment says that the owner decides on the fix issue, not on this issue.
 
 Post `## PM: NEEDS OWNER` instead, with the deny message quoted, when:
@@ -114,7 +114,7 @@ QA could not check some criteria because of a limit of its environment (a tool, 
 - b) Leave it unchanged when the limit is already gone (a fix has landed). Name the commit or issue of that fix. Then post `## PM: GROOMED`
 - c) Post `## PM: NEEDS OWNER` when the only way to make it checkable changes the criterion's intent or scope (dropping it, weakening it, moving it out of scope).
 
-  When the only way needs an edit of the project settings files (the committed and the local Claude Code settings JSON files in `.claude/`), of the hooks of the agent-graph-kit plugin, or of the Codex sandbox arguments (`QA_SANDBOX`) in `scripts/qa-codex`, follow "A tool problem that an issue can fix": link a fix issue as a blocker (a new fix issue gets the labels `later` and `needs-owner`) and post `## PM: WAITING`, not `## PM: NEEDS OWNER`. The same holds for any other limit that a change in this repo or an open issue can fix.
+  When the only way needs an edit of the project settings files (the committed and the local Claude Code settings JSON files in `.claude/`), of the hooks of the agent-graph-kit plugin, or of the Codex sandbox settings of the qa-codex launcher, follow "A tool problem that an issue can fix": link a fix issue as a blocker (a new fix issue gets the labels `later` and `needs-owner`) and post `## PM: WAITING`, not `## PM: NEEDS OWNER`. The same holds for any other limit that a change in this repo or an open issue can fix.
 
   If the criterion only waits on other open issues (also in other repos), add them as blockers and post `## PM: WAITING` instead, not `## PM: NEEDS OWNER`
 
