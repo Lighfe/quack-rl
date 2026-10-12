@@ -1,12 +1,25 @@
 from helpers import RS, play
 
-from quack_rl.engine import DONE, DRAW, Phase, Status, buy, new_game
+from quack_rl.engine import DONE, DRAW, Phase, ScriptedChance, Status, buy, new_game, step
+from quack_rl.rules import load_ruleset
 
 
 def test_placed_fields_follow_every_draw():
     s = new_game(RS)
     for chip in ("white_1", "white_2", "orange_1"):
         r = play(s, DRAW, DRAW, chip, "white_1")
+        s = r.state
+        place = next(e for e in r.events if e["kind"] == "place" and e["seat"] == "p1")
+        p = s.players["p1"]
+        assert p.placed_fields[-1] == place["to"]
+        assert len(p.placed_fields) == len(p.placed)
+
+
+def test_placed_fields_follow_every_draw_v1_1():
+    rs = load_ruleset("v1.1")
+    s = new_game(rs)
+    for chip in ("white_1", "white_2", "orange_1"):
+        r = step(s, rs, {"p1": DRAW, "p2": DRAW}, ScriptedChance((chip, "white_1")))
         s = r.state
         place = next(e for e in r.events if e["kind"] == "place" and e["seat"] == "p1")
         p = s.players["p1"]
