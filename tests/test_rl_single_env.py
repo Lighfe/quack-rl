@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from gymnasium import spaces
@@ -7,7 +9,7 @@ from quack_rl.bots.heuristic import HeuristicBot
 from quack_rl.bots.random_bot import RandomBot
 from quack_rl.engine import WAIT, action_names, legal_actions
 from quack_rl.engine.state import Phase
-from quack_rl.rl import QuackEnv, observe, reward, vector_names, vectorize
+from quack_rl.rl import QuackEnv, observation_bounds, observe, reward, vector_names, vectorize
 from quack_rl.rules import load_ruleset
 
 VERSIONS = ["v1", "v1.1"]
@@ -31,6 +33,23 @@ def play(env, seed=0, action_seed=0):
 @pytest.mark.parametrize("version", VERSIONS)
 def test_check_env(version):
     check_env(QuackEnv(rules=version), skip_render_check=True)
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_check_env_without_warnings_and_bounded_entries(version):
+    env = QuackEnv(rules=version)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # points and bag counts have no real upper bound: that warning stays
+        warnings.filterwarnings("ignore", message=".*maximum value is infinity.*")
+        check_env(env, skip_render_check=True)
+    box = env.observation_space
+    names = vector_names(env.rs)
+    low, high = observation_bounds(env.rs)
+    assert np.array_equal(box.low, low) and np.array_equal(box.high, high)
+    assert np.isfinite(box.high[names.index("own.status.exploded")])
+    assert np.isfinite(box.high[names.index("explosion_limit")])
+    assert np.isinf(box.high[names.index("own.points")])
 
 
 @pytest.mark.parametrize("seat", ["p1", "p2"])

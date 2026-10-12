@@ -37,7 +37,13 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
     obs, infos = penv.reset(seed=0)                          # obs[seat]["observation"], ["action_mask"]
 
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).
-- Observation: a flat `float32` vector of the agent's view (own bag, public data of the opponent, no hidden information). The entry names, in order, are `vector_names(rs)` in `quack_rl.rl`.
+- Observation: a flat `float32` vector of the agent's view, called observation layout 2 (`OBSERVATION_LAYOUT = 2` in `quack_rl.rl`). No hidden information: the draw order of the bag and the opponent's pending choice never appear; both bags and the placed chips are public. The entry names, in order, are `vector_names(rs)`; the layout depends only on the ruleset. The groups, in order:
+  - shared: `round`, `rounds` (total number of rounds), `explosion_limit`, phase (one-hot)
+  - own seat, then the opponent: status (one-hot), chip colours bought this round, `money`, `white_total`, `ruby_fields_ahead`, `points`, `droplet_halves`, `purchases`, `chip_purchases`, `shop_done`, and per chip id `bag.remaining.<id>` (still in the bag) and `bag.owned.<id>` (bag plus placed chips)
+  - the board map, the last block
+  - `money` is the budget in the Shop phase and the value of the last Resolve otherwise. Values are raw, not scaled.
+  - The map has one row per field `0..track_end` and `MAP_CHANNELS` channels (14): `money` and `ruby` of the field, then for `own` and for `opponent` one flag per colour, `value` and `order` of the chip that lies on the field (all zero without a chip; `order` is 1 for the first chip of the round; if several chips land on the last field the later one fills it). Reshape it with `vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)`.
+  - `observation_bounds(rs)` gives `(low, high)`: finite for flags, fields and ruleset constants, `inf` where there is no real bound (points, money, bag counts); both envs use it in their observation space.
 - Actions: `Discrete(n)`, the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
 - Training notebook: `uv sync --group train` installs torch, stable-baselines3 and sb3-contrib (the engine does not need them), then `uv run marimo edit notebooks/rl_env.py` (or `uv run python notebooks/rl_env.py` as a script). It explores `QuackEnv` and runs a very small `MaskablePPO` training, a smoke test of the tooling.
 

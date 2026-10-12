@@ -27,7 +27,7 @@ from quack_rl.engine import (
     new_game,
     step,
 )
-from quack_rl.rl.encode import action_mask, observe, vector_names, vectorize
+from quack_rl.rl.encode import action_mask, observation_bounds, observe, vector_names, vectorize
 from quack_rl.rl.reward import reward
 from quack_rl.rules import Ruleset, load_ruleset
 
@@ -50,9 +50,12 @@ class QuackParallelEnv(ParallelEnv):
         self._names = action_names(self.rs)
         self._wait = self._names.index(WAIT)
         self._obs_len = len(vector_names(self.rs))
+        self._obs_low, self._obs_high = observation_bounds(self.rs)
         self._observation_space = spaces.Dict(
             {
-                "observation": spaces.Box(-np.inf, np.inf, (self._obs_len,), np.float32),
+                "observation": spaces.Box(
+                    self._obs_low, self._obs_high, (self._obs_len,), np.float32
+                ),
                 "action_mask": spaces.Box(0, 1, (len(self._names),), np.int8),
             }
         )

@@ -14,8 +14,18 @@ from quack_rl.engine import (
     step,
 )
 from quack_rl.engine.state import Phase
-from quack_rl.rl import action_mask, observe, reward, vector_names, vectorize
-from quack_rl.rules import load_ruleset
+from quack_rl.rl import (
+    MAP_CHANNELS,
+    OBSERVATION_LAYOUT,
+    action_mask,
+    map_slice,
+    observation_bounds,
+    observe,
+    reward,
+    vector_names,
+    vectorize,
+)
+from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 
 VERSIONS = ["v1", "v1.1"]
 
@@ -84,10 +94,9 @@ def test_observation_content():
     obs = observe(state, rs, "p1")
     assert obs["round"] == 1
     assert obs["phase"] == "brew"
-    assert obs["own_bag"]["white_1"] == 4
+    assert obs["own"]["bag_remaining"]["white_1"] == 4
     assert set(obs["own"]) >= {
-        "placed",
-        "field",
+        "board",
         "money",
         "white_total",
         "ruby_fields_ahead",
@@ -97,7 +106,7 @@ def test_observation_content():
         "purchases",
         "chip_colours",
     }
-    assert "own_bag" not in obs["opponent"] and "bag" not in obs["opponent"]
+    assert "bag" not in obs["opponent"] and "placed" not in obs["own"] and "field" not in obs["own"]
     assert obs["own"]["ruby_fields_ahead"] == len(rs.rubies)
     state.players["p1"].field = 12  # scoring field 13: rubies 13.. are ahead
     assert observe(state, rs, "p1")["own"]["ruby_fields_ahead"] == len(rs.rubies) - 2
@@ -119,16 +128,6 @@ def test_no_hidden_information(version):
             assert np.array_equal(vectorize(a, rs), vectorize(b, rs))
 
 
-def test_opponent_bag_is_not_in_the_vector():
-    rs = load_ruleset("v1")
-    state = new_game(rs)
-    changed = copy.deepcopy(state)
-    changed.players["p2"].bag["white_1"] = 1
-    assert np.array_equal(
-        vectorize(observe(state, rs, "p1"), rs), vectorize(observe(changed, rs, "p1"), rs)
-    )
-
-
 def test_reward_win_loss_draw():
     rs = load_ruleset("v1")
     state = new_game(rs)
@@ -141,25 +140,173 @@ def test_reward_win_loss_draw():
     assert reward(state, "p2") == 0.0
 
 
+def _place_events(rs, seed):
+    """Yield (state, place events of the round so far per seat) for every state of a game."""
+    rng = random.Random(seed)
+    chance = RngChance(seed)
+    state = new_game(rs)
+    events = {"p1": [], "p2": []}
+    yield state, events
+    while state.phase is not Phase.GAME_OVER:
+        actions = (
+            {s: rng.choice(legal_actions(state, rs, s)) for s in ("p1", "p2")}
+            if needs_actions(state)
+            else None
+        )
+        result = step(state, rs, actions, chance)
+        if result.state.round != state.round:
+            events = {"p1": [], "p2": []}
+        for e in result.events:
+            if e["kind"] == "place":
+                events[e["seat"]].append(e)
+        state = result.state
+        yield state, events
+
+
 @pytest.mark.parametrize("version", VERSIONS)
-def test_draw_order_does_not_change_the_observation(version):
-    """Two games draw the same chips in a different order: the states differ in the order
-    of `placed` (the draw order), the observations do not."""
+def test_names_unique_and_layout_version(version):
     rs = load_ruleset(version)
+    names = vector_names(rs)
+    assert OBSERVATION_LAYOUT == 2
+    assert len(set(names)) == len(names)
+    assert names == vector_names(load_ruleset(version))
+    sl = map_slice(rs)
+    assert sl.stop == len(names)
+    assert (sl.stop - sl.start) == (rs.track_end + 1) * MAP_CHANNELS
+    assert names[sl.start] == "map.0.money"
 
-    def two_draws(first, second):
-        state = new_game(rs)
-        for chip in (first, second):
-            # one chip per seat and step (scripted chance: p1 first, then p2)
-            state = step(
-                state, rs, {"p1": "draw", "p2": "draw"}, ScriptedChance([chip, chip])
-            ).state
-        return state
 
-    a = two_draws("white_1", "white_2")
-    b = two_draws("white_2", "white_1")
-    assert a.players["p1"].placed != b.players["p1"].placed
-    for seat in ("p1", "p2"):
-        obs_a, obs_b = observe(a, rs, seat), observe(b, rs, seat)
-        assert obs_a == obs_b
-        assert np.array_equal(vectorize(obs_a, rs), vectorize(obs_b, rs))
+@pytest.mark.parametrize("version", VERSIONS)
+def test_map_matches_place_events(version):
+    rs = load_ruleset(version)
+    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    for seed in range(4):
+        for state, events in _place_events(rs, seed):
+            if state.phase not in (Phase.BREW, Phase.RESOLVE):
+                continue
+            for seat in ("p1", "p2"):
+                vec = vectorize(observe(state, rs, seat), rs)
+                grid = vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)
+                expected = {
+                    "own": {},
+                    "opponent": {},
+                }
+                for who, s in (("own", seat), ("opponent", "p2" if seat == "p1" else "p1")):
+                    for order, e in enumerate(events[s], start=1):
+                        expected[who][e["to"]] = (rs.chip(e["chip"]), order)
+                for f in range(rs.track_end + 1):
+                    assert grid[f, 0] == rs.money[f]
+                    assert grid[f, 1] == (f in rs.rubies)
+                    for k, who in enumerate(("own", "opponent")):
+                        cell = grid[f, 2 + k * (len(colours) + 2) :][: len(colours) + 2]
+                        if f in expected[who]:
+                            chip, order = expected[who][f]
+                            flags = [float(chip.colour == c) for c in colours]
+                            assert list(cell) == [*flags, chip.value, order]
+                        else:
+                            assert not cell.any()
+
+
+def test_two_chips_on_track_end_later_chip_fills_the_slot():
+    rs = load_ruleset("v1")
+    state = new_game(rs)
+    state.players["p1"].field = 52
+    for chip in ("white_2", "white_1"):
+        state = step(
+            state, rs, {"p1": "draw", "p2": "draw"}, ScriptedChance([chip, "white_1"])
+        ).state
+    assert state.players["p1"].placed_fields == [rs.track_end, rs.track_end]
+    vec = vectorize(observe(state, rs, "p1"), rs)
+    grid = vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)
+    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    cell = grid[rs.track_end, 2 : 2 + len(colours) + 2]
+    assert list(cell) == [1.0, 0.0, 0.0, 0.0, rs.chip("white_1").value, 2.0]
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_bags_of_both_seats(version):
+    rs = load_ruleset(version)
+    names = vector_names(rs)
+    for state in random_game(rs, 4):
+        vec = vectorize(observe(state, rs, "p1"), rs)
+        for who, seat in (("own", "p1"), ("opponent", "p2")):
+            p = state.players[seat]
+            for c in rs.chips:
+                assert vec[names.index(f"{who}.bag.remaining.{c.id}")] == p.bag.get(c.id, 0)
+                assert vec[names.index(f"{who}.bag.owned.{c.id}")] == p.owned(c.id)
+
+
+def test_rule_scalars_follow_the_ruleset():
+    base = load_ruleset("v1.1")
+    variants = [
+        base,
+        apply_overrides(base, {"explosion_limit": 5}),
+        with_rounds(base, 4),
+        with_rounds(apply_overrides(base, {"explosion_limit": 9}), 3),
+    ]
+    for rs in variants:
+        names = vector_names(rs)
+        vec = vectorize(observe(new_game(rs), rs, "p1"), rs)
+        assert vec[names.index("explosion_limit")] == rs.explosion_limit
+        assert vec[names.index("rounds")] == rs.rounds
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_removed_entries_and_kept_entries(version):
+    names = vector_names(load_ruleset(version))
+    for who in ("own", "opponent"):
+        assert not [n for n in names if n.startswith(f"{who}.placed.")]
+        assert f"{who}.field" not in names
+        for k in ("points", "droplet_halves", "white_total", "ruby_fields_ahead", "money"):
+            assert f"{who}.{k}" in names
+        assert f"{who}.status.exploded" in names
+    assert "round" in names and "phase.brew" in names
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_vector_lies_inside_the_bounds(version):
+    rs = load_ruleset(version)
+    low, high = observation_bounds(rs)
+    assert low.dtype == high.dtype == np.float32
+    assert low.shape == high.shape == (len(vector_names(rs)),)
+    names = vector_names(rs)
+    assert np.isinf(high[names.index("own.points")])
+    assert high[names.index("own.status.exploded")] == 1
+    assert np.isfinite(high[names.index("own.ruby_fields_ahead")])
+    for seed in range(5):
+        for state in random_game(rs, seed):
+            for seat in ("p1", "p2"):
+                vec = vectorize(observe(state, rs, seat), rs)
+                assert (vec >= low).all() and (vec <= high).all()
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_bag_insertion_order_does_not_change_the_vector(version):
+    rs = load_ruleset(version)
+    for state in random_game(rs, 5):
+        reordered = copy.deepcopy(state)
+        for p in reordered.players.values():
+            p.bag = dict(reversed(list(p.bag.items())))
+        for seat in ("p1", "p2"):
+            assert np.array_equal(
+                vectorize(observe(state, rs, seat), rs),
+                vectorize(observe(reordered, rs, seat), rs),
+            )
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_pending_choice_of_the_opponent_does_not_change_the_vector(version):
+    """The seat sees the state before the joint step; the choice of the opponent is not in the
+    state, and both choices lead from the same observation."""
+    rs = load_ruleset(version)
+    state = step(
+        new_game(rs), rs, {"p1": "draw", "p2": "draw"}, ScriptedChance(["white_1"] * 2)
+    ).state
+    before = vectorize(observe(state, rs, "p1"), rs)
+    outcomes = []
+    for p2_choice in legal_actions(state, rs, "p2"):
+        copy_state = copy.deepcopy(state)
+        step(copy_state, rs, {"p1": "draw", "p2": p2_choice}, ScriptedChance(["white_1"] * 2))
+        assert np.array_equal(vectorize(observe(state, rs, "p1"), rs), before)
+        outcomes.append(p2_choice)
+    assert len(outcomes) > 1

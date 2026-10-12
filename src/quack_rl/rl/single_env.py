@@ -42,7 +42,9 @@ class QuackEnv(gym.Env):
         self._default_opponent = opponent is None
         self.opponent = RandomBot() if opponent is None else opponent
         self.agent_seat = SEATS[0] if seat == "random" else seat
-        self.observation_space = spaces.Box(-np.inf, np.inf, (self._env._obs_len,), np.float32)
+        self.observation_space = spaces.Box(
+            self._env._obs_low, self._env._obs_high, (self._env._obs_len,), np.float32
+        )
         self.action_space = self._env.action_space("p1")
         self._wait = self._env._wait
         self._mask = np.zeros(self.action_space.n, dtype=np.int8)
