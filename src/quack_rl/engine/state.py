@@ -25,6 +25,7 @@ class Status(StrEnum):
 class PlayerState:
     bag: dict[str, int]
     placed: list[str] = field(default_factory=list)
+    placed_fields: list[int] = field(default_factory=list)  # landing field of each placed chip
     field: int = 0
     white_total: int = 0
     status: Status = Status.BREWING

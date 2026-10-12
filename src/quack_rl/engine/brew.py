@@ -22,6 +22,7 @@ def _draw(
     p.field = min(start + chip.value + bonus, rs.track_end)
     p.white_total += component.explosion_weight(chip)
     p.placed.append(chip_id)
+    p.placed_fields.append(p.field)
     events.append(
         {
             "seat": seat,

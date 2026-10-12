@@ -18,6 +18,9 @@ def _apply_item(p: PlayerState, item: ShopItem) -> None:
         p.bag[item.chip] = p.bag.get(item.chip, 0) + 1
     elif item.kind == "remove_chip" and item.chip is not None:
         if item.chip in p.placed:
+            index = p.placed.index(item.chip)
+            if index < len(p.placed_fields):  # states built by hand may lack the landing fields
+                p.placed_fields.pop(index)
             p.placed.remove(item.chip)
         else:
             p.bag[item.chip] -= 1
@@ -57,6 +60,7 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         for chip_id in p.placed:
             p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
         p.placed = []
+        p.placed_fields = []
         p.money = 0
         p.white_total = 0
         p.status = Status.BREWING
