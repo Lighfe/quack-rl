@@ -10,19 +10,26 @@ from quack_rl.rl.encode import (
     vector_names,
     vectorize,
 )
+from quack_rl.rl.evaluate import EvalResult, Policy, evaluate, random_policy
+from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.parallel_env import QuackParallelEnv
 from quack_rl.rl.reward import reward
 from quack_rl.rl.single_env import QuackEnv
 
 __all__ = [
+    "EvalResult",
     "MAP_CHANNELS",
     "OBSERVATION_LAYOUT",
     "QuackEnv",
+    "Policy",
     "QuackParallelEnv",
     "action_mask",
+    "evaluate",
+    "make_opponent",
     "map_slice",
     "observation_bounds",
     "observe",
+    "random_policy",
     "reward",
     "vector_names",
     "vectorize",
