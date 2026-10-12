@@ -150,8 +150,8 @@ def test_unknown_strategy_names_it():
 
 def test_baseline_name_and_params():
     bot = HeuristicBot(RS)
-    assert bot.name == BASELINE_NAME == "draw30-pts1-points"
-    assert bot.params["draw_limit"] == 30
+    assert bot.name == BASELINE_NAME == "draw20-pts1-points"
+    assert bot.params["draw_limit"] == 20
     assert bot.params["points_round"] == 1
     assert bot.params["strategy"] == "points"
 

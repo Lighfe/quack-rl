@@ -40,7 +40,7 @@ A strategy is data (a priority list and a few weights), not a class.
 
 ### Baseline
 
-A points-only bot: strategy `points` (never buys chips), points round 1, draw limit 30%. Its theoretical maximum is derived by calculation and confirmed by simulation runs. The report compares both.
+A points-only bot: strategy `points` (never buys chips), points round 1, draw limit 20%. The owner chose `draw20-pts1-points` as the baseline on 2026-10-10. Its theoretical maximum is derived by calculation and confirmed by simulation runs. The report compares both.
 
 ### Names
 

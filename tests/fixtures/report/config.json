@@ -1,6 +1,6 @@
 {
   "bots": [
-    "bot:draw30-pts1-points",
+    "bot:draw20-pts1-points",
     "bot:draw30-pts3-blue",
     "bot:draw15-pts3-blue"
   ],

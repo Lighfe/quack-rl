@@ -7,7 +7,7 @@ from quack_rl.components import get_component
 from quack_rl.engine import BUY_PREFIX, DONE, DRAW, STOP, GameState, Phase, buy
 from quack_rl.rules import Ruleset
 
-BASELINE_NAME = "draw30-pts1-points"
+BASELINE_NAME = "draw20-pts1-points"
 _NAME = re.compile(r"draw(\d+)-pts(\d+)-(.+)")
 
 
@@ -55,7 +55,7 @@ class HeuristicBot:
     def __init__(
         self,
         rs: Ruleset,
-        draw_limit: int = 30,
+        draw_limit: int = 20,
         points_round: int = 1,
         strategy: str | Strategy = "points",
         seed: int | None = None,

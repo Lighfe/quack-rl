@@ -61,7 +61,7 @@ def test_ranking_order_and_sections(run):
     text = build_report(run)
     ranking = text.split("== Ranking ==")[1].split("==")[0]
     bots = [line.split()[0] for line in ranking.splitlines() if line.startswith("draw")]
-    assert bots == ["draw30-pts3-blue", "draw30-pts1-points", "draw15-pts3-blue"]
+    assert bots == ["draw30-pts3-blue", "draw20-pts1-points", "draw15-pts3-blue"]
     assert "60.4%" in ranking and "n=24" in ranking  # 14 wins and a draw of 24
     assert "52.1%" in ranking  # 12 wins and a draw of 24
     for heading in (
@@ -112,6 +112,8 @@ def test_baseline_lines(run):
     base = text.split("== Baseline ==")[1]
     assert "Simulated average final points: 15.2" in base  # 365 points in 24 games
     assert "Calculated maximum" in base and "Difference" in base
+    assert "is not in this run" not in base
+    assert "Baseline draw20-pts1-points: 24 games" in base
     rows = [
         r
         for r in csv.DictReader((run / "results.csv").open())
@@ -178,7 +180,7 @@ def test_realistic_maximum_one_round_by_hand():
 def test_baseline_labels_and_order(run):
     base = build_report(run).split("== Baseline ==")[1].strip().splitlines()
     starts = [
-        "Baseline draw30-pts1-points: 24 games",
+        "Baseline draw20-pts1-points: 24 games",
         "Simulated average final points:",
         "Calculated maximum (realistic, ",
         "Difference (maximum - simulated):",
@@ -201,8 +203,8 @@ def test_baseline_maximum_is_games_weighted_over_a_sweep(run):
         for _ in range(games):
             r = dict.fromkeys(CSV_COLUMNS, 0)
             r.update(
-                pairing="draw30-pts1-points vs draw30-pts3-blue",
-                p1="draw30-pts1-points",
+                pairing="draw20-pts1-points vs draw30-pts3-blue",
+                p1="draw20-pts1-points",
                 p2="draw30-pts3-blue",
                 sweep_value=value,
                 winner="p1",
