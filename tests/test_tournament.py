@@ -698,3 +698,29 @@ def test_cli_and_worker_modules_do_not_import_pyarrow():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+class _FirstLegalModel:
+    def predict(self, obs, action_masks, deterministic=True):
+        return int(action_masks.argmax()), None
+
+
+def test_tournament_accepts_a_policy_seat(tmp_path, monkeypatch):
+    """A `policy:<run folder>` seat goes through the tournament CLI, loader mocked."""
+    run = tmp_path / "policy_run"
+    run.mkdir()
+    monkeypatch.setattr("quack_rl.rl.policy_bot.load_model", lambda path, rules: _FirstLegalModel())
+    out = tmp_path / "out"
+    result = tour(out, bots=f"policy:{run},bot:random", games="2")
+    assert result.exit_code == 0, result.output
+    assert TRACEBACK not in result.output
+    (folder,) = runs(out)
+    rows = read_rows(folder)
+    assert len(rows) == 2
+    assert {r["p1"] for r in rows} == {f"policy:{run}"}
+    assert {r["p2"] for r in rows} == {"random"}
+
+
+def test_tournament_rejects_a_missing_policy_folder(tmp_path):
+    result = tour(tmp_path / "out", bots=f"policy:{tmp_path / 'missing'},bot:random")
+    assert result.exit_code == 2

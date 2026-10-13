@@ -134,9 +134,19 @@ def parse_sweep(text: str) -> Sweep:
     return Sweep(param, values)
 
 
+def _label(spec: str) -> str:
+    """The name of a seat in the result rows: a bot spec without `bot:`, a policy spec whole."""
+    return spec if spec.startswith("policy:") else spec.removeprefix("bot:")
+
+
+def _spec_of(label: str) -> str:
+    """The seat spec of a name in the result rows (the inverse of `_label`)."""
+    return label if label.startswith("policy:") else "bot:" + label
+
+
 def _spec_for(spec: str, sweep: Sweep | None, value: str) -> str:
     """The seat spec a bot plays with at one sweep value."""
-    if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random":
+    if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random" or spec.startswith("policy:"):
         return spec
     draw_limit, points_round, strategy = parse_bot_name(spec)
     if sweep.param == "draw_limit":
@@ -191,8 +201,10 @@ def validate(config: TournamentConfig) -> None:
     if not _NAME_OK.fullmatch(config.name):
         raise TournamentError(f"run name {config.name!r} may only use letters, digits, . _ -")
     for spec in config.bots:
-        if not spec.startswith("bot:"):
-            raise TournamentError(f"bot {spec!r} must be a bot seat spec (bot:random, bot:<name>)")
+        if not spec.startswith(("bot:", "policy:")):
+            raise TournamentError(
+                f"bot {spec!r} must be a seat spec (bot:random, bot:<name>, policy:<run folder>)"
+            )
         try:
             check_seat(spec)
         except ValueError as e:
@@ -234,7 +246,7 @@ def _tasks(config: TournamentConfig) -> list[_Task]:
                 (specs[i], specs[j]) for i in range(len(specs)) for j in range(i + 1, len(specs))
             ]
         for pairing_index, (p1, p2) in enumerate(pairs):
-            a, b = p1.removeprefix("bot:"), p2.removeprefix("bot:")
+            a, b = _label(p1), _label(p2)
             label = f"{SEAT_CHECK_PREFIX}{a}" if config.seat_check else f"{a} vs {b}"
             tasks.append(
                 _Task(len(tasks), label, p1, p2, value, value_index, pairing_index, len(pairs))
@@ -253,8 +265,8 @@ def _row(
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "pairing": task.pairing,
-        "p1": task.p1.removeprefix("bot:"),
-        "p2": task.p2.removeprefix("bot:"),
+        "p1": _label(task.p1),
+        "p2": _label(task.p2),
         "game": game,
         "seed": seed,
         "sweep_value": task.sweep_value,
@@ -452,13 +464,13 @@ def verify_sample(config: TournamentConfig, rows: Sequence[dict[str, Any]]) -> l
                     rules=config.rules,
                     rounds=config.rounds,
                     overrides=_overrides_for(config, value),
-                    p1="bot:" + row["p1"],
-                    p2="bot:" + row["p2"],
+                    p1=_spec_of(row["p1"]),
+                    p2=_spec_of(row["p2"]),
                     game_seed=row["seed"],
                     stream=f,
                 )
             (game,) = read_games(path)
-        task = _Task(0, row["pairing"], "bot:" + row["p1"], "bot:" + row["p2"], value)
+        task = _Task(0, row["pairing"], _spec_of(row["p1"]), _spec_of(row["p2"]), value)
         if _row(task, row["game"], row["seed"], final, explosions, stats, rs) != row:
             problems.append(f"{where}: the stored result differs from the rebuilt game")
             continue
