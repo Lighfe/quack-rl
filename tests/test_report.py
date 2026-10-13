@@ -153,8 +153,11 @@ def test_realistic_maximum_other_rulesets():
     one = realistic_baseline_maximum(with_rounds(rs, 1))
     three = realistic_baseline_maximum(with_rounds(rs, 3))
     assert 0 < one <= three
-    cheap = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "1"}))
-    assert cheap > realistic_baseline_maximum(rs)
+    # 3 rounds instead of 9: the same check (a cheaper shop raises the maximum), much faster
+    cheap = realistic_baseline_maximum(
+        apply_overrides(with_rounds(rs, 3), {"shop.points_2.price": "1"})
+    )
+    assert cheap > three
 
 
 def test_purchase_tie_is_the_average_over_the_tied_items():
@@ -197,6 +200,7 @@ def test_baseline_labels_and_order(run):
 def test_baseline_maximum_is_games_weighted_over_a_sweep(run):
     config = json.loads((run / "config.json").read_text())
     config["sweep"] = {"param": "shop.points_2.price", "values": ["1", "6"]}
+    config["rounds"] = 3  # the maximum is calculated per round count; 3 rounds are much faster
     (run / "config.json").write_text(json.dumps(config))
     rows = []
     for value, games in (("1", 2), ("6", 1)):
@@ -212,7 +216,7 @@ def test_baseline_maximum_is_games_weighted_over_a_sweep(run):
             )
             rows.append(r)
     write_rows(run, rows)
-    rs = with_rounds(load_ruleset("v1"), 9)
+    rs = with_rounds(load_ruleset("v1"), 3)
     low = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "1"}))
     high = realistic_baseline_maximum(apply_overrides(rs, {"shop.points_2.price": "6"}))
     assert low != high

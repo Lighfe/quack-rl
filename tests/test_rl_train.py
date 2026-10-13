@@ -71,6 +71,7 @@ def test_train_smoke(run):
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_train_is_fast_enough():
     import time
 

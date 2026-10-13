@@ -153,6 +153,7 @@ def test_prints_randombot_rows_for_other_opponents(monkeypatch, tmp_path, capsys
     ]  # fmt: skip
 
 
+@pytest.mark.slow
 def test_real_run_writes_the_run_folder(tmp_path, capsys):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     code = train_script.main([

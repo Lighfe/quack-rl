@@ -47,6 +47,9 @@ packages = ["src/quack_rl"]
 testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = "-q"
+markers = [
+    "slow: takes more than a few seconds; deselect with -m \"not slow\" in the inner loop",
+]
 
 [tool.ruff]
 line-length = 100
