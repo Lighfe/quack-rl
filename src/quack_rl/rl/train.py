@@ -6,6 +6,7 @@ group (`uv sync --group train`).
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
@@ -53,6 +54,32 @@ class RunSink(Protocol):
     def finish(self, result: TrainResult) -> None: ...
 
 
+class _Both:
+    """Two sinks as one: the caller's and the run folder."""
+
+    def __init__(self, first: RunSink, folder: Any):
+        self._sinks = (first, folder)
+
+    def start(self, config: dict) -> None:
+        for s in self._sinks:
+            s.start(config)
+
+    def episode(self, row: dict) -> None:
+        for s in self._sinks:
+            s.episode(row)
+
+    def metrics(self, row: dict) -> None:
+        for s in self._sinks:
+            s.metrics(row)
+
+    def checkpoint(self, model: Any, timestep: int) -> None:
+        self._sinks[1].checkpoint(model, timestep)
+
+    def finish(self, result: TrainResult) -> None:
+        for s in self._sinks:
+            s.finish(result)
+
+
 def sb3_policy(model: Any, deterministic: bool) -> Policy:
     """A `Policy` from a MaskablePPO model: it only returns actions where the mask is nonzero.
 
@@ -88,6 +115,9 @@ def train(
     seed: int = 0,
     eval_games: int = 500,
     sink: RunSink | None = None,
+    run: str | None = None,
+    runs_dir: Path = Path("data/runs"),
+    checkpoint_every: int | None = None,
 ) -> TrainResult:
     """Train MaskablePPO for `steps` decisions of the agent against `opponent`, on the CPU.
 
@@ -97,11 +127,20 @@ def train(
     most-likely-action.
     These four evaluations each run `eval_games` games against the training opponent, and when
     that is not `random` also against `RandomBot` (the `*_vs_random` fields). `sink` gets the
-    rows as they arrive. Memory only: nothing is written to disk.
+    rows as they arrive. With `run="name"` the run is also written to `runs_dir / name` (a name
+    that exists is refused before training); `checkpoint_every` saves the model every that many
+    timesteps (at the end of a rollout). Without `run` nothing is written to disk.
     """
     if eval_games < 1:
         raise ValueError(f"eval_games must be at least 1, not {eval_games}")
+    if checkpoint_every is not None and checkpoint_every < 1:
+        raise ValueError(f"checkpoint_every must be at least 1, not {checkpoint_every}")
     make_opponent(opponent, seed=seed, rules=rules)  # ValueError on an unknown name
+    if run is not None:
+        from quack_rl.rl.runs import RunFolder, run_path
+
+        folder = RunFolder(run_path(runs_dir, run))  # refuses a bad or existing name
+        sink = folder if sink is None else _Both(sink, folder)
     MaskablePPO, BaseCallback, KVWriter, Logger = _import_sb3()
 
     log = TrainingLog()
@@ -116,6 +155,18 @@ def train(
         sink.start(config)
 
     class EpisodeCallback(BaseCallback):
+        def _on_rollout_end(self) -> None:
+            save = getattr(sink, "checkpoint", None)
+            if save is None or checkpoint_every is None:
+                return
+            n = int(self.num_timesteps)
+            if n // checkpoint_every > self.model_last_checkpoint // checkpoint_every:
+                self.model_last_checkpoint = n
+                save(self.model, n)
+
+        def _on_training_start(self) -> None:
+            self.model_last_checkpoint = 0
+
         def _on_step(self) -> bool:
             for info in self.locals["infos"]:
                 ep = info.get("quack_episode")
