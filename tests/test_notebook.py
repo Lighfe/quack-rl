@@ -400,6 +400,7 @@ def export(folder: Path, out: Path) -> subprocess.CompletedProcess:
     )
 
 
+@pytest.mark.slow
 def test_notebook_runs_on_a_run_folder(run, tmp_path):
     out = tmp_path / "out.html"
     proc = export(run, out)
@@ -409,6 +410,7 @@ def test_notebook_runs_on_a_run_folder(run, tmp_path):
     assert A in html and B in html
 
 
+@pytest.mark.slow
 def test_notebook_without_seats_parquet_shows_message(tmp_path):
     folder = write_run(tmp_path / "before-43-run", GAMES, SEATS, with_seats=False)
     out = tmp_path / "out.html"
@@ -419,6 +421,7 @@ def test_notebook_without_seats_parquet_shows_message(tmp_path):
     assert "lacks seats.parquet" in html
 
 
+@pytest.mark.slow
 def test_notebook_in_fresh_checkout_names_folder_and_missing_files(tmp_path):
     # fresh checkout: no data/tournaments next to the notebook, and no --run-folder
     copy = tmp_path / "checkout" / "notebooks" / "tournament_run.py"

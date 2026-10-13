@@ -57,6 +57,7 @@ def test_wilson_known_case():
     assert (round(100 * lo, 1), round(100 * hi, 1)) == (40.4, 59.6)
 
 
+@pytest.mark.slow
 def test_ranking_order_and_sections(run):
     text = build_report(run)
     ranking = text.split("== Ranking ==")[1].split("==")[0]
@@ -75,6 +76,7 @@ def test_ranking_order_and_sections(run):
     assert "== Sweeps: green ==" not in text  # a strategy absent from the run is left out
 
 
+@pytest.mark.slow
 def test_sweep_cell_value(run):
     text = build_report(run)
     by_limit = text.split("-- blue: by draw limit --")[1].split("--")[0]
@@ -84,6 +86,7 @@ def test_sweep_cell_value(run):
     assert "pts 3" in combined
 
 
+@pytest.mark.slow
 def test_item_usage_and_length(run):
     text = build_report(run)
     items = text.split("== Item usage of winning bots ==")[1].split("==")[0]
@@ -95,6 +98,7 @@ def test_item_usage_and_length(run):
     assert "11.00" in overall  # 5 + 6 draws in every game
 
 
+@pytest.mark.slow
 def test_seat_check_deviation_and_ok(run):
     write_rows(run, seat_rows(70, 30))
     deviation = build_report(run)
@@ -103,10 +107,12 @@ def test_seat_check_deviation_and_ok(run):
     assert "Seat check: OK" in build_report(run)
 
 
+@pytest.mark.slow
 def test_no_seat_check_line(run):
     assert "Seat check: no seatcheck run in this folder" in build_report(run)
 
 
+@pytest.mark.slow
 def test_baseline_lines(run):
     text = build_report(run)
     base = text.split("== Baseline ==")[1]
@@ -139,6 +145,7 @@ def test_loose_bound_stays_and_is_labelled():
     assert "loose upper bound" in baseline_maximum.__doc__.lower()
 
 
+@pytest.mark.slow
 def test_realistic_maximum_v1_is_between_baseline_and_loose_bound(run):
     rs = load_ruleset("v1")
     realistic = realistic_baseline_maximum(rs)
@@ -180,6 +187,7 @@ def test_realistic_maximum_one_round_by_hand():
     assert 2 < value < 12
 
 
+@pytest.mark.slow
 def test_baseline_labels_and_order(run):
     base = build_report(run).split("== Baseline ==")[1].strip().splitlines()
     starts = [
@@ -236,6 +244,7 @@ def test_missing_column_and_files(run, tmp_path):
     assert result.exit_code != 0 and result.output.startswith("Error:")
 
 
+@pytest.mark.slow
 def test_report_cli_writes_file_and_is_deterministic(run):
     first = runner.invoke(app, ["report", str(run)])
     assert first.exit_code == 0, first.output
@@ -295,6 +304,7 @@ def test_item_missing_for_both_seats_is_an_error(run):
     assert not (run / "report.txt").exists()
 
 
+@pytest.mark.slow
 def test_seat_check_only_run_fills_bot_sections(run):
     rows = seat_rows(3, 2, 1)
     rows[0].update(p1_points=9, p2_points=2, p1_draws=4, p2_draws=5, p1_buy_blue_1=2)

@@ -49,6 +49,7 @@ def test_evaluate_counts_and_frozen():
     assert evaluate_from_pkg is evaluate
 
 
+@pytest.mark.slow
 def test_evaluate_reproducible():
     for opp in ("draw20-pts4-blue", "random"):
         a = evaluate(random_policy(5), opp, games=8, seed=2)

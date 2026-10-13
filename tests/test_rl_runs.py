@@ -168,6 +168,7 @@ def test_train_without_run_creates_nothing(monkeypatch, tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.slow
 def test_real_train_without_run_creates_nothing(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     train(256, eval_games=2, runs_dir=tmp_path)
@@ -199,6 +200,7 @@ def test_load_model_refuses_changed_vector_names(tmp_path):
         load_model(path, "v1.1")
 
 
+@pytest.mark.slow
 def test_real_train_run_folder_and_load_model(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     train(256, eval_games=2, run="real", runs_dir=tmp_path, checkpoint_every=128)
@@ -210,6 +212,7 @@ def test_real_train_run_folder_and_load_model(tmp_path):
     assert load_model(path, "v1.1") is not None
 
 
+@pytest.mark.slow
 def test_real_train_checkpoints_at_multiples_not_rollout_ends(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     train(256, eval_games=1, run="odd", runs_dir=tmp_path, checkpoint_every=100)

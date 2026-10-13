@@ -187,6 +187,7 @@ def trained(nb):
     return nb.run_training(256, "random", eval_games=4)
 
 
+@pytest.mark.slow
 def test_training_writes_nothing_and_saving_round_trips(nb, trained, tmp_path):
     result, config = trained
     runs = tmp_path / "runs"
@@ -209,6 +210,7 @@ def test_training_writes_nothing_and_saving_round_trips(nb, trained, tmp_path):
     assert frames["win_rate"].height == result.games_played
 
 
+@pytest.mark.slow
 def test_load_saved_reports_malformed_csv_values(nb, trained, tmp_path):
     result, config = trained
     ok, message = nb.save_trained(tmp_path, "garbled", result, config)
@@ -225,6 +227,7 @@ def test_load_saved_reports_malformed_csv_values(nb, trained, tmp_path):
     assert message and "garbled" in message
 
 
+@pytest.mark.slow
 def test_training_against_a_bot_has_the_randombot_rows(nb):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     from quack_rl.rl.runs import eval_dict

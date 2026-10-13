@@ -61,6 +61,7 @@ def run():
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_train_smoke(run):
     result, _ = run
     assert isinstance(result, TrainResult)
@@ -81,6 +82,7 @@ def test_train_is_fast_enough():
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_episode_and_metric_rows(run):
     result, _ = run
     eps = result.log.episodes
@@ -96,6 +98,7 @@ def test_episode_and_metric_rows(run):
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_sink_order_and_rows(run):
     result, sink = run
     kinds = [k for k, _ in sink.calls]
@@ -108,6 +111,7 @@ def test_sink_order_and_rows(run):
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_untrained_policy_samples_and_respects_mask(run):
     from sb3_contrib import MaskablePPO
 
@@ -129,6 +133,7 @@ def test_untrained_policy_samples_and_respects_mask(run):
 
 
 @pytest.mark.usefixtures("needs_train")
+@pytest.mark.slow
 def test_second_opponent_runs_vs_random():
     result = train(128, opponent="draw20-pts4-blue", eval_games=4)
     for name in EVALS:

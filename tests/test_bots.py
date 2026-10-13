@@ -602,6 +602,7 @@ GOLDEN_V1_BOTS = (
 )
 
 
+@pytest.mark.slow
 def test_v1_tournament_matches_the_golden_results_csv(tmp_path):
     import csv
 
