@@ -49,6 +49,12 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 - Actions: `Discrete(n)`, the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
 - Training notebook: `uv sync --group train` installs torch, stable-baselines3 and sb3-contrib (the engine does not need them), then `uv run marimo edit notebooks/rl_env.py` (or `uv run python notebooks/rl_env.py` as a script). It explores `QuackEnv` and runs a very small `MaskablePPO` training, a smoke test of the tooling.
 
+## Train from a script
+
+    uv run --group train python scripts/train.py --run NAME [--steps N] [--opponent random|<bot name>]
+
+Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
+
 ## Simulate, replay, verify
 
     uv run quack-rl simulate --games 1000
