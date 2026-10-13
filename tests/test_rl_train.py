@@ -31,16 +31,9 @@ def test_result_field_names():
     assert names == expected
 
 
-try:
-    import sb3_contrib  # noqa: F401
-
-    HAS_TRAIN = True
-except ImportError:
-    HAS_TRAIN = False
-
-needs_train = pytest.mark.skipif(
-    not HAS_TRAIN, reason="needs the train group: uv sync --group train"
-)
+@pytest.fixture
+def needs_train():
+    return pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
 
 
 class Recorder:
@@ -62,11 +55,12 @@ class Recorder:
 
 @pytest.fixture(scope="module")
 def run():
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     sink = Recorder()
     return train(256, eval_games=10, sink=sink), sink
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_train_smoke(run):
     result, _ = run
     assert isinstance(result, TrainResult)
@@ -76,7 +70,7 @@ def test_train_smoke(run):
         assert getattr(result, f"{name}_vs_random") is None
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_train_is_fast_enough():
     import time
 
@@ -85,7 +79,7 @@ def test_train_is_fast_enough():
     assert time.perf_counter() - start < 60
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_episode_and_metric_rows(run):
     result, _ = run
     eps = result.log.episodes
@@ -100,7 +94,7 @@ def test_episode_and_metric_rows(run):
         assert "timestep" in row and set(row) <= allowed and len(row) > 1
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_sink_order_and_rows(run):
     result, sink = run
     kinds = [k for k, _ in sink.calls]
@@ -112,7 +106,7 @@ def test_sink_order_and_rows(run):
     assert {"steps", "rules", "opponent", "seed", "eval_games"} <= set(config)
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_untrained_policy_samples_and_respects_mask(run):
     from sb3_contrib import MaskablePPO
 
@@ -133,7 +127,7 @@ def test_untrained_policy_samples_and_respects_mask(run):
     assert mask[greedy(obs, mask)] and np.isscalar(greedy(obs, mask))
 
 
-@needs_train
+@pytest.mark.usefixtures("needs_train")
 def test_second_opponent_runs_vs_random():
     result = train(128, opponent="draw20-pts4-blue", eval_games=4)
     for name in EVALS:
@@ -141,7 +135,6 @@ def test_second_opponent_runs_vs_random():
         assert getattr(result, f"{name}_vs_random").games == 4
 
 
-@needs_train
 def test_baseline_wording():
     import pathlib
 
