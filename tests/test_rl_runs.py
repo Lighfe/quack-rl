@@ -210,6 +210,13 @@ def test_real_train_run_folder_and_load_model(tmp_path):
     assert load_model(path, "v1.1") is not None
 
 
+def test_real_train_checkpoints_at_multiples_not_rollout_ends(tmp_path):
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
+    train(256, eval_games=1, run="odd", runs_dir=tmp_path, checkpoint_every=100)
+    names = sorted(p.name for p in (tmp_path / "odd" / "checkpoints").iterdir())
+    assert names == ["step_100.zip", "step_200.zip"]
+
+
 def test_new_code_uses_no_record_paths():
     src = Path(__file__).parents[1] / "src/quack_rl/rl"
     for name in ("runs.py", "train.py"):

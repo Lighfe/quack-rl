@@ -129,7 +129,7 @@ def train(
     that is not `random` also against `RandomBot` (the `*_vs_random` fields). `sink` gets the
     rows as they arrive. With `run="name"` the run is also written to `runs_dir / name` (a name
     that exists is refused before training); `checkpoint_every` saves the model every that many
-    timesteps (at the end of a rollout). Without `run` nothing is written to disk.
+    timesteps (a multiple of it, `step_<n>.zip`). Without `run` nothing is written to disk.
     """
     if eval_games < 1:
         raise ValueError(f"eval_games must be at least 1, not {eval_games}")
@@ -155,19 +155,17 @@ def train(
         sink.start(config)
 
     class EpisodeCallback(BaseCallback):
-        def _on_rollout_end(self) -> None:
-            save = getattr(sink, "checkpoint", None)
-            if save is None or checkpoint_every is None:
-                return
-            n = int(self.num_timesteps)
-            if n // checkpoint_every > self.model_last_checkpoint // checkpoint_every:
-                self.model_last_checkpoint = n
-                save(self.model, n)
-
         def _on_training_start(self) -> None:
             self.model_last_checkpoint = 0
 
         def _on_step(self) -> bool:
+            save = getattr(sink, "checkpoint", None)
+            if save is not None and checkpoint_every is not None:
+                n = int(self.num_timesteps)
+                if n // checkpoint_every > self.model_last_checkpoint // checkpoint_every:
+                    # one env: num_timesteps grows by 1, so n is the multiple itself
+                    self.model_last_checkpoint = n
+                    save(self.model, n - n % checkpoint_every)
             for info in self.locals["infos"]:
                 ep = info.get("quack_episode")
                 if ep is None:
