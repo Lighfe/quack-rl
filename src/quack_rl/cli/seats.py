@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import typer
 from rich.console import Console
 
@@ -9,6 +11,7 @@ from quack_rl.runner import Seat
 
 KNOWN_SEATS = ("bot:random", "human")
 BOT_FORM = "bot:draw<percent>-pts<round>-<strategy>"
+POLICY_FORM = "policy:<run folder>"
 
 
 class HumanSeatRequired(typer.BadParameter):
@@ -21,8 +24,13 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
         raise HumanSeatRequired("human seats are only allowed in `quack-rl play`")
     if spec in KNOWN_SEATS:
         return
-    known = f"known: {', '.join(KNOWN_SEATS)}, {BOT_FORM}"
+    known = f"known: {', '.join(KNOWN_SEATS)}, {BOT_FORM}, {POLICY_FORM}"
     reason = ""
+    if spec.startswith("policy:"):
+        folder = spec.removeprefix("policy:")
+        if folder and Path(folder).is_dir():
+            return
+        raise typer.BadParameter(f"policy seat {spec!r}: run folder {folder!r} not found")
     if spec.startswith("bot:"):
         try:
             parse_bot_name(spec.removeprefix("bot:"))
@@ -48,6 +56,11 @@ def parse_seat(
         return HumanSeat(label, console, bag_assist, rs)
     if spec == "bot:random":
         return RandomBot(seed)
+    if spec.startswith("policy:"):
+        assert rs is not None, "a policy seat needs the ruleset"
+        from quack_rl.rl.policy_bot import PolicyBot  # torch stays optional
+
+        return PolicyBot.from_run(spec.removeprefix("policy:"), rs)
     assert rs is not None, "a heuristic bot needs the ruleset"
     draw_limit, points_round, strategy = parse_bot_name(spec.removeprefix("bot:"))
     return HeuristicBot(rs, draw_limit, points_round, strategy, seed)
