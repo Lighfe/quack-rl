@@ -7,8 +7,9 @@ with app.setup:
     # The Gymnasium env QuackEnv against RandomBot, and a MaskablePPO training against an opponent
     # of your choice with an honest evaluation. Sections 1 and 2 need only the default install;
     # section 3 needs the `train` group: `uv sync --group train`. Nothing is written to disk
-    # unless you press "Save this run".
+    # unless you press "Save this run" or "Export this game".
     import importlib.util
+    import secrets
     from pathlib import Path
 
     import altair as alt
@@ -16,9 +17,22 @@ with app.setup:
     import numpy as np
     import polars as pl
 
-    from quack_rl.engine import action_names
+    from quack_rl import __version__
+    from quack_rl.cli.render import render_step
+    from quack_rl.engine import SEATS, RngChance, StepResult, action_names
+    from quack_rl.record import (
+        RECORD_SCHEMA_VERSION,
+        GameRecorder,
+        HeaderLine,
+        SeatInfo,
+        berlin_iso,
+        berlin_stamp,
+        new_game_id,
+    )
     from quack_rl.rl import QuackEnv, make_opponent, vector_names
-    from quack_rl.rl.runs import eval_dict, load_run, run_path, save_run
+    from quack_rl.rl.runs import eval_dict, load_model, load_run, run_path, save_run
+    from quack_rl.rl.train import sb3_policy
+    from quack_rl.rules import load_ruleset
 
     RULES = "v1.1"
     EVAL_GAMES = 500  # games per row of the table
@@ -209,6 +223,108 @@ def load_saved(runs_dir: Path, name: str):
     except Exception as err:  # a broken run (bad JSON, bad CSV values, ...) is a message
         return None, None, None, f"Cannot load the run `{name}`: {type(err).__name__}: {err}"
     return config, frames, rows, None
+
+
+@app.function
+def replay_source(trained, runs_dir: Path, picked: str | None):
+    """(model, opponent name, None) for the replay, or (None, None, message).
+
+    The model of this session's training wins; otherwise the saved run picked in section 4.
+    """
+    if trained is not None:
+        return trained[0].model, trained[1]["opponent"], None
+    if not picked:
+        return None, None, "Train a policy (section 3) or pick a saved run (section 4) first."
+    try:
+        path = run_path(runs_dir, picked)
+        opponent = load_run(path)[0]["opponent"]
+        return load_model(path, RULES), opponent, None
+    except Exception as err:  # a missing or changed run is a message
+        return None, None, f"Cannot load the run `{picked}`: {type(err).__name__}: {err}"
+
+
+@app.function
+def agent_name(typed: str, picked: str | None) -> str:
+    """The name of the agent seat in a record: the typed run name, the saved run, or `trained`."""
+    return typed.strip() or picked or "trained"
+
+
+@app.function
+def play_traced_game(
+    model, opponent: str, rules: str, seed: int, deterministic: bool
+) -> list[StepResult]:
+    """One game of `model` (p1) against `opponent` (p2), as the engine step results.
+
+    `seed` is the chance seed of the game, so that a record of it passes `verify_seed`.
+    Nothing is written.
+    """
+    env = QuackEnv(seat="p1", opponent=make_opponent(opponent, seed=seed, rules=rules), rules=rules)
+    env._env._chance_override = RngChance(seed)  # the game seed is the chance seed, as in a record
+    policy = sb3_policy(model, deterministic)
+    obs, info = env.reset(seed=seed)
+    done = False
+    while not done:
+        obs, _, done, _, info = env.step(policy(obs, info["action_mask"]))
+    return list(env.trace)
+
+
+@app.function
+def trace_text(trace: list[StepResult], rs) -> str:
+    """The trace as text, the step rendering of `quack-rl play`, and the result at the end."""
+    final = trace[-1].state
+    points = ", ".join(f"{s} {final.players[s].points}" for s in SEATS)
+    steps = [f"-- step {r.n} --\n{render_step(r, rs)}" for r in trace]
+    return "\n".join([*steps, f"winner: {final.winner}  points: {points}"])
+
+
+@app.function
+def export_game(
+    trace: list[StepResult],
+    path: Path,
+    rules: str,
+    seed: int,
+    run_name: str,
+    opponent: str = "random",
+) -> None:
+    """Write the trace as one game record (mode `sim`); an existing file is refused."""
+    rs = load_ruleset(rules)
+    header = HeaderLine(
+        game_id=new_game_id(),
+        schema_version=RECORD_SCHEMA_VERSION,
+        rules_version=rules,
+        rounds=rs.rounds,
+        seed=seed,
+        mode="sim",
+        seats={
+            "p1": SeatInfo(kind="bot", name=run_name),
+            "p2": SeatInfo(kind="bot", name=opponent),
+        },
+        ui={},
+        engine_version=__version__,
+        started_at=berlin_iso(),
+    )
+    with Path(path).open("x", encoding="utf-8") as f:
+        recorder = GameRecorder(f, header)
+        for result in trace:
+            recorder.on_step(result, {})
+        recorder.close(trace[-1].state)
+
+
+@app.function
+def export_to_folder(
+    folder: str, trace: list[StepResult], rules: str, seed: int, run_name: str, opponent="random"
+) -> tuple[bool, str]:
+    """Write one record file into `folder`; (ok, message). An empty folder name writes nothing."""
+    if not folder.strip():
+        return False, "Type a folder name for the record first."
+    target = Path(folder.strip())
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        path = target / f"{berlin_stamp()}_seed{seed}_{secrets.token_hex(2)}.jsonl"
+        export_game(trace, path, rules, seed, run_name, opponent)
+    except OSError as err:
+        return False, f"Cannot write the record: {err}"
+    return True, f"Wrote the record to `{path}`. Check it with `quack-rl verify {path}`."
 
 
 @app.cell(hide_code=True)
@@ -475,6 +591,127 @@ def _(run_picker):
                 ]
             )
     loaded_output  # noqa: B018
+    return
+
+
+@app.cell
+def _(run_picker, trained):
+    replay_model, replay_opponent, replay_message = replay_source(
+        trained, RUNS_DIR, run_picker.value
+    )
+    return replay_model, replay_opponent, replay_message
+
+
+@app.cell
+def _():
+    get_game, set_game = mo.state(None)
+    get_export, set_export = mo.state(None)
+    return get_export, get_game, set_export, set_game
+
+
+@app.cell
+def _(replay_message, replay_model):
+    seed_input = mo.ui.number(start=0, stop=2**31 - 1, step=1, value=0, label="Game seed")
+    deterministic_box = mo.ui.checkbox(value=True, label="Greedy (most likely action)")
+    mo.vstack(
+        [
+            mo.md(
+                "## 5. Watch one game\n\nThe game is kept in memory; nothing is written "
+                "until you press **Export this game**."
+            ),
+            mo.hstack([seed_input, deterministic_box], justify="start"),
+            mo.callout(mo.md(replay_message), kind="warn") if replay_model is None else mo.md(""),
+        ]
+    )
+    return deterministic_box, seed_input
+
+
+@app.cell
+def _(
+    deterministic_box,
+    replay_model,
+    replay_opponent,
+    run_name,
+    run_picker,
+    seed_input,
+    set_export,
+    set_game,
+):
+    def _play(_):
+        seed = int(seed_input.value)
+        trace = play_traced_game(
+            replay_model, replay_opponent, RULES, seed, deterministic_box.value
+        )
+        set_export(None)
+        set_game(
+            {
+                "trace": trace,
+                "seed": seed,
+                "opponent": replay_opponent,
+                "name": agent_name(run_name.value, run_picker.value),
+            }
+        )
+
+    play_button = mo.ui.button(label="Play one game", on_click=_play, disabled=replay_model is None)
+    play_button  # noqa: B018
+    return
+
+
+@app.cell
+def _(get_game):
+    game = get_game()
+    if game is None:
+        game_output = mo.md("No game played yet.")
+    else:
+        game_output = mo.vstack(
+            [
+                mo.md(f"Seed `{game['seed']}` against `{game['opponent']}`."),
+                mo.plain_text(trace_text(game["trace"], load_ruleset(RULES))),
+            ]
+        )
+    game_output  # noqa: B018
+    return
+
+
+@app.cell
+def _():
+    folder_input = mo.ui.text(value="data/records/replays", label="Folder for the record")
+    folder_input  # noqa: B018
+    return (folder_input,)
+
+
+@app.cell
+def _(folder_input, get_game, set_export):
+    def _export(_):
+        game = get_game()
+        set_export(
+            export_to_folder(
+                folder_input.value,
+                game["trace"],
+                RULES,
+                game["seed"],
+                game["name"],
+                game["opponent"],
+            )
+        )
+
+    export_button = mo.ui.button(
+        label="Export this game", on_click=_export, disabled=get_game() is None
+    )
+    export_button  # noqa: B018
+    return
+
+
+@app.cell
+def _(get_export):
+    export_result = get_export()
+    if export_result is None:
+        export_output = mo.md("Not exported.")
+    else:
+        export_output = mo.callout(
+            mo.md(export_result[1]), kind="success" if export_result[0] else "danger"
+        )
+    export_output  # noqa: B018
     return
 
 

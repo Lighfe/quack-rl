@@ -3,10 +3,14 @@
 import importlib.util
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from quack_rl.engine import action_names
+from quack_rl.cli.render import render_step
+from quack_rl.engine import Phase, StepResult, action_names
+from quack_rl.record import SeatInfo, read_games, verify_game, verify_seed
 from quack_rl.rl import vector_names
+from quack_rl.rules import load_ruleset
 
 NOTEBOOK = Path(__file__).resolve().parent.parent / "notebooks" / "rl_env.py"
 
@@ -227,3 +231,86 @@ def test_training_against_a_bot_has_the_randombot_rows(nb):
 
     result, config = nb.run_training(128, "draw20-pts4-blue", eval_games=2)
     assert len(nb.eval_rows(eval_dict(result), config["opponent"])) == 8
+
+
+class FakeModel:
+    """Stands in for a MaskablePPO model: `predict` takes the first (or last) legal action."""
+
+    def predict(self, observation, action_masks, deterministic):
+        legal = np.flatnonzero(action_masks)
+        return (legal[0] if deterministic else legal[-1]), None
+
+
+@pytest.mark.parametrize("deterministic", [True, False])
+def test_play_traced_game_returns_a_whole_game_and_writes_nothing(
+    nb, tmp_path, monkeypatch, deterministic
+):
+    monkeypatch.chdir(tmp_path)
+    trace = nb.play_traced_game(FakeModel(), "random", "v1.1", 3, deterministic)
+    assert trace and all(isinstance(r, StepResult) for r in trace)
+    assert [r.n for r in trace] == list(range(1, len(trace) + 1))
+    assert trace[-1].state.phase is Phase.GAME_OVER
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_play_traced_game_is_reproducible_by_seed(nb):
+    one = nb.play_traced_game(FakeModel(), "random", "v1.1", 5, True)
+    two = nb.play_traced_game(FakeModel(), "random", "v1.1", 5, True)
+    other = nb.play_traced_game(FakeModel(), "random", "v1.1", 6, True)
+    assert [r.chance for r in one] == [r.chance for r in two]
+    assert [r.chance for r in one] != [r.chance for r in other]
+
+
+def test_trace_text_uses_render_step_for_every_step(nb):
+    trace = nb.play_traced_game(FakeModel(), "random", "v1.1", 1, True)
+    rs = load_ruleset("v1.1")
+    text = nb.trace_text(trace, rs)
+    assert text.count("p1:") >= len(trace)
+    assert render_step(trace[0], rs) in text
+
+
+@pytest.mark.parametrize("opponent", ["random", "draw20-pts4-blue"])
+def test_exported_game_reads_back_and_verifies(nb, tmp_path, opponent):
+    trace = nb.play_traced_game(FakeModel(), opponent, "v1.1", 11, False)
+    path = tmp_path / "game.jsonl"
+    nb.export_game(trace, path, "v1.1", 11, "my-run", opponent=opponent)
+    (game,) = list(read_games(path))
+    assert game.header.mode == "sim"
+    assert game.header.seed == 11
+    assert game.header.seats["p1"] == SeatInfo(kind="bot", name="my-run")
+    assert game.header.seats["p2"].name == opponent
+    assert len(game.steps) == len(trace)
+    assert game.footer is not None
+    assert verify_game(game) == []
+    assert verify_seed(game) == []
+
+
+def test_export_to_folder_writes_exactly_one_file_and_refuses_an_empty_folder(nb, tmp_path):
+    trace = nb.play_traced_game(FakeModel(), "random", "v1.1", 2, True)
+    folder = tmp_path / "out"
+    ok, message = nb.export_to_folder("  ", trace, "v1.1", 2, "r")
+    assert ok is False and message
+    ok, message = nb.export_to_folder(str(folder), trace, "v1.1", 2, "r")
+    assert ok, message
+    assert len(list(folder.iterdir())) == 1
+    assert str(next(folder.iterdir())) in message
+
+
+def test_playing_games_without_export_writes_no_file(nb, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for seed in range(3):
+        nb.play_traced_game(FakeModel(), "random", "v1.1", seed, True)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_replay_source_without_a_trained_model_or_run(nb, tmp_path):
+    model, opponent, message = nb.replay_source(None, tmp_path, None)
+    assert model is None and opponent is None and message
+    model, opponent, message = nb.replay_source(None, tmp_path, "missing")
+    assert model is None and message and "missing" in message
+
+
+def test_agent_name_prefers_the_typed_name(nb):
+    assert nb.agent_name(" mine ", None) == "mine"
+    assert nb.agent_name("", "saved-run") == "saved-run"
+    assert nb.agent_name("", None) == "trained"
