@@ -206,7 +206,7 @@ def load_saved(runs_dir: Path, name: str):
         config, episodes, metrics, evaluation = load_run(run_path(runs_dir, name))
         frames = curve_frames(episodes, metrics)
         rows = eval_rows(evaluation, config["opponent"])
-    except (OSError, ValueError, KeyError, TypeError) as err:
+    except Exception as err:  # a broken run (bad JSON, bad CSV values, ...) is a message
         return None, None, None, f"Cannot load the run `{name}`: {type(err).__name__}: {err}"
     return config, frames, rows, None
 

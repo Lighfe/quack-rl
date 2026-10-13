@@ -205,6 +205,22 @@ def test_training_writes_nothing_and_saving_round_trips(nb, trained, tmp_path):
     assert frames["win_rate"].height == result.games_played
 
 
+def test_load_saved_reports_malformed_csv_values(nb, trained, tmp_path):
+    result, config = trained
+    ok, message = nb.save_trained(tmp_path, "garbled", result, config)
+    assert ok, message
+    episodes = tmp_path / "garbled" / "episodes.csv"
+    header, *lines = episodes.read_text().splitlines()
+    assert "points_own" in header.split(",")
+    column = header.split(",").index("points_own")
+    cells = lines[0].split(",")
+    cells[column] = "garbage"
+    episodes.write_text("\n".join([header, ",".join(cells), *lines[1:]]) + "\n")
+    config_, frames, rows, message = nb.load_saved(tmp_path, "garbled")
+    assert config_ is frames is rows is None
+    assert message and "garbled" in message
+
+
 def test_training_against_a_bot_has_the_randombot_rows(nb):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     from quack_rl.rl.runs import eval_dict
