@@ -52,12 +52,162 @@ def test_train_installed_is_a_bool(nb):
     assert isinstance(nb.train_installed(), bool)
 
 
-def test_training_runs_for_a_few_hundred_steps(nb):
-    pytest.importorskip("sb3_contrib")
-    from sb3_contrib import MaskablePPO
+def _fake_evals(with_random: bool) -> dict[str, dict]:
+    def one(wins, draws, losses):
+        return {"games": wins + draws + losses, "wins": wins, "draws": draws, "losses": losses}
 
-    env = nb.make_env()
-    model = MaskablePPO("MlpPolicy", env, n_steps=64, batch_size=64, seed=0, device="cpu")
-    model.learn(total_timesteps=256)
-    rate = nb.win_rate(nb.make_env(), model, games=3)
-    assert 0.0 <= rate <= 1.0
+    out = {
+        "baseline_random": one(1, 0, 3),
+        "baseline_untrained": one(2, 0, 2),
+        "trained_sampled": one(3, 0, 1),
+        "trained_greedy": one(4, 0, 0),
+    }
+    if with_random:
+        out.update({k + "_vs_random": v for k, v in list(out.items())})
+    return out
+
+
+def test_resolve_opponent_accepts_the_two_presets_and_a_typed_name(nb):
+    assert nb.resolve_opponent("random", "") == ("random", None)
+    assert nb.resolve_opponent("draw20-pts4-blue", "") == ("draw20-pts4-blue", None)
+    assert nb.resolve_opponent(nb.OTHER_OPTION, " draw10-pts6-green ") == (
+        "draw10-pts6-green",
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "choice,typed",
+    [(None, ""), ("nonsense", ""), ("other (type a name below)", "nonsense"),
+     ("other (type a name below)", ""), ("other (type a name below)", "   ")],
+)  # fmt: skip
+def test_resolve_opponent_bad_names_give_a_message(nb, choice, typed):
+    name, message = nb.resolve_opponent(choice, typed)
+    assert name is None
+    assert message
+
+
+def test_eval_rows_show_wins_draws_losses_against_both_opponents(nb):
+    rows = nb.eval_rows(_fake_evals(True), "draw20-pts4-blue")
+    assert len(rows) == 8
+    assert {r["against"] for r in rows} == {"draw20-pts4-blue", "RandomBot"}
+    first = rows[0]
+    assert (first["wins"], first["draws"], first["losses"]) == (1, 0, 3)
+    assert {"agent", "against", "games", "wins", "draws", "losses"} == set(first)
+
+
+def test_eval_rows_do_not_repeat_randombot_when_the_opponent_is_random(nb):
+    rows = nb.eval_rows(_fake_evals(False), "random")
+    assert len(rows) == 4
+    assert {r["against"] for r in rows} == {"random"}
+
+
+def _episodes(n: int) -> list[dict]:
+    return [
+        {
+            "episode": i + 1,
+            "timestep": 40 * (i + 1),
+            "result": "win" if i % 2 == 0 else "loss",
+            "points_own": 10.0,
+            "points_opponent": 5.0,
+            "explosions_own": i % 3,
+            "decisions": 40,
+        }
+        for i in range(n)
+    ]
+
+
+def test_curve_frames_have_the_four_curves(nb):
+    metrics = [
+        {"timestep": 128, "policy_gradient_loss": -0.1, "value_loss": 0.5, "entropy_loss": -1.0}
+    ]
+    frames = nb.curve_frames(_episodes(6), metrics, window=2)
+    assert set(frames) == {"win_rate", "points", "explosions", "losses"}
+    assert frames["win_rate"]["win_rate"].to_list() == [1.0, 0.5, 0.5, 0.5, 0.5, 0.5]
+    assert set(frames["points"]["who"]) == {"points_own", "points_opponent"}
+    assert frames["explosions"].height == 6
+    assert set(frames["losses"]["loss"]) == {
+        "policy_gradient_loss",
+        "value_loss",
+        "entropy_loss",
+    }
+    assert len(nb.curve_charts(frames)) == 4
+
+
+def test_curve_frames_work_without_rows(nb):
+    frames = nb.curve_frames([], [])
+    assert all(f.height == 0 for f in frames.values())
+    assert len(nb.curve_charts(frames)) == 4
+
+
+def test_saved_runs_and_load_saved_without_a_runs_folder(nb, tmp_path):
+    runs = tmp_path / "runs"
+    assert nb.saved_runs(runs) == []
+    config, frames, rows, message = nb.load_saved(runs, "nope")
+    assert config is frames is rows is None
+    assert "nope" in message
+    assert not runs.exists()
+
+
+def test_load_saved_reports_a_broken_run(nb, tmp_path):
+    (tmp_path / "bad").mkdir()
+    (tmp_path / "bad" / "config.json").write_text("{not json")
+    assert nb.saved_runs(tmp_path) == ["bad"]
+    *_, message = nb.load_saved(tmp_path, "bad")
+    assert message and "bad" in message
+    *_, message = nb.load_saved(tmp_path, "../x")
+    assert message
+
+
+def test_save_trained_refuses_bad_names_and_writes_nothing(nb, tmp_path):
+    runs = tmp_path / "runs"
+    for name in ("", "  ", "../x", "a/b", "a\\b"):
+        ok, message = nb.save_trained(runs, name, object(), {})
+        assert ok is False and message
+    assert not runs.exists()
+
+
+def test_opening_the_notebook_writes_no_file(nb, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nb.app.run()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_training_install_message_is_the_uv_command(nb):
+    assert nb.INSTALL_COMMAND == "uv sync --group train"
+
+
+@pytest.fixture(scope="module")
+def trained(nb):
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
+    return nb.run_training(256, "random", eval_games=4)
+
+
+def test_training_writes_nothing_and_saving_round_trips(nb, trained, tmp_path):
+    result, config = trained
+    runs = tmp_path / "runs"
+    assert result.games_played >= 1
+    assert not runs.exists()  # training itself wrote nothing
+
+    ok, message = nb.save_trained(runs, "first", result, config)
+    assert ok, message
+    assert nb.saved_runs(runs) == ["first"]
+    before = (runs / "first" / "config.json").read_text()
+
+    ok, message = nb.save_trained(runs, "first", result, {**config, "steps": 1})
+    assert ok is False and "exists" in message
+    assert (runs / "first" / "config.json").read_text() == before
+
+    loaded_config, frames, rows, error = nb.load_saved(runs, "first")
+    assert error is None
+    assert loaded_config["opponent"] == "random"
+    assert len(rows) == 4  # the opponent is random: no RandomBot block
+    assert frames["win_rate"].height == result.games_played
+
+
+def test_training_against_a_bot_has_the_randombot_rows(nb):
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
+    from quack_rl.rl.runs import eval_dict
+
+    result, config = nb.run_training(128, "draw20-pts4-blue", eval_games=2)
+    assert len(nb.eval_rows(eval_dict(result), config["opponent"])) == 8
