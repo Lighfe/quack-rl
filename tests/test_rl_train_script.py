@@ -166,3 +166,42 @@ def test_real_run_writes_the_run_folder(tmp_path, capsys):
         assert (folder / name).is_file(), name
     assert (folder / "checkpoints" / "step_128.zip").is_file()
     assert str(folder) in capsys.readouterr().out
+
+
+def test_resume_of_a_missing_run_exits_2(tmp_path, capsys):
+    code = train_script.main(["--resume", "nope", "--runs-dir", str(tmp_path)])
+    err = capsys.readouterr().err
+    assert code == 2 and err.startswith("error: ") and "nope" in err and "Traceback" not in err
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [["--run", "a"], ["--steps", "5"], ["--opponent", "random"], ["--rules", "v1.1"],
+     ["--seed", "0"], ["--eval-games", "3"]],
+)  # fmt: skip
+def test_resume_with_config_flags_is_refused(extra, monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(train_script, "resume", lambda *a, **k: calls.append(k))
+    with pytest.raises(SystemExit) as exc:
+        train_script.main(["--resume", "r", "--runs-dir", str(tmp_path), *extra])
+    assert exc.value.code == 2 and calls == []
+
+
+def test_resume_goes_to_resume_and_prints_the_report(monkeypatch, tmp_path, capsys):
+    (tmp_path / "r").mkdir()
+    (tmp_path / "r" / "config.json").write_text('{"opponent": "random"}')
+    calls = []
+    monkeypatch.setattr(
+        train_script, "resume", lambda *a, **k: calls.append((a, k)) or _stub_result(False)
+    )
+    code = train_script.main(
+        ["--resume", "r", "--runs-dir", str(tmp_path), "--checkpoint-every", "64"]
+    )
+    assert code == 0 and calls == [(("r",), {"runs_dir": tmp_path, "checkpoint_every": 64})]
+    assert str(tmp_path / "r") in capsys.readouterr().out
+
+
+def test_help_shows_resume(capsys):
+    with pytest.raises(SystemExit):
+        train_script.main(["--help"])
+    assert "--resume" in capsys.readouterr().out

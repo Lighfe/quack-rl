@@ -53,7 +53,7 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
     uv run --group train python scripts/train.py --run NAME [--steps N] [--opponent random|<bot name>]
 
-Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
+Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`), `--resume NAME` (instead of `--run`: continue an interrupted run from its newest checkpoint, see `docs/specs/2026-10-14-resume.md`; `--steps`, `--opponent`, `--rules`, `--seed` and `--eval-games` come from its `config.json` and are refused). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
 
 ### Self-play
 

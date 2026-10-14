@@ -112,6 +112,91 @@ class RunFolder:
         result.model.save(str(self.path / "model.zip"))
 
 
+class ResumedRun(RunFolder):
+    """A `RunFolder` for a run folder that exists: `start` writes nothing, the rest appends."""
+
+    def __init__(self, path: Path | str):
+        self.path = Path(path)
+
+    def start(self, config: dict) -> None:
+        pass
+
+
+@dataclasses.dataclass
+class ResumeState:
+    path: Path
+    config: dict
+    n: int  # timestep of the newest checkpoint
+    checkpoint: Path
+
+
+def _checkpoint_steps(folder: Path) -> dict[int, Path]:
+    found = {}
+    for f in folder.glob("step_*.zip"):
+        digits = f.stem[len("step_") :]
+        if digits.isdigit():
+            found[int(digits)] = f
+    return found
+
+
+def check_resumable(runs_dir: Path, name: str) -> ResumeState:
+    """The newest checkpoint of an interrupted run; a one-line error if it cannot resume."""
+    path = run_path(runs_dir, name)
+    if not path.is_dir():
+        raise FileNotFoundError(f"run folder {path} does not exist")
+    config_file = path / "config.json"
+    if not config_file.is_file():
+        raise FileNotFoundError(f"{config_file} is missing; nothing to resume")
+    try:
+        config = json.loads(config_file.read_text())
+    except ValueError as err:
+        raise ValueError(f"{config_file} is not valid JSON: {err}") from err
+    if not isinstance(config, dict) or "steps" not in config:
+        raise ValueError(f"{config_file} has no 'steps' key; cannot resume")
+    for key in ("rules", "opponent", "seed", "eval_games"):
+        if key not in config:
+            raise ValueError(f"{config_file} has no {key!r} key; cannot resume")
+    if (path / "model.zip").exists() or (path / "eval.json").exists():
+        raise ValueError(
+            f"run {path} is finished (model.zip or eval.json exists); nothing to resume"
+        )
+    if (path / "selfplay.csv").exists():
+        raise ValueError(
+            f"run {path} is a self-play run; resume of self-play runs is not supported"
+        )
+    steps_found = _checkpoint_steps(path / "checkpoints")
+    if not steps_found:
+        raise FileNotFoundError(f"{path / 'checkpoints'} has no step_<n>.zip checkpoint")
+    n = max(steps_found)
+    if n >= config["steps"]:
+        raise ValueError(
+            f"run {path}: newest checkpoint is at step {n}, steps is {config['steps']}; "
+            "no steps left to resume"
+        )
+    if config.get("layout") != OBSERVATION_LAYOUT:
+        raise LayoutMismatch(
+            f"run {path} has observation layout {config.get('layout')}, "
+            f"the code has {OBSERVATION_LAYOUT}"
+        )
+    if config.get("vector_names") != vector_names(load_ruleset(config["rules"])):
+        raise LayoutMismatch(f"run {path} has other vector names than rules {config['rules']!r}")
+    return ResumeState(path, config, n, steps_found[n])
+
+
+def truncate_logs(path: Path, n: int) -> tuple[list[dict], list[dict]]:
+    """Cut the rows after timestep `n` from the two logs; return the kept rows."""
+    kept = []
+    for name, columns in (("episodes.csv", EPISODE_COLUMNS), ("metrics.csv", METRIC_COLUMNS)):
+        file = path / name
+        with file.open(newline="") as f:
+            rows = list(csv.DictReader(f))
+        keep = [r for r in rows if int(r["timestep"]) <= n]
+        if len(keep) != len(rows):
+            _write_csv(file, columns, keep)
+        kept.append([{k: _number(v) for k, v in r.items() if v != ""} for r in keep])
+    return kept[0], kept[1]
+
+
 def save_run(path: Path | str, result: Any, config: dict) -> None:
     """Write the run files (no checkpoints) from an in-memory `TrainResult`."""
     sink = RunFolder(path)

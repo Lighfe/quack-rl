@@ -233,3 +233,159 @@ def test_data_runs_is_git_ignored():
     out = subprocess.run(["git", "check-ignore", "data/runs/example"], capture_output=True,
                          text=True, cwd=Path(__file__).parents[1])  # fmt: skip
     assert out.stdout.strip() == "data/runs/example"
+
+
+# ---- resume: refusals and log truncation (no SB3 needed) ----
+
+
+def _interrupted(tmp_path, steps=1000, checkpoints=(100, 500)):
+    """A run folder as an interrupted run leaves it: logs, checkpoints, no model.zip/eval.json."""
+    from quack_rl.rl.runs import EPISODE_COLUMNS, METRIC_COLUMNS, _write_csv, full_config
+
+    path = tmp_path / "cut"
+    (path / "checkpoints").mkdir(parents=True)
+    cfg = {**CONFIG, "steps": steps}
+    (path / "config.json").write_text(json.dumps(full_config(cfg)))
+    _write_csv(path / "episodes.csv", EPISODE_COLUMNS, [episode_row(i) for i in range(1, 6)])
+    _write_csv(path / "metrics.csv", METRIC_COLUMNS, [metric_row(t) for t in (128, 256, 384)])
+    for n in checkpoints:
+        (path / "checkpoints" / f"step_{n}.zip").write_bytes(b"x")
+    return path
+
+
+def _snapshot(path):
+    return {p.relative_to(path): p.read_bytes() for p in sorted(path.rglob("*")) if p.is_file()}
+
+
+def test_check_resumable_takes_the_newest_checkpoint_as_a_number(tmp_path):
+    from quack_rl.rl.runs import check_resumable
+
+    _interrupted(tmp_path, steps=200_000, checkpoints=(50_000, 100_000, 9_000))
+    state = check_resumable(tmp_path, "cut")
+    assert state.n == 100_000 and state.checkpoint.name == "step_100000.zip"
+    assert state.config["seed"] == 3
+
+
+def test_truncate_logs_cuts_rows_after_n(tmp_path):
+    from quack_rl.rl.runs import truncate_logs
+
+    path = _interrupted(tmp_path)
+    episodes, metrics = truncate_logs(path, 200)  # episode timesteps are 40, 80, ..., 200
+    assert [r["episode"] for r in episodes] == [1, 2, 3, 4, 5]
+    episodes, metrics = truncate_logs(path, 100)
+    assert [r["episode"] for r in episodes] == [1, 2]
+    assert [r["timestep"] for r in metrics] == []
+    assert len(load_rows(path / "episodes.csv")) == 2
+    assert load_rows(path / "metrics.csv") == []
+
+
+def load_rows(file):
+    import csv
+
+    with file.open(newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def test_truncate_logs_keeps_rows_up_to_n_unchanged(tmp_path):
+    from quack_rl.rl.runs import truncate_logs
+
+    path = _interrupted(tmp_path)
+    before = (path / "metrics.csv").read_text().splitlines()
+    truncate_logs(path, 256)
+    assert (path / "metrics.csv").read_text().splitlines() == before[:3]  # header + 128 + 256
+
+
+def _no_step_files(p):
+    for f in (p / "checkpoints").glob("step_*.zip"):
+        f.unlink()
+    (p / "checkpoints" / "notes.txt").write_text("x")
+
+
+@pytest.mark.parametrize(
+    "setup, error, text",
+    [
+        (lambda p: shutil.rmtree(p), FileNotFoundError, "does not exist"),
+        (lambda p: (p / "config.json").unlink(), FileNotFoundError, "config.json"),
+        (lambda p: (p / "config.json").write_text("{}"), ValueError, "steps"),
+        (lambda p: shutil.rmtree(p / "checkpoints"), FileNotFoundError, "checkpoints"),
+        (_no_step_files, FileNotFoundError, "checkpoint"),
+        (lambda p: (p / "model.zip").write_bytes(b"m"), ValueError, "finished"),
+        (lambda p: (p / "eval.json").write_text("{}"), ValueError, "finished"),
+        (lambda p: (p / "selfplay.csv").write_text("a\n"), ValueError, "self-play"),
+        (lambda p: (p / "checkpoints" / "step_1000.zip").write_bytes(b"x"), ValueError,
+         "no steps left"),
+    ],
+)  # fmt: skip
+def test_resume_refusals(tmp_path, setup, error, text):
+    from quack_rl.rl.train import resume
+
+    path = _interrupted(tmp_path)
+    setup(path)
+    before = _snapshot(path) if path.exists() else None
+    with pytest.raises(error, match=text) as exc:
+        resume("cut", runs_dir=tmp_path)
+    assert "\n" not in str(exc.value)
+    if before is not None:
+        assert _snapshot(path) == before
+
+
+@pytest.mark.parametrize("key", ["layout", "vector_names"])
+def test_resume_refuses_changed_layout_before_opening_the_checkpoint(tmp_path, key):
+    from quack_rl.rl.train import resume
+
+    path = _interrupted(tmp_path)
+    cfg = json.loads((path / "config.json").read_text())
+    cfg[key] = OBSERVATION_LAYOUT + 1 if key == "layout" else ["other"]
+    (path / "config.json").write_text(json.dumps(cfg))
+    before = _snapshot(path)
+    with pytest.raises(LayoutMismatch):
+        resume("cut", runs_dir=tmp_path)
+    assert _snapshot(path) == before
+
+
+@pytest.mark.parametrize("name", ["../x", "a/b", "..", ""])
+def test_resume_refuses_a_bad_run_name(tmp_path, name):
+    from quack_rl.rl.train import resume
+
+    with pytest.raises(ValueError, match="plain folder name"):
+        resume(name, runs_dir=tmp_path)
+
+
+def test_resume_keeps_the_original_config_and_names_a_garbage_checkpoint(tmp_path):
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
+    from quack_rl.rl.train import resume
+
+    path = _interrupted(tmp_path)
+    (path / "checkpoints" / "step_500.zip").write_bytes(b"garbage")
+    before = _snapshot(path)
+    with pytest.raises(ValueError, match="step_500.zip") as exc:
+        resume("cut", runs_dir=tmp_path)
+    assert "\n" not in str(exc.value)
+    assert _snapshot(path) == before
+
+
+@pytest.mark.slow
+def test_resume_end_to_end(tmp_path):
+    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
+    from quack_rl.rl.train import resume
+
+    train(384, eval_games=1, run="e2e", runs_dir=tmp_path, checkpoint_every=128, seed=1)
+    path = tmp_path / "e2e"
+    config_before = (path / "config.json").read_text()
+    (path / "model.zip").unlink()
+    (path / "eval.json").unlink()
+    (path / "checkpoints" / "step_256.zip").unlink()
+    (path / "checkpoints" / "step_384.zip").unlink()
+    result = resume("e2e", runs_dir=tmp_path, checkpoint_every=128)
+    assert (path / "model.zip").is_file() and (path / "eval.json").is_file()
+    assert (path / "config.json").read_text() == config_before
+    _, episodes, metrics, evaluation = load_run(path)
+    numbers = [r["episode"] for r in episodes]
+    assert numbers == list(range(1, len(numbers) + 1))
+    stamps = [r["timestep"] for r in metrics]
+    assert stamps == sorted(set(stamps)) and stamps and stamps[-1] >= 384
+    assert {"baseline_random", "baseline_untrained", "trained_sampled", "trained_greedy"} <= set(
+        evaluation
+    )
+    assert (path / "checkpoints" / "step_256.zip").is_file()
+    assert result.games_played == len(episodes)

@@ -141,9 +141,6 @@ def train(
 
         folder = RunFolder(run_path(runs_dir, run))  # refuses a bad or existing name
         sink = folder if sink is None else _Both(sink, folder)
-    MaskablePPO, BaseCallback, KVWriter, Logger = _import_sb3()
-
-    log = TrainingLog()
     config = {
         "steps": steps,
         "rules": rules,
@@ -151,12 +148,43 @@ def train(
         "seed": seed,
         "eval_games": eval_games,
     }
+    return _fit(config, sink, checkpoint_every)
+
+
+def resume(
+    run: str, runs_dir: Path = Path("data/runs"), checkpoint_every: int | None = None
+) -> TrainResult:
+    """Continue an interrupted run from its newest checkpoint, up to the `steps` of its config.
+
+    The run folder must not hold `model.zip` or `eval.json`. The newest `checkpoints/step_<n>.zip`
+    is loaded and `steps - n` more timesteps are trained. Log rows after `n` are cut first. The
+    baselines are evaluated again before the training. The optimizer state comes with the
+    checkpoint; env and random-number state do not, so the run is not bit-identical to an
+    uninterrupted one. Every refusal happens before a file of the run folder is changed.
+    """
+    from quack_rl.rl.runs import ResumedRun, check_resumable
+
+    if checkpoint_every is not None and checkpoint_every < 1:
+        raise ValueError(f"checkpoint_every must be at least 1, not {checkpoint_every}")
+    state = check_resumable(runs_dir, run)
+    make_opponent(state.config["opponent"], seed=state.config["seed"], rules=state.config["rules"])
+    return _fit(state.config, ResumedRun(state.path), checkpoint_every, state)
+
+
+def _fit(config: dict, sink: Any, checkpoint_every: int | None, resume_state: Any = None):
+    steps, rules, opponent = config["steps"], config["rules"], config["opponent"]
+    seed, eval_games = config["seed"], config["eval_games"]
+    MaskablePPO, BaseCallback, KVWriter, Logger = _import_sb3()
+    log = TrainingLog()
+    start_n = 0
+    if resume_state is not None:
+        start_n = resume_state.n
     if sink is not None:
         sink.start(config)
 
     class EpisodeCallback(BaseCallback):
         def _on_training_start(self) -> None:
-            self.model_last_checkpoint = 0
+            self.model_last_checkpoint = start_n
 
         def _on_step(self) -> bool:
             save = getattr(sink, "checkpoint", None)
@@ -217,9 +245,26 @@ def train(
         QuackEnv(seat="random", rules=rules, opponent=make_opponent(opponent, seed, rules))
     )
     env.reset(seed=seed)
-    model = MaskablePPO(
-        "MlpPolicy", env, n_steps=N_STEPS, batch_size=64, seed=seed, device="cpu", verbose=0
-    )
+
+    def fresh_model():
+        return MaskablePPO(
+            "MlpPolicy", env, n_steps=N_STEPS, batch_size=64, seed=seed, device="cpu", verbose=0
+        )
+
+    untrained = fresh_model()
+    if resume_state is None:
+        model = untrained
+    else:
+        from quack_rl.rl.runs import truncate_logs
+
+        try:
+            model = MaskablePPO.load(str(resume_state.checkpoint), env=env, device="cpu")
+        except Exception as err:  # a half-written zip raises many kinds of errors
+            detail = (str(err).splitlines() or [type(err).__name__])[0]
+            raise ValueError(
+                f"checkpoint {resume_state.checkpoint} cannot be loaded: {detail}"
+            ) from err
+        log.episodes, log.metrics = truncate_logs(resume_state.path, start_n)
     model.set_logger(Logger(None, [MetricsWriter()]))
 
     def run_evals(opp: str, tag: str) -> dict[str, EvalResult]:
@@ -228,12 +273,16 @@ def train(
 
         return {
             f"baseline_random{tag}": one(random_policy(seed)),
-            f"baseline_untrained{tag}": one(sb3_policy(model, deterministic=False)),
+            f"baseline_untrained{tag}": one(sb3_policy(untrained, deterministic=False)),
         }
 
     before = run_evals(opponent, "")
     before_random = run_evals("random", "_vs_random") if opponent != "random" else {}
-    model.learn(total_timesteps=steps, callback=EpisodeCallback())
+    model.learn(
+        total_timesteps=steps - start_n,
+        callback=EpisodeCallback(),
+        reset_num_timesteps=resume_state is None,
+    )
 
     def after(opp: str, tag: str) -> dict[str, EvalResult]:
         return {
