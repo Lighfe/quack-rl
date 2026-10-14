@@ -13,7 +13,7 @@ from quack_rl.rules import Ruleset, load_ruleset
 
 
 class PolicyBot:
-    """Wraps a `Policy` for a ruleset. The policy brings its own randomness; the wrapper has none."""
+    """Wraps a `Policy` for a ruleset. The policy brings its own randomness, the wrapper none."""
 
     kind = "bot"
 

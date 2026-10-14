@@ -6,7 +6,7 @@ import typer
 
 from quack_rl.bots import HeuristicBot, RandomBot
 from quack_rl.cli.seats import check_seat, parse_seat
-from quack_rl.engine import Phase, RngChance, new_game, legal_actions
+from quack_rl.engine import Phase, RngChance, legal_actions, new_game
 from quack_rl.rl import PolicyBot, QuackEnv, evaluate, random_policy
 from quack_rl.rl.encode import OBSERVATION_LAYOUT, vector_names
 from quack_rl.rl.runs import LayoutMismatch

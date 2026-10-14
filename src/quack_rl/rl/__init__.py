@@ -12,8 +12,8 @@ from quack_rl.rl.encode import (
 )
 from quack_rl.rl.evaluate import EvalResult, Policy, evaluate, random_policy
 from quack_rl.rl.opponents import make_opponent
-from quack_rl.rl.policy_bot import PolicyBot
 from quack_rl.rl.parallel_env import QuackParallelEnv
+from quack_rl.rl.policy_bot import PolicyBot
 from quack_rl.rl.reward import reward
 from quack_rl.rl.single_env import QuackEnv
 

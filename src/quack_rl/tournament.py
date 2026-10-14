@@ -146,7 +146,12 @@ def _spec_of(label: str) -> str:
 
 def _spec_for(spec: str, sweep: Sweep | None, value: str) -> str:
     """The seat spec a bot plays with at one sweep value."""
-    if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random" or spec.startswith("policy:"):
+    if (
+        sweep is None
+        or sweep.param not in BOT_SWEEPS
+        or spec == "bot:random"
+        or spec.startswith("policy:")
+    ):
         return spec
     draw_limit, points_round, strategy = parse_bot_name(spec)
     if sweep.param == "draw_limit":

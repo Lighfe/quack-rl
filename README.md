@@ -55,6 +55,12 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
 Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
 
+### Self-play
+
+    uv run --group train python scripts/train_selfplay.py --run NAME [--steps N] [--update-every N]
+
+The learner plays against snapshots of itself (spec: `docs/specs/2026-10-13-self-play.md`). Options: `--run NAME` (required), `--steps N` (default 200000, decisions of the learner), `--update-every N` (default 50000: every N steps a snapshot `checkpoints/step_<n>.zip` is saved and the learner is evaluated), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--eval-bot NAME` (heuristic bot for the evaluations, repeatable, default `draw20-pts1-points`), `--runs-dir PATH` (default `data/runs`). The opponent of each game is the newest snapshot (0.5), an older one (0.3) or `random` (0.2). The run folder is a normal run folder plus `selfplay.csv`: one row per update with the win rates against `random`, the heuristic bots, each older snapshot and the previous newest snapshot. `PolicyBot.from_run` reads it.
+
 ## Simulate, replay, verify
 
     uv run quack-rl simulate --games 1000
