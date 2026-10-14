@@ -1,0 +1,5 @@
+timestep,snapshot,games,vs_random,vs_heuristics,vs_snapshots,vs_previous_newest
+50000,step_50000.zip,500,0.322,"{""draw20-pts1-points"": 0.0}",{},
+100000,step_100000.zip,500,0.322,"{""draw20-pts1-points"": 0.0}","{""step_50000.zip"": 0.152}",0.152
+150000,step_150000.zip,500,0.186,"{""draw20-pts1-points"": 0.0}","{""step_50000.zip"": 0.652, ""step_100000.zip"": 0.652}",0.652
+200000,step_200000.zip,500,0.186,"{""draw20-pts1-points"": 0.0}","{""step_50000.zip"": 0.652, ""step_100000.zip"": 0.652, ""step_150000.zip"": 0.424}",0.424

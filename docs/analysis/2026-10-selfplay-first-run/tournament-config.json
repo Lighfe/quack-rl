@@ -1,0 +1,25 @@
+{
+  "bots": [
+    "policy:data/runs/selfplay-1",
+    "policy:/tmp/claude-1000/-home-julian-tuberlin-projects-ai-dev-tools-zoomcamp-quack-rl/1279101d-4f9a-4bef-baf0-77451283d2ea/scratchpad/snaps/untrained",
+    "policy:/tmp/claude-1000/-home-julian-tuberlin-projects-ai-dev-tools-zoomcamp-quack-rl/1279101d-4f9a-4bef-baf0-77451283d2ea/scratchpad/snaps/step_150000",
+    "policy:/tmp/claude-1000/-home-julian-tuberlin-projects-ai-dev-tools-zoomcamp-quack-rl/1279101d-4f9a-4bef-baf0-77451283d2ea/scratchpad/snaps/step_100000",
+    "policy:/tmp/claude-1000/-home-julian-tuberlin-projects-ai-dev-tools-zoomcamp-quack-rl/1279101d-4f9a-4bef-baf0-77451283d2ea/scratchpad/snaps/step_50000",
+    "bot:random",
+    "bot:draw20-pts1-points"
+  ],
+  "games": 500,
+  "seed": 0,
+  "rules": "v1.1",
+  "rounds": 9,
+  "overrides": {},
+  "sweep": null,
+  "workers": 4,
+  "seat_check": false,
+  "keep_records": false,
+  "sample_size": 0,
+  "name": "sp1-final",
+  "seed_scheme": "game_seed = run_seed + (sweep_value_index * pairings_per_value + pairing_index) * games + game_index",
+  "engine_version": "0.1.0",
+  "created_at": "2026-10-14T19:55:07+02:00"
+}

@@ -1,0 +1,50 @@
+{
+  "baseline_random": {
+    "games": 500,
+    "wins": 205,
+    "draws": 90,
+    "losses": 205,
+    "points_own": 1.828,
+    "points_opponent": 1.7,
+    "explosions_own": 0.114,
+    "win_rate": 0.41,
+    "draw_rate": 0.18,
+    "loss_rate": 0.41
+  },
+  "baseline_untrained": {
+    "games": 500,
+    "wins": 213,
+    "draws": 86,
+    "losses": 201,
+    "points_own": 1.96,
+    "points_opponent": 1.806,
+    "explosions_own": 0.128,
+    "win_rate": 0.426,
+    "draw_rate": 0.172,
+    "loss_rate": 0.402
+  },
+  "trained_sampled": {
+    "games": 500,
+    "wins": 365,
+    "draws": 45,
+    "losses": 90,
+    "points_own": 4.97,
+    "points_opponent": 1.932,
+    "explosions_own": 0.136,
+    "win_rate": 0.73,
+    "draw_rate": 0.09,
+    "loss_rate": 0.18
+  },
+  "trained_greedy": {
+    "games": 500,
+    "wins": 93,
+    "draws": 68,
+    "losses": 339,
+    "points_own": 1.03,
+    "points_opponent": 2.49,
+    "explosions_own": 0.0,
+    "win_rate": 0.186,
+    "draw_rate": 0.136,
+    "loss_rate": 0.678
+  }
+}
