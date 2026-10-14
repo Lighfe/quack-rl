@@ -226,6 +226,40 @@ def load_saved(runs_dir: Path, name: str):
 
 
 @app.function
+def selfplay_rows(runs_dir: Path, name: str) -> list[dict] | None:
+    """The self-play table of a saved run: one row per update, win rates of the learner.
+
+    None when the run has no `selfplay.csv` (a normal run) or the file cannot be read. The
+    columns are `timestep`, `vs random`, one `vs <bot>` per heuristic bot, `vs previous newest`
+    and one `vs <snapshot>` per older snapshot (empty where the snapshot did not exist yet).
+    """
+    import csv
+    import json
+
+    try:
+        path = run_path(runs_dir, name) / "selfplay.csv"
+        if not path.is_file():
+            return None
+        with path.open(newline="") as f:
+            source = list(csv.DictReader(f))
+        rows = []
+        for r in source:
+            row: dict = {"timestep": int(r["timestep"]), "vs random": float(r["vs_random"])}
+            for bot, rate in json.loads(r["vs_heuristics"] or "{}").items():
+                row[f"vs {bot}"] = float(rate)
+            row["vs previous newest"] = (
+                float(r["vs_previous_newest"]) if r["vs_previous_newest"] else None
+            )
+            for snap, rate in json.loads(r["vs_snapshots"] or "{}").items():
+                row[f"vs {snap}"] = float(rate)
+            rows.append(row)
+    except Exception:  # a broken file: the table is left out, the rest of the run still loads
+        return None
+    columns = list(dict.fromkeys(k for row in rows for k in row))
+    return [{c: row.get(c) for c in columns} for row in rows]
+
+
+@app.function
 def replay_source(trained, runs_dir: Path, picked: str | None):
     """(model, opponent name, None) for the replay, or (None, None, message).
 
@@ -580,6 +614,7 @@ def _(run_picker):
         if loaded_error:
             loaded_output = mo.callout(mo.md(loaded_error), kind="danger")
         else:
+            loaded_selfplay = selfplay_rows(RUNS_DIR, run_picker.value)
             loaded_output = mo.vstack(
                 [
                     mo.md(
@@ -587,6 +622,14 @@ def _(run_picker):
                         f"{loaded_config['steps']} steps."
                     ),
                     mo.ui.table(loaded_rows, selection=None, page_size=10),
+                    *(
+                        [
+                            mo.md("### Self-play: win rate of the learner at each update"),
+                            mo.ui.table(loaded_selfplay, selection=None, page_size=10),
+                        ]
+                        if loaded_selfplay
+                        else []
+                    ),
                     *curve_charts(loaded_frames),
                 ]
             )

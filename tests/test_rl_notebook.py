@@ -317,3 +317,56 @@ def test_agent_name_prefers_the_typed_name(nb):
     assert nb.agent_name(" mine ", None) == "mine"
     assert nb.agent_name("", "saved-run") == "saved-run"
     assert nb.agent_name("", None) == "trained"
+
+
+def _fake_selfplay_run(runs: Path, name: str) -> Path:
+    """A tiny self-play run folder made by hand: two updates, the files `load_saved` reads."""
+    import json
+
+    folder = runs / name
+    folder.mkdir(parents=True)
+    (folder / "config.json").write_text(
+        json.dumps({"mode": "selfplay", "opponent": "selfplay", "steps": 100})
+    )
+    (folder / "episodes.csv").write_text(
+        "episode,timestep,result,points_own,points_opponent,explosions_own,decisions\n"
+        "1,10,win,5,3,0,40\n"
+    )
+    (folder / "metrics.csv").write_text("timestep,loss\n10,0.5\n")
+    evals = {
+        key: {"games": 4, "wins": 2, "draws": 1, "losses": 1}
+        for key in ("baseline_random", "baseline_untrained", "trained_sampled", "trained_greedy")
+    }
+    (folder / "eval.json").write_text(json.dumps(evals))
+    (folder / "selfplay.csv").write_text(
+        "timestep,snapshot,games,vs_random,vs_heuristics,vs_snapshots,vs_previous_newest\n"
+        '50,step_50.zip,4,0.75,"{""draw20-pts1-points"": 0.5}",{},\n'
+        '100,step_100.zip,4,0.8,"{""draw20-pts1-points"": 0.55}","{""step_50.zip"": 0.6}",0.6\n'
+    )
+    return folder
+
+
+def test_selfplay_rows_of_a_selfplay_run(nb, tmp_path):
+    _fake_selfplay_run(tmp_path, "sp")
+    rows = nb.selfplay_rows(tmp_path, "sp")
+    assert [r["timestep"] for r in rows] == [50, 100]
+    assert rows[1]["vs random"] == 0.8
+    assert rows[1]["vs draw20-pts1-points"] == 0.55
+    assert rows[1]["vs step_50.zip"] == 0.6
+    assert rows[1]["vs previous newest"] == 0.6
+    assert rows[0]["vs previous newest"] is None  # no snapshot yet at the first update
+    assert rows[0]["vs step_50.zip"] is None
+    assert set(rows[0]) == set(rows[1])  # one set of columns for the table
+    # the run still loads as before
+    config, frames, eval_table, error = nb.load_saved(tmp_path, "sp")
+    assert error is None and config["mode"] == "selfplay" and len(eval_table) == 4
+
+
+def test_selfplay_rows_are_none_for_a_normal_or_broken_run(nb, tmp_path):
+    folder = _fake_selfplay_run(tmp_path, "sp")
+    (folder / "selfplay.csv").rename(folder / "other.csv")
+    assert nb.selfplay_rows(tmp_path, "sp") is None  # a normal run: no selfplay.csv
+    (folder / "selfplay.csv").write_text("timestep\nnot a number\n")
+    assert nb.selfplay_rows(tmp_path, "sp") is None
+    assert nb.selfplay_rows(tmp_path, "missing") is None
+    assert nb.selfplay_rows(tmp_path, "../x") is None
