@@ -384,6 +384,13 @@ def test_resume_end_to_end(tmp_path):
     assert numbers == list(range(1, len(numbers) + 1))
     stamps = [r["timestep"] for r in metrics]
     assert stamps == sorted(set(stamps)) and stamps and stamps[-1] >= 384
+    # The first new row of each log lies after the checkpoint (n=128); only metrics must reach
+    # steps, an episode row is written at an episode end and may lie below it.
+    for rows in (episodes, metrics):
+        stamps_all = [r["timestep"] for r in rows]
+        assert stamps_all == sorted(set(stamps_all))
+        new_rows = [t for t in stamps_all if t > 128]
+        assert new_rows and stamps_all[len(stamps_all) - len(new_rows) :] == new_rows
     assert {"baseline_random", "baseline_untrained", "trained_sampled", "trained_greedy"} <= set(
         evaluation
     )
