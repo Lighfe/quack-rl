@@ -28,9 +28,9 @@ Options: (A) plain Parquet written with pyarrow, (B) Minari with the `arrow` sto
 | discrete actions | yes, an int column `action` | yes, `actions` int64 per episode (checked: actions of the toy dataset load equal to the Parquet ones) | same as B | yes, `DiscreteBC` and the other discrete algorithms take integer actions ([d3rlpy](https://github.com/takuseno/d3rlpy)) |
 | action mask | extra column `action_mask`, `list<int8>` of 15, same row as the observation (shown below) | as part of a `Dict` observation space `{observation, action_mask}`; works (toy run: mask loads back equal) | same as B | no field for it; the library has no legal-action mask (`grep -rniE "action_mask\|legal\|masked" d3rlpy-2.8.1/d3rlpy` finds only the BCQ code comment and transformer attention masks, which are not legal-action masks) |
 | episodes of different length | yes, column `episode` and `step`, one row per decision | yes, native: one episode per entry, 29 to 60 steps in the toy run | same as B | yes, episodes are cut by terminal flags |
-| load speed in Python | 0.71 s for the 63,077 rows to NumPy arrays (includes the list-to-array stack of the two list columns) | 0.64 s to iterate all episodes and concatenate | 2.23 s, same work | not measured: not chosen (see the next section) |
-| write speed | 5.2 s | 87.9 s (one folder per episode, 1,500 folders) | 2.7 s | not measured |
-| size on disk | 4.6 MB | 223 MB | 255 MB | not measured |
+| load speed in Python | 0.71 s for the 63,077 rows to NumPy arrays (includes the list-to-array stack of the two list columns) | 0.64 s to iterate all episodes and concatenate | 2.23 s, same work | 1.44 s for 63,077 rows to NumPy arrays (`ReplayBuffer.load`, then concatenate the episodes), 1,500 episodes; random toy data of the same shape, see the d3rlpy check below |
+| write speed | 5.2 s | 87.9 s (one folder per episode, 1,500 folders) | 2.7 s | 1.1 s (random toy data, `MDPDataset.dump`) |
+| size on disk | 4.6 MB | 223 MB | 255 MB | 217 MB (random toy data, uncompressed HDF5) |
 | effort to write it from the existing game records | low: pyarrow is already a main dependency and `seats.parquet` is written the same way; one function that walks the games and appends rows | medium: needs the `EpisodeBuffer` objects (a plain dict fails, see below), a `Dict` observation space on a wrapper env, an extra dependency and its undeclared `pillow` import | medium, same as B | medium: needs conversion to `MDPDataset` and an extra dependency that downgrades `gymnasium` |
 
 Findings from the run of the Minari option, with the code that shows them:
@@ -47,19 +47,6 @@ Findings from the run of the Minari option, with the code that shows them:
 | action masks | yes, set the logits of illegal actions to a large negative number before the softmax; shown to work below | no mask support (grep above): a trained Q-function or policy can choose an illegal action; the mask would have to be applied by wrapping the policy at play time, and training would still spend probability on illegal actions | not applicable | yes for online training (`MaskablePPO` is used in `src/quack_rl/rl/train.py`), but it has no offline dataset training; its policy could take BC weights as a start (a later step, not needed now) |
 | install size | nothing new: `torch` is in the `train` group already (the locked Linux wheel of torch 2.14.1 is 555 MB, [PyPI](https://pypi.org/pypi/torch/2.14.1/json)); d3rlpy itself is a 0.2 MB wheel | `uv add --group train d3rlpy` in a copy of this project: 104 packages in the lock became 118 (14 more: `gym`, `h5py`, `scikit-learn`, `structlog`, ...) | not a package: files in a repo | already installed |
 | compatibility with Python 3.12 and torch 2.14.1 of `uv.lock` | yes, it is the locked torch | d3rlpy 2.8.1 declares `torch>=2.5.0` and `gymnasium==1.0.0`, Python >=3.9 ([setup.py](https://github.com/takuseno/d3rlpy/blob/master/setup.py), PyPI JSON). In the copy of this project `uv add --group train "d3rlpy==2.8.1"` downgraded `gymnasium` from 1.4.0 to 1.0.0; plain `uv add --group train d3rlpy` picked 2.8.0 and kept 1.4.0. Latest release 2025-03-02, last commit 2025-09-10 ([commits](https://github.com/takuseno/d3rlpy)) | the repository is archived (read-only), last commit 2023-08-03 (`https://api.github.com/repos/tinkoff-ai/CORL`: `archived: true`) | yes, locked |
-
-## Decision
-
-Dataset format: Parquet, written with pyarrow (already a main dependency). Offline method: behaviour cloning in plain PyTorch with a masked cross-entropy loss, as the first offline baseline for #89 and #90. No new dependency: `pyproject.toml` and `uv.lock` stay as they are.
-
-Reason in plain words: the dataset is simple (a vector of 848 numbers, 15 actions, a mask of 15, episodes of 29 to 60 decisions), and Parquet holds it in one small file (4.6 MB for 63,077 decisions, against 223 to 255 MB in Minari) that the project can already write and read. Minari works but costs a dependency with an undeclared `pillow` import, a wrapper environment for the `Dict` observation, 17x slower writes (arrow storage) and a 50x larger folder, and gives nothing the project needs in return. For the method, the only library that offers ready offline algorithms for discrete actions (d3rlpy) has no legal-action mask and pins `gymnasium` to 1.0.0 in its newest release; the algorithm that matters first, BC, is a few lines of PyTorch that honour the mask. If a later issue wants return-aware offline learning (for example weighting the loss by the game result or keeping only the games of the winner), it is a change of the loss in the same code, still without a dependency. Revisit d3rlpy only if a later stage shows that plain BC is not enough and masks can be handled outside the library.
-
-Not decided here: which games fill the dataset (bot games, tournament games) and how many; that is #89.
-
-### How the legal-action mask is stored and used
-
-- Stored: one row per decision of the learner. Columns `episode` (int32), `step` (int32), `obs` (`list<float32>`, 848), `action_mask` (`list<int8>`, 15, the mask of the state the action was taken in), `action` (int16), and later the reward or result columns #89 needs. The mask is its own column, not part of `obs`, so the network input stays the 848 values the online agent sees. The terminal observation (all-zero mask) is not stored.
-- Used in training: `logits = net(obs).masked_fill(~mask, -1e9)`, then `cross_entropy(logits, action)`. The chosen action is always legal in the data, so the loss is finite. At play time the same masked `argmax` (or sample) is used, so an illegal action cannot be chosen. A check in the toy run: the stored action was legal in every row, and the greedy action of the trained network was legal in every row.
 
 ## Checks by a small run
 
@@ -258,7 +245,8 @@ for it in range(3):
 ## d3rlpy check (install and mask)
 
 - Install: in a scratch copy of the project (outside the repo, `/tmp`), `uv add --group train d3rlpy` resolved 118 packages (104 in the lock before; 14 new) and chose d3rlpy 2.8.0 with `gymnasium` 1.4.0; `uv add --group train "d3rlpy==2.8.1"` installed 2.8.1 and replaced `gymnasium` 1.4.0 by 1.0.0 (`- gymnasium==1.4.0`, `+ gymnasium==1.0.0` in the output). The repo's own `pyproject.toml` and `uv.lock` were not touched.
-- Mask: `curl -sL https://files.pythonhosted.org/packages/source/d/d3rlpy/d3rlpy-2.8.1.tar.gz`, unpacked, `grep -rniE "action_mask|legal|masked" d3rlpy-2.8.1/d3rlpy` finds a BCQ comment (`actions except the min value are masked`, `bcq_impl.py:298`), `masked_fill` in the transformer attention, and `action_masks` of the Decision Transformer (a flag for padded steps, `transformers.py:514`), none of them a legal-action mask on the output of a discrete policy. I did not train d3rlpy: with no mask, the question "does it choose only legal actions" is answered by its code, not by a run.
+- Mask: `curl -sL https://files.pythonhosted.org/packages/source/d/d3rlpy/d3rlpy-2.8.1.tar.gz`, unpacked, `grep -rniE "action_mask|legal|masked" d3rlpy-2.8.1/d3rlpy` finds a BCQ comment (`actions except the min value are masked`, `bcq_impl.py:298`), `masked_fill` in the transformer attention, and `action_masks` of the Decision Transformer (a flag for padded steps, `transformers.py:514`), none of them a legal-action mask on the output of a discrete policy. - Load speed: scratch run outside the repo, `uv run --no-project --python 3.12 --with d3rlpy==2.8.0 python -I d3_load.py`. The script builds random arrays of the shape of the toy dataset (63,077 rows, observation 848 `float32`, 15 discrete actions, 1,500 episodes), writes them with `MDPDataset.dump` and loads them with `ReplayBuffer.load`. Output: `write s 1.1`, `size MB 217.0`, `load s 1.44 (63077, 848) (63077, 1) 1500`. Random data, so the size says nothing about real games; the load time is the same order as Parquet (0.71 s) and Minari arrow (0.64 s).
+- I did not train d3rlpy: with no mask, the question "does it choose only legal actions" is answered by its code, not by a run.
 
 ## Sources
 
@@ -267,3 +255,16 @@ for it in range(3):
 - CORL: https://github.com/tinkoff-ai/CORL
 - stable-baselines3 2.9.0 and sb3-contrib 2.9.0: https://pypi.org/project/stable-baselines3/2.9.0/ , https://pypi.org/project/sb3-contrib/2.9.0/
 - torch 2.14.1 wheel size: https://pypi.org/pypi/torch/2.14.1/json
+
+## Decision
+
+Dataset format: Parquet, written with pyarrow (already a main dependency). Offline method: behaviour cloning in plain PyTorch with a masked cross-entropy loss, as the first offline baseline for #89 and #90. No new dependency: `pyproject.toml` and `uv.lock` stay as they are.
+
+Reason in plain words: the dataset is simple (a vector of 848 numbers, 15 actions, a mask of 15, episodes of 29 to 60 decisions), and Parquet holds it in one small file (4.6 MB for 63,077 decisions, against 223 to 255 MB in Minari) that the project can already write and read. Minari works but costs a dependency with an undeclared `pillow` import, a wrapper environment for the `Dict` observation, 17x slower writes (arrow storage) and a 50x larger folder, and gives nothing the project needs in return. For the method, the only library that offers ready offline algorithms for discrete actions (d3rlpy) has no legal-action mask and pins `gymnasium` to 1.0.0 in its newest release; the algorithm that matters first, BC, is a few lines of PyTorch that honour the mask. If a later issue wants return-aware offline learning (for example weighting the loss by the game result or keeping only the games of the winner), it is a change of the loss in the same code, still without a dependency. Revisit d3rlpy only if a later stage shows that plain BC is not enough and masks can be handled outside the library.
+
+Not decided here: which games fill the dataset (bot games, tournament games) and how many; that is #89.
+
+### How the legal-action mask is stored and used
+
+- Stored: one row per decision of the learner. Columns `episode` (int32), `step` (int32), `obs` (`list<float32>`, 848), `action_mask` (`list<int8>`, 15, the mask of the state the action was taken in), `action` (int16), and later the reward or result columns #89 needs. The mask is its own column, not part of `obs`, so the network input stays the 848 values the online agent sees. The terminal observation (all-zero mask) is not stored.
+- Used in training: `logits = net(obs).masked_fill(~mask, -1e9)`, then `cross_entropy(logits, action)`. The chosen action is always legal in the data, so the loss is finite. At play time the same masked `argmax` (or sample) is used, so an illegal action cannot be chosen. A check in the toy run: the stored action was legal in every row, and the greedy action of the trained network was legal in every row.
