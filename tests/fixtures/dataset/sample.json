@@ -1,0 +1,15 @@
+{
+  "bots": [
+    "draw20-pts4-blue",
+    "draw20-pts4-green",
+    "draw20-pts4-balanced",
+    "draw20-pts4-cleaner",
+    "draw10-pts4-balanced",
+    "random"
+  ],
+  "games": 20,
+  "seed": 0,
+  "rules": "v1.1",
+  "rows": 1649,
+  "command": "uv run python scripts/build_dataset.py --out tests/fixtures/dataset/sample.parquet --games 20 --seed 0"
+}
