@@ -59,19 +59,36 @@ def test_new_run_folder_loads_as_a_policy_bot(source, tuned):
     assert result.wins + result.draws + result.losses == 2
 
 
-def test_start_point_is_the_source_policy(source):
-    # right after loading, before any update, the greedy actions are the source's
+def test_start_point_is_the_source_policy(source, tmp_path, monkeypatch):
+    # observe finetune_online itself: at the call of `learn`, right after loading and before any
+    # update, the greedy actions and the parameters are the source's
+    from sb3_contrib import MaskablePPO
+
     obs = np.stack(pq.read_table(SAMPLE, columns=["obs"])["obs"].to_pylist()[:20]).astype(
         np.float32
     )
     mask = np.stack(pq.read_table(SAMPLE, columns=["action_mask"])["action_mask"].to_pylist()[:20])
-    a, b = load_model(source, "v1.1"), load_model(source, "v1.1")
-    for o, m in zip(obs, mask, strict=True):
-        m = m.astype(bool)
-        assert a.predict(o, action_masks=m, deterministic=True)[0] == b.predict(
-            o, action_masks=m, deterministic=True
-        )[0]
-    assert all(torch.equal(v, _params(b)[k]) for k, v in _params(a).items())
+    mask = mask.astype(bool)
+
+    def greedy(model):
+        return [
+            int(model.predict(o, action_masks=m, deterministic=True)[0])
+            for o, m in zip(obs, mask, strict=True)
+        ]
+
+    reference = load_model(source, "v1.1")
+    seen = {}
+    original = MaskablePPO.learn
+
+    def spy(self, *args, **kwargs):
+        seen["actions"], seen["params"] = greedy(self), _params(self)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(MaskablePPO, "learn", spy)
+    finetune_online(source, tmp_path / "ft", 128, "random", seed=1)
+    assert seen["actions"] == greedy(reference)
+    ref = _params(reference)
+    assert all(torch.equal(v, ref[k]) for k, v in seen["params"].items())
 
 
 def test_parameters_change_and_source_stays(source, tuned):
