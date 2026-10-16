@@ -308,7 +308,7 @@ def _(dataset):
             shares,
         ]
     )
-    return n_games, n_steps, shares
+    return
 
 
 @app.cell
@@ -331,7 +331,7 @@ def _(dataset, episode_pick):
             episode,
         ]
     )
-    return (episode,)
+    return
 
 
 @app.cell
@@ -376,7 +376,7 @@ def _(steps, train_button):
 def _(steps):
     budget_shown = int(steps.value)
     mo.md(f"Step budget: **{budget_shown}** gradient steps")
-    return (budget_shown,)
+    return
 
 
 @app.cell
@@ -395,7 +395,7 @@ def _(training):
         .properties(title="Loss per logged step", height=240)
     )
     loss_chart
-    return (loss_chart,)
+    return
 
 
 @app.cell
@@ -434,7 +434,7 @@ def _():
             ]
         )
     committed_view
-    return (committed,)
+    return
 
 
 @app.cell
