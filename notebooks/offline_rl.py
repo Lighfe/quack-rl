@@ -40,6 +40,7 @@ with app.setup:
     from quack_rl.rl.dataset import DEFAULT_BOTS, write_dataset
     from quack_rl.rl.finetune import finetune_online
     from quack_rl.rl.offline import load_offline_data, train_offline_run
+    from quack_rl.rl.replay_dqn import train_dqn
     from quack_rl.rules import load_ruleset
 
     ROOT = Path(__file__).resolve().parent.parent
@@ -257,6 +258,73 @@ def run_finetune(
             }
         )
     return {"status": "done", "table": pl.DataFrame(rows), "message": ""}
+
+
+@app.function
+def run_dqn(
+    dataset: dict, offline_steps: int, online_steps: int, opponent: str, games: int, seed: int,
+    clicked: bool,
+) -> dict:  # fmt: skip
+    """Train the replay-buffer DQN on the section 1 dataset after a click; play it twice.
+
+    Return {"status", "losses", "counts", "table", "message"}; status is `idle` (no click),
+    `nodata` (click, but no usable dataset) or `done`. The table has one row per phase
+    (`after offline`, `after online`) and opponent, played with `evaluate`."""
+    result = {"status": "idle", "losses": None, "counts": None, "table": None, "message": ""}
+    if not clicked:
+        return {
+            **result,
+            "message": f"Press **Train DQN** to take {offline_steps} offline and {online_steps} "
+            f"online steps (online games against `{opponent}`), then play {games} games per "
+            "opponent after each phase.",
+        }
+    if dataset["path"] is None:
+        return {
+            **result,
+            "status": "nodata",
+            "message": "There is no dataset yet. Build or load one in section 1 first.",
+        }
+    snapshots = {}
+
+    def play(policy) -> list[dict]:
+        rows = []
+        for name in OPPONENTS:
+            r = evaluate(policy, name, RULES, games, seed)
+            rows.append(
+                {
+                    "opponent": name,
+                    "games": r.games,
+                    "wins": r.wins,
+                    "draws": r.draws,
+                    "losses": r.losses,
+                    "win_rate": round(r.win_rate, 3),
+                }
+            )
+        return rows
+
+    try:
+        _, rows, policy = train_dqn(
+            dataset["path"], opponent, offline_steps, online_steps, seed, RULES,
+            after_offline=lambda p: snapshots.update(offline=play(p)),
+        )  # fmt: skip
+    except ValueError as err:
+        return {**result, "status": "nodata", "message": f"This dataset cannot be used: {err}"}
+    table = [
+        {"phase": label, **row}
+        for label, played in (
+            ("after offline", snapshots["offline"]),
+            ("after online", play(policy)),
+        )
+        for row in played
+    ]
+    last = rows[-1] if rows else {"offline_count": 0, "online_count": 0}
+    return {
+        **result,
+        "status": "done",
+        "losses": pl.DataFrame(rows),
+        "counts": {"offline": last["offline_count"], "online": last["online_count"]},
+        "table": pl.DataFrame(table),
+    }
 
 
 @app.cell
@@ -590,6 +658,117 @@ def _(finetune):
     mo.stop(finetune["status"] != "done", mo.callout(mo.md(finetune["message"]), kind="info"))
     finetune["table"]
     return
+
+
+@app.cell
+def _():
+    mo.md("""
+    ## 5. Replay buffer and DQN
+    """)
+    return
+
+
+@app.cell
+def _():
+    mo.md("""
+    A **replay buffer** is a store of past steps (state, action, reward, next state) that the
+    learner draws random batches from. Here it starts with the dataset of section 1 (the
+    **offline part**, never overwritten) and gets new games against a bot (the **online part**).
+    Phase 1 learns from the offline part only; phase 2 plays games, adds each step to the online
+    part and learns from the whole buffer. The **Q-value** is the agent's estimate of the total
+    reward it still gets after an action; the **loss** is how far that estimate is from reward
+    plus the discounted estimate of the next state (lower is closer). Plain Q-learning on bot
+    data can overrate actions the bots never took, and no conservative penalty is used here, so
+    a weak result is an expected finding, and it is shown as it is.
+    """)
+    return
+
+
+@app.cell
+def _():
+    dq_offline = mo.ui.slider(50, 2000, 50, value=300, label="Offline steps")
+    return (dq_offline,)
+
+
+@app.cell
+def _():
+    dq_online = mo.ui.slider(50, 2000, 50, value=300, label="Online steps")
+    return (dq_online,)
+
+
+@app.cell
+def _():
+    dq_opponent = mo.ui.dropdown(list(OPPONENTS), value=OPPONENTS[0], label="Opponent (online)")
+    return (dq_opponent,)
+
+
+@app.cell
+def _():
+    dq_games = mo.ui.slider(1, 50, 1, value=20, label="Games")
+    return (dq_games,)
+
+
+@app.cell
+def _():
+    dq_button = mo.ui.run_button(label="Train DQN")
+    return (dq_button,)
+
+
+@app.cell
+def _(dq_button, dq_games, dq_offline, dq_online, dq_opponent):
+    mo.hstack([dq_offline, dq_online, dq_opponent, dq_games, dq_button], justify="start")
+    return
+
+
+@app.cell
+def _(dq_offline, dq_online):
+    dq_budget_shown = (int(dq_offline.value), int(dq_online.value))
+    mo.md(f"Budget: **{dq_budget_shown[0]}** offline and **{dq_budget_shown[1]}** online steps")
+    return (dq_budget_shown,)
+
+
+@app.cell
+def _(dataset, dq_button, dq_games, dq_offline, dq_online, dq_opponent, seed):
+    dqn = run_dqn(
+        dataset,
+        int(dq_offline.value),
+        int(dq_online.value),
+        str(dq_opponent.value),
+        int(dq_games.value),
+        int(seed.value),
+        dq_button.value,
+    )
+    return (dqn,)
+
+
+@app.cell
+def _(dqn):
+    mo.stop(dqn["status"] != "done", mo.callout(mo.md(dqn["message"]), kind="info"))
+    dq_chart = (
+        alt.Chart(dqn["losses"])
+        .mark_line()
+        .encode(
+            x=alt.X("step:Q", title="gradient step"),
+            y=alt.Y("loss:Q", title="loss"),
+            color=alt.Color("phase:N", title="phase"),
+        )
+        .properties(title="Loss per gradient step", height=240)
+    )
+    mo.vstack(
+        [
+            mo.hstack(
+                [
+                    mo.stat(dqn["counts"]["offline"], label="Buffer: offline part"),
+                    mo.stat(dqn["counts"]["online"], label="Buffer: online part"),
+                ],
+                justify="start",
+            ),
+            dq_chart,
+            mo.md("Games per opponent after phase 1 (offline) and after phase 2 (online)"),
+            dqn["table"],
+        ]
+    )
+    return (dq_chart,)
 
 
 if __name__ == "__main__":

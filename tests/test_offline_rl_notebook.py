@@ -270,7 +270,7 @@ def test_every_section_heading_has_a_text_cell(nb):
     outputs, _ = run(nb)
     html = [getattr(o, "text", "") for o in outputs if o is not None]
     headings = [i for i, h in enumerate(html) if "<h2" in h]
-    assert len(headings) == 4
+    assert len(headings) == 5
     for i in headings:
         nxt = html[i + 1]
         assert "<h2" not in nxt and len(re.sub(r"<[^>]+>", "", nxt).strip()) > 40
@@ -280,3 +280,63 @@ def test_design_rules_of_the_source():
     source = NOTEBOOK.read_text()
     assert "mo.state" not in source and "set_state" not in source
     assert "mo.stop(" in source and "mo.ui.run_button(" in source
+
+
+def dq_defs(offline=10, online=10, games=1, opponent="random"):
+    return {
+        "dq_offline": mo.ui.slider(1, 2000, 1, value=offline),
+        "dq_online": mo.ui.slider(1, 2000, 1, value=online),
+        "dq_games": mo.ui.slider(1, 50, 1, value=games),
+        "dq_opponent": mo.ui.dropdown(list(nb_opponents()), value=opponent),
+    }
+
+
+def test_section_5_hint_before_the_click(nb):
+    _, d = run(nb)
+    assert d["dqn"]["status"] == "idle" and d["dqn"]["table"] is None
+    assert "Press" in d["dqn"]["message"]
+    assert d["dq_budget_shown"] == (300, 300)
+
+
+def test_new_dqn_budget_changes_the_shown_budget(nb):
+    _, a = run(nb, **dq_defs(offline=20, online=30))
+    _, b = run(nb, **dq_defs(offline=40, online=50))
+    assert (a["dq_budget_shown"], b["dq_budget_shown"]) == ((20, 30), (40, 50))
+
+
+def test_dqn_click_gives_counts_and_table_in_the_same_run(nb):
+    _, d = run(nb, **dq_defs(10, 20, 2), dq_button=click())
+    dqn = d["dqn"]
+    assert dqn["status"] == "done"
+    assert dqn["counts"]["online"] == 20 and dqn["counts"]["offline"] == 1649
+    assert dqn["losses"].height == 30 and dqn["losses"]["loss"].is_finite().all()
+    table = dqn["table"]
+    assert table["phase"].to_list() == ["after offline"] * 3 + ["after online"] * 3
+    assert table["opponent"].to_list() == list(nb.OPPONENTS) * 2
+    for row in table.to_dicts():
+        assert row["games"] == 2 and row["wins"] + row["draws"] + row["losses"] == 2
+    assert d["dq_chart"] is not None
+
+
+def test_dqn_without_a_dataset_shows_a_message(nb):
+    defs = build_defs(nb)
+    defs["build_button"] = mo.ui.run_button()  # the dataset is not built yet
+    _, d = run(nb, **defs, **dq_defs(), dq_button=click())
+    assert d["dqn"]["status"] == "nodata" and "no dataset yet" in d["dqn"]["message"]
+
+
+def test_dqn_with_a_wrong_obs_length_shows_a_message(nb, monkeypatch, tmp_path):
+    bad = tmp_path / "bad.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "obs": pa.array([[0.0] * 10], pa.list_(pa.float32())),
+                "action_mask": pa.array([[1] * 15], pa.list_(pa.int8())),
+                "action": pa.array([0], pa.int16()),
+            }
+        ),
+        bad,
+    )
+    # a dataset that passed section 1 but is not usable by the DQN is also a message
+    result = nb.run_dqn({"path": bad, "frame": None, "message": ""}, 1, 1, "random", 1, 0, True)
+    assert result["status"] == "nodata" and "cannot be used" in result["message"]
