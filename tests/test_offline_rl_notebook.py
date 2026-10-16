@@ -223,11 +223,54 @@ def test_train_before_a_dataset_exists_shows_a_message(nb):
     assert e["live"]["status"] == "notrained" and "no trained policy" in e["live"]["message"]
 
 
+def ft_defs(steps=128, games=1, opponent="random"):
+    return {
+        "ft_steps": mo.ui.slider(1, 5000, 1, value=steps),
+        "ft_games": mo.ui.slider(1, 50, 1, value=games),
+        "ft_opponent": mo.ui.dropdown(list(nb_opponents()), value=opponent),
+    }
+
+
+def nb_opponents():
+    return ("draw20-pts4-green", "random", "draw20-pts1-points")
+
+
+def test_section_4_hint_before_the_click(nb):
+    _, d = run(nb)
+    assert d["finetune"]["status"] == "idle" and d["finetune"]["table"] is None
+    assert "Press" in d["finetune"]["message"]
+    assert d["ft_budget_shown"] == 512
+
+
+def test_new_ft_steps_change_the_shown_budget(nb):
+    _, a = run(nb, ft_steps=mo.ui.slider(128, 5000, 128, value=256))
+    _, b = run(nb, ft_steps=mo.ui.slider(128, 5000, 128, value=1024))
+    assert (a["ft_budget_shown"], b["ft_budget_shown"]) == (256, 1024)
+
+
+def test_finetune_click_gives_before_and_after_in_the_same_run(nb):
+    base = {"steps": steps_element(20), "train_button": click()}
+    _, d = run(nb, **base, **ft_defs(128, 2, "random"), ft_button=click())
+    assert d["finetune"]["status"] == "done"
+    table = d["finetune"]["table"]
+    assert table["policy"].to_list() == ["before", "after"]
+    assert table["opponent"].to_list() == ["random", "random"]
+    for row in table.to_dicts():
+        assert row["games"] == 2 and row["wins"] + row["draws"] + row["losses"] == 2
+    assert (ROOT / "data" / "runs") not in d["training"]["run_dir"].parents
+
+
+def test_finetune_without_a_trained_policy_shows_a_message(nb):
+    _, d = run(nb, ft_button=click())
+    assert d["finetune"]["status"] == "notrained"
+    assert "no trained policy" in d["finetune"]["message"]
+
+
 def test_every_section_heading_has_a_text_cell(nb):
     outputs, _ = run(nb)
     html = [getattr(o, "text", "") for o in outputs if o is not None]
     headings = [i for i, h in enumerate(html) if "<h2" in h]
-    assert len(headings) == 3
+    assert len(headings) == 4
     for i in headings:
         nxt = html[i + 1]
         assert "<h2" not in nxt and len(re.sub(r"<[^>]+>", "", nxt).strip()) > 40

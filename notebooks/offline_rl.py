@@ -38,6 +38,7 @@ with app.setup:
     from quack_rl.engine import action_names
     from quack_rl.rl import PolicyBot, evaluate, vector_names
     from quack_rl.rl.dataset import DEFAULT_BOTS, write_dataset
+    from quack_rl.rl.finetune import finetune_online
     from quack_rl.rl.offline import load_offline_data, train_offline_run
     from quack_rl.rules import load_ruleset
 
@@ -207,6 +208,47 @@ def run_live(training: dict, games: int, seed: int, clicked: bool) -> dict:
         rows.append(
             {
                 "opponent": name,
+                "games": r.games,
+                "wins": r.wins,
+                "draws": r.draws,
+                "losses": r.losses,
+                "win_rate": round(r.win_rate, 3),
+            }
+        )
+    return {"status": "done", "table": pl.DataFrame(rows), "message": ""}
+
+
+@app.function
+def run_finetune(
+    training: dict, steps: int, opponent: str, games: int, seed: int, clicked: bool
+) -> dict:
+    """Continue the section 2 policy online with PPO after a click; play it before and after.
+
+    Return {"status", "table", "message"}; status is `idle`, `notrained` or `done`. The
+    fine-tuned run goes to a temporary folder. Both policies play `games` games against the
+    chosen opponent with the same seed."""
+    if not clicked:
+        return {
+            "status": "idle",
+            "table": None,
+            "message": f"Press **Fine-tune** to train {steps} steps against `{opponent}`, then "
+            f"play {games} games before and after.",
+        }
+    if training["run_dir"] is None:
+        return {
+            "status": "notrained",
+            "table": None,
+            "message": "There is no trained policy yet. Train one in section 2 first.",
+        }
+    out_dir = Path(tempfile.mkdtemp(prefix="quack-finetune-")) / "run"
+    finetune_online(training["run_dir"], out_dir, steps, opponent, seed=seed, rules=RULES)
+    rows = []
+    for label, folder in (("before", training["run_dir"]), ("after", out_dir)):
+        r = evaluate(PolicyBot.from_run(folder, RULES).policy, opponent, RULES, games, seed)
+        rows.append(
+            {
+                "policy": label,
+                "opponent": opponent,
                 "games": r.games,
                 "wins": r.wins,
                 "draws": r.draws,
@@ -470,6 +512,83 @@ def _(live_button, live_games, seed, training):
 def _(live):
     mo.stop(live["status"] != "done", mo.callout(mo.md(live["message"]), kind="info"))
     live["table"]
+    return
+
+
+@app.cell
+def _():
+    mo.md("""
+    ## 4. Online fine-tuning
+    """)
+    return
+
+
+@app.cell
+def _():
+    mo.md("""
+    Behaviour cloning trained only the actor (the part that picks actions). The value head, the
+    critic that PPO needs to judge states, is still untrained, so the first PPO updates can make
+    the policy worse before they make it better. A few thousand steps is a rough check, not a
+    training run: the result may be better, equal or worse, and it is shown either way. The
+    fine-tuned run goes to a temporary folder, not to `data/runs/`.
+    """)
+    return
+
+
+@app.cell
+def _():
+    ft_steps = mo.ui.slider(128, 5000, 128, value=512, label="PPO steps")
+    return (ft_steps,)
+
+
+@app.cell
+def _():
+    ft_opponent = mo.ui.dropdown(list(OPPONENTS), value=OPPONENTS[0], label="Opponent")
+    return (ft_opponent,)
+
+
+@app.cell
+def _():
+    ft_games = mo.ui.slider(1, 50, 1, value=20, label="Games")
+    return (ft_games,)
+
+
+@app.cell
+def _():
+    ft_button = mo.ui.run_button(label="Fine-tune")
+    return (ft_button,)
+
+
+@app.cell
+def _(ft_button, ft_games, ft_opponent, ft_steps):
+    mo.hstack([ft_steps, ft_opponent, ft_games, ft_button], justify="start")
+    return
+
+
+@app.cell
+def _(ft_steps):
+    ft_budget_shown = int(ft_steps.value)
+    mo.md(f"PPO step budget: **{ft_budget_shown}** steps")
+    return
+
+
+@app.cell
+def _(ft_button, ft_games, ft_opponent, ft_steps, seed, training):
+    finetune = run_finetune(
+        training,
+        int(ft_steps.value),
+        str(ft_opponent.value),
+        int(ft_games.value),
+        int(seed.value),
+        ft_button.value,
+    )
+    return (finetune,)
+
+
+@app.cell
+def _(finetune):
+    mo.stop(finetune["status"] != "done", mo.callout(mo.md(finetune["message"]), kind="info"))
+    finetune["table"]
     return
 
 
