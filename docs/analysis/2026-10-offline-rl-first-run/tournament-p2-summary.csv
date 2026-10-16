@@ -1,0 +1,7 @@
+p1,p2,games,p1_wins,draws,p1_losses,p1_win_rate
+draw20-pts4-green,random,500,500,0,0,1.000
+draw20-pts4-green,draw20-pts1-points,500,460,0,40,0.920
+draw20-pts4-green,offline-bc-1,500,264,4,232,0.528
+random,draw20-pts1-points,500,0,0,500,0.000
+random,offline-bc-1,500,0,0,500,0.000
+draw20-pts1-points,offline-bc-1,500,71,2,427,0.142

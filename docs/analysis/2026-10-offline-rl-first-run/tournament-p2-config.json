@@ -1,0 +1,22 @@
+{
+  "bots": [
+    "bot:draw20-pts4-green",
+    "bot:random",
+    "bot:draw20-pts1-points",
+    "policy:data/runs/offline-bc-1"
+  ],
+  "games": 500,
+  "seed": 0,
+  "rules": "v1.1",
+  "rounds": 9,
+  "overrides": {},
+  "sweep": null,
+  "workers": 4,
+  "seat_check": false,
+  "keep_records": false,
+  "sample_size": 0,
+  "name": "off1-p2",
+  "seed_scheme": "game_seed = run_seed + (sweep_value_index * pairings_per_value + pairing_index) * games + game_index",
+  "engine_version": "0.1.0",
+  "created_at": "2026-10-16T11:15:44+02:00"
+}
