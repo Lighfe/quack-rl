@@ -83,20 +83,22 @@ def build_model(obs_dim: int, seed: int, hidden: int = 256, n_actions: int = N_A
     import gymnasium as gym
     from sb3_contrib import MaskablePPO
 
-    class SpacesOnly(gym.Env):
-        """What SB3 reads of an environment to build a model: the two spaces. Never stepped."""
-
-        observation_space = gym.spaces.Box(-np.inf, np.inf, (obs_dim,), np.float32)
-        action_space = gym.spaces.Discrete(n_actions)
-
+    obs_space = gym.spaces.Box(-np.inf, np.inf, (obs_dim,), np.float32)
+    act_space = gym.spaces.Discrete(n_actions)
+    # No environment: SB3 only needs the two spaces to build the network, so set them by hand.
     model = MaskablePPO(
         "MlpPolicy",
-        SpacesOnly(),
+        None,
         policy_kwargs={"net_arch": [hidden, hidden]},
         seed=seed,
         device="cpu",
         verbose=0,
+        _init_setup_model=False,
     )
+    model.observation_space = obs_space
+    model.action_space = act_space
+    model.n_envs = 1
+    model._setup_model()
     return model
 
 

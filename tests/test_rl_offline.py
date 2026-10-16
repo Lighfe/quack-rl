@@ -90,6 +90,19 @@ def test_no_new_game(tmp_path, monkeypatch):
     assert "QuackEnv" not in text
 
 
+def test_no_environment_of_any_kind(monkeypatch):
+    import gymnasium as gym
+
+    def boom(*args, **kwargs):
+        raise AssertionError("an environment was created")
+
+    monkeypatch.setattr(gym.Env, "__init__", boom)
+    model = build_model(848, 0)
+    assert model.env is None
+    assert model.get_env() is None
+    assert model.policy.action_net.out_features == 15
+
+
 def test_loss_finite_and_illegal_logit_gradient_zero(data):
     model = build_model(848, 0)
     obs = torch.from_numpy(data.obs[:64])
