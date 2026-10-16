@@ -72,35 +72,61 @@ def _play_game(
     return rows
 
 
-def build_dataset(
-    bots: list[str], games: int, seed: int = 0, rules: str = "v1.1"
-) -> dict[str, list]:
-    """Play `games` games and return the columns (see module docstring)."""
+COLUMNS = ("episode", "step", "obs", "action_mask", "action", "reward", "terminal") + (
+    "bot",
+    "opponent",
+    "seat",
+)
+CHUNK_GAMES = 16  # games per Parquet row group: memory stays flat in the number of games
+
+
+def iter_games(bots: list[str], games: int, seed: int = 0, rules: str = "v1.1"):
+    """Play `games` games one by one and yield the columns of each game (see module docstring).
+
+    Memory holds one game at a time. Raise ValueError on bad arguments, before the first game."""
     if games < 1:
         raise ValueError(f"games must be at least 1, not {games}")
     bots = parse_bot_specs(bots)
     rng = np.random.default_rng(seed)
-    cols: dict[str, list] = {
-        k: []
-        for k in ("episode", "step", "obs", "action_mask", "action", "reward", "terminal")
-        + ("bot", "opponent", "seat")
-    }
     for ep in range(games):
         bot = bots[int(rng.integers(len(bots)))]
         opp = bots[int(rng.integers(len(bots)))]
         seat = ("p1", "p2")[int(rng.integers(2))]
-        for step, r in enumerate(_play_game(bot, opp, seat, rules, rng)):
-            cols["episode"].append(ep)
-            cols["step"].append(step)
-            cols["obs"].append(r["obs"])
-            cols["action_mask"].append(r["action_mask"])
-            cols["action"].append(r["action"])
-            cols["reward"].append(r["reward"])
-            cols["terminal"].append(r.get("terminal", False))
-            cols["bot"].append(bot)
-            cols["opponent"].append(opp)
-            cols["seat"].append(seat)
+        rows = _play_game(bot, opp, seat, rules, rng)
+        n = len(rows)
+        yield {
+            "episode": [ep] * n,
+            "step": list(range(n)),
+            "obs": [r["obs"] for r in rows],
+            "action_mask": [r["action_mask"] for r in rows],
+            "action": [r["action"] for r in rows],
+            "reward": [r["reward"] for r in rows],
+            "terminal": [r.get("terminal", False) for r in rows],
+            "bot": [bot] * n,
+            "opponent": [opp] * n,
+            "seat": [seat] * n,
+        }
+
+
+def build_dataset(
+    bots: list[str], games: int, seed: int = 0, rules: str = "v1.1"
+) -> dict[str, list]:
+    """Play `games` games and return all columns in memory (small builds and tests only)."""
+    cols: dict[str, list] = {k: [] for k in COLUMNS}
+    for game in iter_games(bots, games, seed, rules):
+        for k in COLUMNS:
+            cols[k].extend(game[k])
     return cols
+
+
+def _list_array(rows: list[np.ndarray], dtype):
+    """Arrow `list<dtype>` from equal-length 1-D arrays, without a Python list per row."""
+    import pyarrow as pa
+
+    flat = np.concatenate(rows).astype(dtype.to_pandas_dtype(), copy=False)
+    width = len(rows[0])
+    offsets = pa.array(np.arange(len(rows) + 1, dtype=np.int32) * width)
+    return pa.ListArray.from_arrays(offsets, pa.array(flat, dtype))
 
 
 def to_table(cols: dict[str, list]):
@@ -110,10 +136,8 @@ def to_table(cols: dict[str, list]):
         {
             "episode": pa.array(cols["episode"], pa.int32()),
             "step": pa.array(cols["step"], pa.int32()),
-            "obs": pa.array([o.tolist() for o in cols["obs"]], pa.list_(pa.float32())),
-            "action_mask": pa.array(
-                [m.tolist() for m in cols["action_mask"]], pa.list_(pa.int8())
-            ),
+            "obs": _list_array(cols["obs"], pa.float32()),
+            "action_mask": _list_array(cols["action_mask"], pa.int8()),
             "action": pa.array(cols["action"], pa.int16()),
             "reward": pa.array(cols["reward"], pa.float32()),
             "terminal": pa.array(cols["terminal"], pa.bool_()),
@@ -136,30 +160,69 @@ def write_dataset(
     rules: str = "v1.1",
     overwrite: bool = False,
     command: str | None = None,
+    chunk_games: int = CHUNK_GAMES,
 ) -> dict[str, Any]:
-    """Build the dataset and write `out` (Parquet) and the config next to it (same name, `.json`).
+    """Play the games and write `out` (Parquet, one row group per `chunk_games` games) and the
+    config next to it (same name, `.json`). Memory does not grow with the number of games.
 
     Raise ValueError on bad arguments and FileExistsError when `out` exists and `overwrite` is
-    false; in both cases nothing is written. Return the config."""
+    false. Both files are written under temporary names and renamed at the end, so a failed
+    build leaves nothing at the final paths. Return the config."""
     import pyarrow.parquet as pq
 
     out = Path(out)
     cfg_file = config_path(out)
     if not overwrite and (out.exists() or cfg_file.exists()):
         raise FileExistsError(f"{out} exists: pass --overwrite to replace it")
-    cols = build_dataset(bots, games, seed, rules)
-    table = to_table(cols)
-    config = {
-        "bots": parse_bot_specs(bots),
-        "games": games,
-        "seed": seed,
-        "rules": rules,
-        "rows": table.num_rows,
-        "command": command,
-    }
+    if chunk_games < 1:
+        raise ValueError(f"chunk_games must be at least 1, not {chunk_games}")
+    names = parse_bot_specs(bots)
     out.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(table, out, compression="zstd")
-    cfg_file.write_text(json.dumps(config, indent=2) + "\n")
+    tmp = out.with_name(out.name + ".tmp")
+    tmp_cfg = cfg_file.with_name(cfg_file.name + ".tmp")
+    rows = 0
+    try:
+        writer = None
+        pending: dict[str, list] = {k: [] for k in COLUMNS}
+        n_pending = 0
+
+        def flush():
+            nonlocal writer, rows, pending, n_pending
+            table = to_table(pending)
+            if writer is None:
+                writer = pq.ParquetWriter(tmp, table.schema, compression="zstd")
+            writer.write_table(table)
+            rows += table.num_rows
+            pending = {k: [] for k in COLUMNS}
+            n_pending = 0
+
+        try:
+            for game in iter_games(names, games, seed, rules):
+                for k in COLUMNS:
+                    pending[k].extend(game[k])
+                n_pending += 1
+                if n_pending >= chunk_games:
+                    flush()
+            if n_pending:
+                flush()
+        finally:
+            if writer is not None:
+                writer.close()
+        config = {
+            "bots": names,
+            "games": games,
+            "seed": seed,
+            "rules": rules,
+            "rows": rows,
+            "command": command,
+        }
+        tmp_cfg.write_text(json.dumps(config, indent=2) + "\n")
+        tmp.replace(out)
+        tmp_cfg.replace(cfg_file)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        tmp_cfg.unlink(missing_ok=True)
+        raise
     return config
 
 

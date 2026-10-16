@@ -98,3 +98,33 @@ def test_sample_reproduces(tmp_path):
     write_dataset(out, cfg["bots"], cfg["games"], cfg["seed"], cfg["rules"])
     _same(pq.read_table(SAMPLE), pq.read_table(out))
     assert set(pq.read_table(SAMPLE)["seat"].to_pylist()) == {"p1", "p2"}
+
+
+def test_row_groups_and_chunking(tmp_path):
+    out = tmp_path / "d.parquet"
+    write_dataset(out, BOTS, 20, seed=1)
+    assert pq.ParquetFile(out).num_row_groups > 1
+    other = tmp_path / "e.parquet"
+    write_dataset(other, BOTS, 20, seed=1, chunk_games=3)
+    assert pq.ParquetFile(other).num_row_groups == 7
+    _same(pq.read_table(out), pq.read_table(other))
+    _same(pq.read_table(out), to_table(build_dataset(BOTS, 20, seed=1)))
+
+
+def test_failed_build_leaves_no_file(tmp_path, monkeypatch):
+    import quack_rl.rl.dataset as ds
+
+    real = ds._play_game
+    calls = []
+
+    def flaky(*args):
+        calls.append(1)
+        if len(calls) == 4:
+            raise RuntimeError("boom")
+        return real(*args)
+
+    monkeypatch.setattr(ds, "_play_game", flaky)
+    out = tmp_path / "d.parquet"
+    with pytest.raises(RuntimeError):
+        write_dataset(out, ["random"], 6, chunk_games=2)
+    assert list(tmp_path.iterdir()) == []
