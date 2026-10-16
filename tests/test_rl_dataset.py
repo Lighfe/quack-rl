@@ -10,7 +10,9 @@ from quack_rl.rl.dataset import DEFAULT_BOTS, build_dataset, to_table, write_dat
 from quack_rl.rl.single_env import QuackEnv
 
 ROOT = Path(__file__).parent.parent
-_spec = importlib.util.spec_from_file_location("build_dataset", ROOT / "scripts" / "build_dataset.py")
+_spec = importlib.util.spec_from_file_location(
+    "build_dataset", ROOT / "scripts" / "build_dataset.py"
+)
 assert _spec and _spec.loader
 script = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(script)
