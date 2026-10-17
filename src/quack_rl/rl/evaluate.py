@@ -6,8 +6,10 @@ from typing import Any
 
 import numpy as np
 
+from quack_rl.rl.encode import check_policy_layout
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.single_env import QuackEnv
+from quack_rl.rules import load_ruleset
 
 Policy = Callable[[np.ndarray, np.ndarray], int]
 
@@ -42,16 +44,21 @@ def evaluate(
     rules: str = "v1.1",
     games: int = 500,
     seed: int = 0,
+    reads_observation: bool = True,
 ) -> EvalResult:
     """Play `games` games of `policy` against `opponent` (a name or a bot object).
 
     Game i uses the chance seed `seed + i`; the agent sits at p1 for even i and p2 for odd i.
     With a name, game i gets `make_opponent(name, seed=seed + i, rules=rules)`. A bot object is
     shared by all games, so the call is reproducible only if the object is fresh.
+    A policy reads the observation, so layout 4 (v1.9) is refused with `LayoutRefused`. Pass
+    `reads_observation=False` for a baseline that uses the mask only (`random_policy`).
     The noise is about +-4 points of win rate for 500 games (one standard error, worst case).
     """
     if games < 1:
         raise ValueError(f"games must be at least 1, not {games}")
+    if reads_observation:
+        check_policy_layout(load_ruleset(rules))
     envs = {s: QuackEnv(seat=s, rules=rules) for s in ("p1", "p2")}
     wins = draws = losses = 0
     own = opp = expl = 0

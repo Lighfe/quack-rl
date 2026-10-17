@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from quack_rl.rl.encode import vector_names
+from quack_rl.rl.encode import check_policy_layout, vector_names
 from quack_rl.rl.runs import full_config, run_path
 from quack_rl.rules import load_ruleset
 
@@ -190,6 +190,7 @@ def train_offline_run(
     Every check runs before the training; the folder is built under a temporary name and
     renamed at the end, so an error leaves no run folder. Raise FileNotFoundError (no dataset),
     FileExistsError (run folder exists), ValueError (bad steps, bad run name, bad `obs`)."""
+    check_policy_layout(load_ruleset(rules))  # layout 4 (v1.9): refused
     if steps < 1:
         raise ValueError(f"steps must be at least 1, not {steps}")
     path = run_path(Path(runs_dir), run)

@@ -7,6 +7,8 @@ generic rules.
 Observation layout 3 (rulesets with `explosion_choice`, v1.8): layout 2 plus the phase
 `choice`, the points of the own scoring field and a last-round flag
 (`docs/specs/2026-10-16-observation-layout-3.md`).
+Observation layout 4 (rulesets with a blue hand, v1.9): layout 3 with five colours, the own hand
+and the pick actions (`docs/specs/2026-10-17-observation-layout-4.md`).
 """
 
 from typing import Any
@@ -14,13 +16,23 @@ from typing import Any
 import numpy as np
 
 from quack_rl.components import get_component
-from quack_rl.engine import SEATS, GameState, Phase, Status, action_names, legal_actions
+from quack_rl.engine import (
+    MAX_HAND,
+    SEATS,
+    GameState,
+    Phase,
+    Status,
+    action_names,
+    has_hand,
+    legal_actions,
+)
 from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
 OBSERVATION_LAYOUT = 2  # the layout of v1 and v1.1; see `observation_layout` for a ruleset
 CHOICE_LAYOUT = 3
+HAND_LAYOUT = 4
 # layout 2 has no choice phase; layout 3 has it
 PHASES = [p.value for p in Phase if p is not Phase.CHOICE]
 PHASES_CHOICE = [p.value for p in Phase]
@@ -36,13 +48,39 @@ _SCALARS = (
     "shop_done",
 )
 # Map channels per field: money, ruby, then own and opponent: colour flags, value, order.
-MAP_COLOURS = 4
-MAP_CHANNELS = 2 + 2 * (MAP_COLOURS + 2)
+MAP_COLOURS = 4  # colour flags per chip in layouts 2 and 3
+MAP_CHANNELS = 2 + 2 * (MAP_COLOURS + 2)  # layouts 2 and 3; see `map_channels`
+HAND_COLOURS = 5  # layout 4: white, orange, green, blue, red
+
+
+class LayoutRefused(ValueError):
+    """A trained policy was asked to act on a layout it was not built for (layout 4)."""
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: 3 with the explosion choice, else 2."""
+    """The layout number of a ruleset: 4 with a blue hand, else 3 with the explosion choice,
+    else 2."""
+    if has_hand(rs):
+        return HAND_LAYOUT
     return CHOICE_LAYOUT if rs.explosion_choice else OBSERVATION_LAYOUT
+
+
+def check_policy_layout(rs: Ruleset) -> None:
+    """Raise `LayoutRefused` for a ruleset on layout 4: no policy is trained for it yet."""
+    if observation_layout(rs) == HAND_LAYOUT:
+        raise LayoutRefused(
+            f"rules {rs.version!r} use observation layout 4; no trained policy, self-play, "
+            "finetune, offline or evaluate run exists for layout 4 yet"
+        )
+
+
+def map_colours(rs: Ruleset) -> int:
+    return HAND_COLOURS if observation_layout(rs) == HAND_LAYOUT else MAP_COLOURS
+
+
+def map_channels(rs: Ruleset) -> int:
+    """Map channels per field: money, ruby, then own and opponent: colour flags, value, order."""
+    return 2 + 2 * (map_colours(rs) + 2)
 
 
 def phases(rs: Ruleset) -> list[str]:
@@ -51,9 +89,9 @@ def phases(rs: Ruleset) -> list[str]:
 
 def _colours(rs: Ruleset) -> list[str]:
     colours = list(dict.fromkeys(c.colour for c in rs.chips))
-    if len(colours) != MAP_COLOURS:
+    if len(colours) != map_colours(rs):
         raise ValueError(
-            f"observation layout {observation_layout(rs)} has {MAP_COLOURS} colour flags per chip "
+            f"observation layout {observation_layout(rs)} has {map_colours(rs)} colour flags per chip "
             f"in the map; the ruleset has {len(colours)} colours"
         )
     return colours
@@ -96,15 +134,44 @@ def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
 def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
     """The view of `seat`. The draw order of the bags and the opponent's pending choice are
     not part of it; both bags and the placed chips are public."""
+    own = _public(state.players[seat], rs)
+    if has_hand(rs):
+        own["hand"] = list(state.players[seat].hand)
     return {
         "round": state.round,
         "rounds": rs.rounds,
         "explosion_limit": rs.explosion_limit,
         "phase": state.phase.value,
-        "own": _public(state.players[seat], rs),
+        "own": own,
         "opponent": _public(state.players[other_seat(seat)], rs),
         "derived": derived(state, rs, seat),
     }
+
+
+def _hand_names(rs: Ruleset) -> list[str]:
+    """Layout 4: per hand slot a presence flag, the value and the colour flags; then the size."""
+    if not has_hand(rs):
+        return []
+    names = []
+    for i in range(MAX_HAND):
+        names += [f"own.hand.{i}.present", f"own.hand.{i}.value"]
+        names += [f"own.hand.{i}.colour.{c}" for c in _colours(rs)]
+    return [*names, "own.hand_size"]
+
+
+def _hand_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
+    if not has_hand(rs):
+        return []
+    colours = _colours(rs)
+    hand = obs["own"]["hand"]
+    values: list[float] = []
+    for i in range(MAX_HAND):
+        if i >= len(hand):
+            values += [0.0] * (2 + len(colours))
+            continue
+        chip = rs.chip(hand[i])
+        values += [1.0, chip.value, *(chip.colour == c for c in colours)]
+    return [*values, len(hand)]
 
 
 def _map_names(rs: Ruleset) -> list[str]:
@@ -138,13 +205,15 @@ def vector_names(rs: Ruleset) -> list[str]:
         *_player_names("own", rs),
         *_player_names("opponent", rs),
         *derived_names(rs),
+        *_hand_names(rs),
         *_map_names(rs),
     ]
 
 
 def map_slice(rs: Ruleset) -> slice:
-    """The map block: `vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)`."""
-    n = (rs.track_end + 1) * MAP_CHANNELS
+    """The map block: `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`
+    (`MAP_CHANNELS` for layouts 2 and 3)."""
+    n = (rs.track_end + 1) * map_channels(rs)
     total = len(vector_names(rs))
     return slice(total - n, total)
 
@@ -184,6 +253,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *_player_values(obs["own"], rs),
         *_player_values(obs["opponent"], rs),
         *(obs["derived"][n] for n in derived_names(rs)),
+        *_hand_values(obs, rs),
         *_map_values(obs, rs),
     ]
     return np.asarray(values, dtype=np.float32)
@@ -234,6 +304,10 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         "field_points": (0.0, float(max(rs.points)) if rs.points is not None else 0.0),
         "last_round": (0.0, 1.0),
     }
+    hand_high: list[float] = []
+    if has_hand(rs):
+        slot = [1.0, max_value] + [1.0] * len(_colours(rs))
+        hand_high = [*slot * MAX_HAND, float(MAX_HAND)]
     derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names(rs)]
     derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names(rs)]
     high = [
@@ -244,6 +318,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *player,
         *player,
         *derived_high,
+        *hand_high,
         *cell * (rs.track_end + 1),
     ]
     n_before = 3 + len(phases(rs)) + 2 * len(player)

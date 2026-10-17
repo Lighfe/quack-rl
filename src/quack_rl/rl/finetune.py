@@ -10,10 +10,12 @@ import json
 import shutil
 from pathlib import Path
 
+from quack_rl.rl.encode import check_policy_layout
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.runs import load_model
 from quack_rl.rl.single_env import QuackEnv
 from quack_rl.rl.train import N_STEPS
+from quack_rl.rules import load_ruleset
 
 BATCH_SIZE = 64
 
@@ -33,6 +35,7 @@ def finetune_online(
     source run plus a `finetune` entry) and `model.zip`. Raise ValueError for an unknown
     opponent or `steps < 1`, FileExistsError for a non-empty `out_dir`, all before training.
     """
+    check_policy_layout(load_ruleset(rules))  # layout 4 (v1.9): refused
     if steps < 1:
         raise ValueError(f"steps must be at least 1, not {steps}")
     make_opponent(opponent, seed=seed, rules=rules)  # ValueError on an unknown name

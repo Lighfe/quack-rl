@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 from quack_rl.engine import GameState, action_names
-from quack_rl.rl.encode import action_mask, observe, vectorize
+from quack_rl.rl.encode import action_mask, check_policy_layout, observe, vectorize
 from quack_rl.rl.evaluate import Policy
 from quack_rl.rl.runs import load_model
 from quack_rl.rules import Ruleset, load_ruleset
@@ -51,6 +51,7 @@ class PolicyBot:
         if readout == "sampled" and distribution is None:
             raise ValueError("the read-out 'sampled' needs a distribution")
         self.rs = load_ruleset(rules) if isinstance(rules, str) else rules
+        check_policy_layout(self.rs)  # layout 4 (v1.9): refused
         self.policy = policy
         self.name = name
         self.readout = readout
@@ -89,6 +90,7 @@ class PolicyBot:
         """Build the bot from a run folder. `load_model` refuses another layout or vector."""
         check_readout(readout)
         rs = load_ruleset(rules) if isinstance(rules, str) else rules
+        check_policy_layout(rs)  # layout 4 (v1.9): refused
         model = load_model(path, rs.version)
 
         def policy(obs: np.ndarray, mask: np.ndarray) -> int:

@@ -36,11 +36,13 @@ from typing import Any
 
 import numpy as np
 
+from quack_rl.rl.encode import check_policy_layout
 from quack_rl.rl.evaluate import EvalResult, Policy, evaluate, random_policy
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.policy_bot import DEFAULT_READOUT, PolicyBot, check_readout
 from quack_rl.rl.single_env import QuackEnv
 from quack_rl.rl.train import N_STEPS, TrainingLog, TrainResult, _import_sb3, sb3_policy
+from quack_rl.rules import load_ruleset
 
 SHARE_NEWEST = 0.5
 SHARE_OLDER = 0.3
@@ -247,6 +249,7 @@ def train_selfplay(
     """
     from quack_rl.rl.runs import RunFolder, run_path
 
+    check_policy_layout(load_ruleset(rules))  # layout 4 (v1.9): refused
     check_readout(readout)
     if steps < 1:
         raise ValueError(f"steps must be at least 1, not {steps}")

@@ -156,15 +156,15 @@ def test_empty_bag_after_blue_without_hand_stops():
     assert any(e["kind"] == "bag_empty" for e in r.events)
 
 
-def test_hand_is_not_in_the_other_players_view(monkeypatch):
-    monkeypatch.setattr("quack_rl.rl.encode.MAP_COLOURS", 5)  # layout 4 is built later
+def test_hand_is_not_in_the_other_players_view():
     s = with_hand("blue_2", ["white_1", "white_2"], {"white_1": 1, "white_2": 1, "white_3": 2})
     assert s.players["p1"].hand
     other = json.dumps(observe(s, RS, "p2"), sort_keys=True)
     t = copy.deepcopy(s)
     t.players["p1"].hand = ["green_1", "orange_1"]  # other chips in the hand: same view
     assert json.dumps(observe(t, RS, "p2"), sort_keys=True) == other
-    assert "hand" not in other
+    assert "hand" not in observe(s, RS, "p2")["opponent"]
+    assert "hand" not in observe(s, RS, "p1")["opponent"]
 
 
 def test_legal_actions_with_a_hand():

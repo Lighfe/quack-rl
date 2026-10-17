@@ -11,9 +11,11 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from quack_rl.rl.encode import check_policy_layout
 from quack_rl.rl.evaluate import EvalResult, Policy, evaluate, random_policy
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.single_env import QuackEnv
+from quack_rl.rules import load_ruleset
 
 N_STEPS = 128  # decisions per PPO rollout: train(256, ...) ends two rollouts
 _METRIC_KEYS = (
@@ -131,6 +133,7 @@ def train(
     that exists is refused before training); `checkpoint_every` saves the model every that many
     timesteps (a multiple of it, `step_<n>.zip`). Without `run` nothing is written to disk.
     """
+    check_policy_layout(load_ruleset(rules))  # layout 4 (v1.9): refused
     if eval_games < 1:
         raise ValueError(f"eval_games must be at least 1, not {eval_games}")
     if checkpoint_every is not None and checkpoint_every < 1:
