@@ -11,12 +11,17 @@ CHIP_STYLE = {
     "orange": "bold dark_orange",
     "blue": "bold blue",
     "green": "bold green",
+    "red": "bold red",
 }
 
 
 def chip_text(chip_id: str, rs: Ruleset) -> Text:
     chip = rs.chip(chip_id)
     return Text(f"{chip.colour[0].upper()}{chip.value}", style=CHIP_STYLE.get(chip.colour, ""))
+
+
+def hand_text(chip_ids: list[str], rs: Ruleset) -> Text:
+    return Text("hand: ") + _chips(chip_ids, rs)
 
 
 def _chips(chip_ids: list[str], rs: Ruleset) -> Text:
