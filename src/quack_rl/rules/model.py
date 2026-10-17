@@ -3,6 +3,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from quack_rl.rules.spellbook import get_spellbook
+
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -12,7 +14,8 @@ class ChipSpec(_Frozen):
     id: str
     colour: str
     value: int = Field(ge=1)
-    component: str
+    # Required unless the ruleset names a spellbook; then it must be left out.
+    component: str | None = None
 
 
 class ShopItem(_Frozen):
@@ -70,6 +73,9 @@ class Ruleset(_Frozen):
     explosion_choice: bool = False
     # v1.8: in the last round, money // this becomes points. None means no conversion.
     last_round_money_divisor: int | None = Field(default=None, ge=1)
+    # v1.9: the name of the spellbook that gives each colour its component. None means each
+    # chip names its own `component` (v1, v1.1, v1.8).
+    spellbook: str | None = None
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]
@@ -85,6 +91,7 @@ class Ruleset(_Frozen):
             raise ValueError("rubies: duplicate field numbers")
         for entry in [*self.shop, *self.die]:
             _check_kind_fields(entry)
+        self._check_components()
         chip_ids = {c.id for c in self.chips}
         if len(self.money) != self.track_end + 1:
             raise ValueError("money needs one entry per field 0..track_end")
@@ -99,6 +106,31 @@ class Ruleset(_Frozen):
             if entry.kind in ("chip", "remove_chip") and entry.chip not in chip_ids:
                 raise ValueError(f"{entry.id}: unknown chip {entry.chip}")
         return self
+
+    def _check_components(self) -> None:
+        if self.spellbook is None:
+            for c in self.chips:
+                if c.component is None:
+                    raise ValueError(f"chip {c.id}: needs a component (the ruleset has no spellbook)")
+            return
+        book = get_spellbook(self.spellbook)  # raises for an unregistered name
+        for c in self.chips:
+            if c.component is not None:
+                raise ValueError(
+                    f"chip {c.id}: component {c.component!r} is set, but spellbook "
+                    f"{self.spellbook!r} gives the component of each colour"
+                )
+            if c.colour not in book:
+                raise ValueError(
+                    f"chip {c.id}: spellbook {self.spellbook!r} has no colour {c.colour!r}"
+                )
+
+    def component_name(self, chip: ChipSpec) -> str:
+        """The component name of a chip: from the spellbook if the ruleset names one."""
+        if self.spellbook is None:
+            assert chip.component is not None
+            return chip.component
+        return get_spellbook(self.spellbook)[chip.colour]
 
     def chip(self, chip_id: str) -> ChipSpec:
         for c in self.chips:

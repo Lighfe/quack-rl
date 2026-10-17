@@ -219,7 +219,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
     # A seat explodes on the draw that passes the limit, so its white total ends below
     # limit + the largest explosion weight of a chip.
-    max_weight = max(get_component(c.component).explosion_weight(c) for c in rs.chips)
+    max_weight = max(get_component(rs.component_name(c)).explosion_weight(c) for c in rs.chips)
     money_cap = float(max(rs.money) * rs.last_round_money_percent // 100)
     # Derived entries. `limit_distance` is negative after an explosion; `point_delta` has no bound.
     derived_bounds = {

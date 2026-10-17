@@ -1,0 +1,39 @@
+"""Spellbooks: a named set that gives each chip colour its component name."""
+
+from collections.abc import Mapping
+from types import MappingProxyType
+
+# White and orange work the same in every spellbook.
+FIXED_COLOURS: Mapping[str, str] = MappingProxyType({"white": "white@1", "orange": "orange@1"})
+
+_SPELLBOOKS: dict[str, Mapping[str, str]] = {}
+
+
+class UnknownSpellbook(ValueError):
+    """No spellbook is registered under this name."""
+
+
+def register_spellbook(name: str, components: Mapping[str, str]) -> None:
+    if name in _SPELLBOOKS:
+        raise ValueError(f"spellbook {name!r} is already registered")
+    for colour, component in FIXED_COLOURS.items():
+        if components.get(colour) != component:
+            raise ValueError(f"spellbook {name!r}: {colour} must be {component!r}")
+    _SPELLBOOKS[name] = MappingProxyType(dict(components))
+
+
+def unregister_spellbook(name: str) -> None:
+    _SPELLBOOKS.pop(name, None)
+
+
+def registered_spellbooks() -> dict[str, Mapping[str, str]]:
+    return dict(_SPELLBOOKS)
+
+
+def get_spellbook(name: str) -> Mapping[str, str]:
+    try:
+        return _SPELLBOOKS[name]
+    except KeyError:
+        raise UnknownSpellbook(
+            f"spellbook {name!r} is not registered (registered: {sorted(_SPELLBOOKS)})"
+        ) from None

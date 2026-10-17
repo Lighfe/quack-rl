@@ -114,7 +114,7 @@ def _brew_outcomes(
     # With `fractions`, the explosion chances (in percent) met at the stop decisions are added.
     memo: dict[tuple, dict[tuple[int, bool, int], float]] = {}
     chips = {chip.id: chip for chip in rs.chips}
-    parts = {i: get_component(c.component) for i, c in chips.items()}
+    parts = {i: get_component(rs.component_name(c)) for i, c in chips.items()}
     weight = {i: parts[i].explosion_weight(c) for i, c in chips.items()}
 
     def end_bonus(last: str | None, prev: str | None) -> int:

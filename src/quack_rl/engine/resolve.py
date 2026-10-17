@@ -37,7 +37,7 @@ def apply_resolve(
             events.append({"seat": seat, "kind": "ruby", "halves": 1})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
-            halves = get_component(chip.component).round_end_droplet_halves(chip, position_from_end)
+            halves = get_component(rs.component_name(chip)).round_end_droplet_halves(chip, position_from_end)
             if halves:
                 p.droplet_halves += halves
                 events.append(

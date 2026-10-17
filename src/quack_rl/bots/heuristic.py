@@ -28,7 +28,7 @@ def _explosive_chips(bag: dict[str, int], white_total: int, rs: Ruleset) -> tupl
     for chip_id, count in bag.items():
         size += count
         chip = rs.chip(chip_id)
-        if white_total + get_component(chip.component).explosion_weight(chip) > rs.explosion_limit:
+        if white_total + get_component(rs.component_name(chip)).explosion_weight(chip) > rs.explosion_limit:
             bad += count
     return bad, size
 

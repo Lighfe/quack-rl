@@ -6,6 +6,12 @@ from quack_rl.rules.load import (
     with_rounds,
 )
 from quack_rl.rules.model import ChipSpec, DieFace, Ruleset, ShopItem
+from quack_rl.rules.spellbook import (
+    UnknownSpellbook,
+    register_spellbook,
+    registered_spellbooks,
+    unregister_spellbook,
+)
 
 __all__ = [
     "SUPPORTED_RULES_VERSIONS",
@@ -13,8 +19,12 @@ __all__ = [
     "DieFace",
     "Ruleset",
     "ShopItem",
+    "UnknownSpellbook",
     "UnsupportedRulesVersion",
     "apply_overrides",
     "load_ruleset",
+    "register_spellbook",
+    "registered_spellbooks",
+    "unregister_spellbook",
     "with_rounds",
 ]

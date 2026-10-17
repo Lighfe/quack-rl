@@ -12,7 +12,7 @@ def _draw(
 ) -> None:
     chip_id = chance.draw_chip(p, seat)
     chip = rs.chip(chip_id)
-    component = get_component(chip.component)
+    component = get_component(rs.component_name(chip))
     previous = rs.chip(p.placed[-1]) if p.placed else None
     bonus = component.place_bonus(chip, previous)
     p.bag[chip_id] -= 1
