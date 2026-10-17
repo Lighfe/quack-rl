@@ -8,12 +8,15 @@ from quack_rl.engine import (
     BUY_PREFIX,
     DONE,
     DRAW,
+    PUT_BACK_DRAW,
+    PUT_BACK_STOP,
     STOP,
     TAKE_MONEY,
     TAKE_POINTS,
     GameState,
     Phase,
     buy,
+    play,
 )
 from quack_rl.rules import Ruleset
 
@@ -28,7 +31,10 @@ def _explosive_chips(bag: dict[str, int], white_total: int, rs: Ruleset) -> tupl
     for chip_id, count in bag.items():
         size += count
         chip = rs.chip(chip_id)
-        if white_total + get_component(rs.component_name(chip)).explosion_weight(chip) > rs.explosion_limit:
+        if (
+            white_total + get_component(rs.component_name(chip)).explosion_weight(chip)
+            > rs.explosion_limit
+        ):
             bad += count
     return bad, size
 
@@ -91,6 +97,9 @@ class HeuristicBot:
         }
 
     def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
+        if state.phase is Phase.BREW and state.players[seat].hand:
+            action = self._pick(state, seat)
+            return action if action in legal else legal[0]
         if state.phase is Phase.BREW:
             action = self._brew(state, seat)
             return action if action in legal else DRAW if DRAW in legal else legal[0]
@@ -107,6 +116,40 @@ class HeuristicBot:
         bad, size = _explosive_chips(p.bag, p.white_total, self._rs)
         # chance > limit, in exact integer arithmetic: bad / size > percent / 100
         return STOP if bad * 100 > self.draw_limit * size else DRAW
+
+    def _advance(self, chip_id: str, p: Any) -> int:
+        """How far the engine would move the player if the chip were played now."""
+        chip = self._rs.chip(chip_id)
+        component = get_component(self._rs.component_name(chip))
+        previous = self._rs.chip(p.placed[-1]) if p.placed else None
+        bonus = component.place_bonus(chip, previous, [self._rs.chip(c) for c in p.placed])
+        return min(p.field + chip.value + bonus, self._rs.track_end) - p.field
+
+    def _pick(self, state: GameState, seat: str) -> str:
+        """Pick step: play the safe chip with the highest advance; else put back and Draw or Stop.
+
+        The stop rule is computed on the bag with the whole hand put back."""
+        p = state.players[seat]
+        best_slot, best_advance = None, 0
+        all_explode = True
+        for slot, chip_id in enumerate(p.hand):
+            chip = self._rs.chip(chip_id)
+            weight = get_component(self._rs.component_name(chip)).explosion_weight(chip)
+            if p.white_total + weight > self._rs.explosion_limit:
+                continue
+            all_explode = False
+            advance = self._advance(chip_id, p)
+            if advance > best_advance:  # strictly: on a tie the lowest slot stays
+                best_slot, best_advance = slot, advance
+        if best_slot is not None:
+            return play(best_slot)
+        if all_explode:
+            return PUT_BACK_STOP
+        bag = dict(p.bag)
+        for chip_id in p.hand:
+            bag[chip_id] = bag.get(chip_id, 0) + 1
+        bad, size = _explosive_chips(bag, p.white_total, self._rs)
+        return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
         p = state.players[seat]

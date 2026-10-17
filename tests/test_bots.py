@@ -738,3 +738,135 @@ def test_random_bot_plays_many_seeded_v18_games():
     for seed in range(40):
         seats = {"p1": RandomBot(seed=seed), "p2": RandomBot(seed=seed + 1000)}
         assert play_game(RS18, seats, RngChance(seed)).phase is Phase.GAME_OVER
+
+
+# --- v1.9: the pick step --------------------------------------------------------------------
+
+RS19 = load_ruleset("v1.9")
+PICK_LEGAL = ["play:0", "play:1", "put_back_draw", "put_back_stop"]
+
+
+def pick_state(hand, bag=None, white_total=0, field=0, placed=(), pot_field=None):
+    state = new_game(RS19)
+    p = state.players["p1"]
+    p.hand = list(hand)
+    p.bag = dict(bag or {})
+    p.white_total = white_total
+    p.field = field
+    p.placed = list(placed)
+    return state
+
+
+def pick(state, draw_limit=20):
+    bot = HeuristicBot(RS19, draw_limit=draw_limit)
+    return bot.choose(state, "p1", PICK_LEGAL)
+
+
+def test_pick_plays_the_highest_advance():
+    assert pick(pick_state(["white_1", "orange_6"])) == "play:1"
+    assert pick(pick_state(["orange_6", "white_1"])) == "play:0"
+
+
+def test_pick_tie_goes_to_the_lowest_slot():
+    assert pick(pick_state(["orange_1", "orange_1"])) == "play:0"
+
+
+def test_pick_all_explode_stops_even_at_draw_limit_100():
+    state = pick_state(
+        ["white_3", "white_2"], bag={"white_1": 3}, white_total=RS19.explosion_limit - 1
+    )
+    assert pick(state, draw_limit=100) == "put_back_stop"
+
+
+def test_pick_advance_zero_draws_or_stops_by_the_chance_with_the_hand_back():
+    # field 53: every advance is 0. White total 6, limit 7: white_2 explodes, white_1 does not.
+    hand = ["white_1", "white_1"]
+    safe = pick_state(hand, bag={"white_1": 8, "white_2": 2}, white_total=6, field=53)
+    # bag plus hand: 2 of 12 explode (16.7%)
+    assert pick(safe, draw_limit=20) == "put_back_draw"
+    risky = pick_state(hand, bag={"white_1": 4, "white_2": 6}, white_total=6, field=53)
+    # 6 of 12 explode (50%)
+    assert pick(risky, draw_limit=20) == "put_back_stop"
+
+
+def test_pick_stop_rule_counts_the_hand_in_the_bag():
+    # bag alone: 1 of 4 explodes (25%) -> Stop at 20%; with the hand (2 safe chips) 1 of 6 -> Draw
+    state = pick_state(
+        ["white_1", "white_1"], bag={"white_1": 3, "white_2": 1}, white_total=6, field=53
+    )
+    assert pick(state, draw_limit=20) == "put_back_draw"
+
+
+def test_pick_red_beats_orange_with_three_orange_in_the_pot():
+    state = pick_state(["orange_1", "red_1"], white_total=0, placed=["orange_1"] * 3, field=3)
+    assert pick(state) == "play:1"
+
+
+def test_random_bot_answers_all_three_kinds_at_the_pick_step():
+    from quack_rl.bots import RandomBot
+
+    state = pick_state(["white_1", "orange_1"])
+    kinds = set()
+    for seed in range(60):
+        action = RandomBot(seed).choose(state, "p1", PICK_LEGAL)
+        assert action in PICK_LEGAL
+        kinds.add("play" if action.startswith("play:") else action)
+    assert kinds == {"play", "put_back_draw", "put_back_stop"}
+
+
+def test_parse_bot_name_is_unchanged():
+    assert parse_bot_name("bot:draw30-pts3-blue") == (30, 3, "blue")
+
+
+# --- v1.9: full games -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "p1,p2",
+    [
+        ("bot:draw20-pts1-blue", "bot:draw30-pts3-balanced"),
+        ("bot:draw20-pts1-blue", "bot:random"),
+        ("bot:random", "bot:random"),
+    ],
+)
+def test_v1_9_full_games_reach_the_end_with_legal_actions(p1, p2, tmp_path):
+    from quack_rl.record import read_games
+    from quack_rl.simgame import play_sim_game
+
+    saw_hand = False
+    for seed in range(1, 7):
+        path = tmp_path / f"{seed}.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            final, _, _ = play_sim_game(
+                RS19, rules="v1.9", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=f
+            )
+        assert final.winner is not None  # an illegal action would have raised
+        (game,) = read_games(path)
+        assert game.footer is not None
+        saw_hand = saw_hand or any(
+            e.get("kind") == "hand" for step in game.steps for e in step.events
+        )
+    assert saw_hand
+
+
+def test_v1_9_tournament_runs_all_pairs(tmp_path):
+    result = runner.invoke(
+        app,
+        [
+            "tournament",
+            "--rules",
+            "v1.9",
+            "--games",
+            "4",
+            "--seed",
+            "3",
+            "--out",
+            str(tmp_path),
+            "--bots",
+            "bot:draw20-pts1-blue,bot:draw30-pts3-balanced,bot:random",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    run = next(p for p in tmp_path.iterdir() if p.is_dir())
+    rows = (run / "results.csv").read_text(encoding="utf-8").strip().splitlines()
+    assert len(rows) == 1 + 3 * 4
