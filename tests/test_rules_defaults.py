@@ -1,4 +1,4 @@
-"""Nothing picks up v1.8 by accident: no default of `rules` is v1.8, the notebooks name v1.1 once."""
+"""Nothing picks up v1.8 or v1.9 by accident: no default of `rules` is one of them, the notebooks name v1.1 once."""
 
 import ast
 import re
@@ -57,7 +57,7 @@ def scan(files) -> list[tuple[str, str, object, int]]:
     return out
 
 
-def test_no_rules_default_is_v1_8():
+def test_no_rules_default_is_v1_8_or_v1_9():
     found = scan(SCANNED)
     bad = [f for f in found if f[2] in ("v1.8", "v1.9")]
     assert not bad, f"default rules v1.8 or v1.9 found: {bad}"
@@ -75,13 +75,19 @@ def test_scan_finds_the_known_defaults():
 @pytest.mark.parametrize(
     "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
-def test_scan_fails_on_a_planted_v1_8(tmp_path, name):
+@pytest.mark.parametrize("planted_version", ["v1.8", "v1.9"])
+def test_scan_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
-    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1(\.1)?"', r'\1"v1.8"', text, count=1)
+    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1(\.1)?"', rf'\1"{planted_version}"', text, count=1)
     assert planted != text
     copy.write_text(planted, encoding="utf-8")
-    assert any(f[2] == "v1.8" for f in scan([copy]))
+    assert any(f[2] == planted_version for f in scan([copy]))
+
+
+def test_no_notebook_names_v1_9():
+    for path in sorted((ROOT / "notebooks").glob("*.py")):
+        assert "v1.9" not in path.read_text(encoding="utf-8"), path.name
 
 
 def test_tournament_notebook_has_no_version_string():

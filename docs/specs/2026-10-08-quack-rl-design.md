@@ -263,7 +263,8 @@ Milestones are the big steps of this spec. They are not the same as the stages o
 | M1 | Play the game in the terminal, recorded | Python project set-up, ruleset data, engine, random bot, raw log + replay + verify, terminal play and simulate |
 | M2 | Standard RL environment and datasets | Minari research, PettingZoo and Gymnasium envs with API tests, Minari export, tiny marimo smoke-test notebook, bot design session, tournament and balance report |
 | M2.9 | Ruleset v1.8 (issue #96) | New rules version with observation layout 3 and action mask; content in `docs/specs/2026-10-16-ruleset-v1-8.md` |
-| Spellbook and colour stages | Spellbook and colour stages (issue #71) | Named here only; planned at its own intake |
+| M2.10 | Ruleset v1.9 (spellbook 1) | New rules version: blue draws a hand and has a pick step, new red and orange 6 chips, observation layout 4 and environments; no default or notebook uses it yet |
+| Spellbook and colour stages | More colours and spellbooks follow (issue #71) | Further colours and spellbooks after v1.9; named here only, planned at their own intake |
 | Rules v2 | Rules v2 (issue #79) | Larger rules change after v1.8; planned at its own intake |
 | M3 | Contract and server | JSON Schema, OpenAPI, fixtures, HTTP server |
 | M4 | Web frontend | Kit Lovable lane set-up (owner steps), replay viewer, live play |
