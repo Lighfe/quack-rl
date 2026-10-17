@@ -95,6 +95,14 @@ def test_evaluate_update_row_has_the_documented_columns():
     assert set(json.loads(row["vs_heuristics"])) == {"draw20-pts1-points"}
     assert set(json.loads(row["vs_snapshots"])) == {"step_10.zip", "step_20.zip"}
     assert 0 <= row["vs_previous_newest"] <= 1 and 0 <= row["vs_random"] <= 1
+    assert row["readout"] == "greedy"
+
+
+def test_evaluate_update_row_carries_the_readout():
+    row = evaluate_update(
+        random_policy(0), [], None, fake_loader, "v1.1", 2, (), 10, "step_10.zip", "sampled"
+    )
+    assert row["readout"] == "sampled" and "readout" in SELFPLAY_COLUMNS
 
 
 def test_evaluate_update_first_update_has_no_snapshots():
@@ -107,13 +115,17 @@ def test_bad_input_fails_before_the_folder_exists(tmp_path):
         train_selfplay("x", 100, update_every=0, runs_dir=tmp_path)
     with pytest.raises(ValueError):
         train_selfplay("x", 100, eval_bots=("nonsense",), runs_dir=tmp_path)
+    with pytest.raises(ValueError, match="greedy, sampled"):
+        train_selfplay("x", 100, readout="random", runs_dir=tmp_path)
     assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.slow
 def test_selfplay_run_folder(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
-    train_selfplay("sp", 400, update_every=128, seed=1, eval_games=2, runs_dir=tmp_path)
+    train_selfplay(
+        "sp", 400, update_every=128, seed=1, eval_games=2, runs_dir=tmp_path, readout="sampled"
+    )
     run = tmp_path / "sp"
     files = sorted(p.name for p in (run / "checkpoints").iterdir())
     assert files == ["step_128.zip", "step_256.zip", "step_384.zip", "step_512.zip"]
@@ -121,6 +133,7 @@ def test_selfplay_run_folder(tmp_path):
         rows = list(csv.DictReader(f))
     assert tuple(rows[0]) == SELFPLAY_COLUMNS and len(rows) == 4  # one row per update
     assert [r["snapshot"] for r in rows] == files
+    assert {r["readout"] for r in rows} == {"sampled"}
     assert json.loads(rows[2]["vs_snapshots"]).keys() == {"step_128.zip", "step_256.zip"}
     for name in ("config.json", "episodes.csv", "metrics.csv", "eval.json", "model.zip"):
         assert (run / name).exists()

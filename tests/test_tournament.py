@@ -745,3 +745,69 @@ def test_v18_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
     assert (run / "seats.parquet").exists()
     report = runner.invoke(app, ["report", str(run)])
     assert report.exit_code == 0, report.output
+
+
+# --- policy seat with a read-out suffix ---
+
+
+def _fake_model():
+    import numpy as np
+
+    class Probs:
+        def __init__(self, p):
+            self.p = p
+
+        def __getitem__(self, i):
+            return self
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return self.p
+
+    class Dist:
+        def __init__(self, p):
+            self.distribution = type("D", (), {"probs": Probs(p)})()
+
+    class Policy:
+        def obs_to_tensor(self, obs):
+            return obs, None
+
+        def get_distribution(self, obs, action_masks=None):
+            return Dist(np.asarray(action_masks, dtype=float))
+
+    class Model:
+        policy = Policy()
+
+        def predict(self, obs, action_masks=None, deterministic=True):
+            return int(np.flatnonzero(action_masks)[0]), None
+
+    return Model()
+
+
+def test_sampled_policy_seat_is_reproducible_and_named_with_the_suffix(tmp_path, monkeypatch):
+    from quack_rl.rl.encode import OBSERVATION_LAYOUT, vector_names
+    from quack_rl.rules import load_ruleset
+
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "config.json").write_text(
+        json.dumps(
+            {"layout": OBSERVATION_LAYOUT, "vector_names": vector_names(load_ruleset("v1.1"))}
+        )
+    )
+    monkeypatch.setattr("quack_rl.rl.policy_bot.load_model", lambda p, r: _fake_model())
+    bots = f"policy:{run}#sampled,bot:random"
+    outs = []
+    for name in ("a", "b"):
+        r = tour(tmp_path / name, "--keep-records", bots=bots)
+        assert r.exit_code == 0, r.output
+        outs.append(runs(tmp_path / name)[0])
+    for out in outs:
+        assert any(f"policy:{run}#sampled" in row.values() for row in read_rows(out))
+        assert f"policy:{run}#sampled" in (out / "config.json").read_text()
+    assert read_rows(outs[0]) == read_rows(outs[1])

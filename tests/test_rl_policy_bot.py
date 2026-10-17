@@ -129,3 +129,80 @@ def test_old_seat_specs_still_pass():
     check_seat("bot:draw30-pts3-points")
     with pytest.raises(typer.BadParameter):
         check_seat("nonsense")
+
+
+# --- read-out: greedy and sampled ---
+
+
+def stub_bot(readout, seed=0, rs=RS):
+    """A bot with a non-degenerate distribution: greedy takes the first legal action, sampled
+    draws uniformly over the legal ones."""
+
+    def greedy(obs, mask):
+        return int(np.flatnonzero(mask)[0])
+
+    def dist(obs, mask):
+        return np.ones(len(mask))  # mass on illegal actions too: the bot must mask it
+
+    return PolicyBot(greedy, rs, readout=readout, seed=seed, distribution=dist)
+
+
+def branching_states(n=30):
+    """(state, seat, legal) of a random game, where the seat has more than one legal action."""
+    found = []
+
+    class Recorder(RandomBot):
+        def choose(self, state, seat, legal):
+            if len(legal) > 1:
+                found.append((state, seat, legal))
+            return super().choose(state, seat, legal)
+
+    play_game(RS, {"p1": Recorder(1), "p2": Recorder(2)}, RngChance(3))
+    assert len(found) >= n
+    return found[:n]
+
+
+def play_moves(bot):
+    return [bot.choose(state, seat, legal) for state, seat, legal in branching_states()]
+
+
+def test_default_readout_is_greedy():
+    assert PolicyBot(random_policy(1), RS).params["readout"] == "greedy"
+    assert "greedy" in PolicyBot.__doc__
+
+
+def test_sampled_same_seed_same_moves_other_seed_differs():
+    assert play_moves(stub_bot("sampled", 3)) == play_moves(stub_bot("sampled", 3))
+    assert play_moves(stub_bot("sampled", 3)) != play_moves(stub_bot("sampled", 4))
+
+
+def test_greedy_and_sampled_differ_on_a_fixed_state():
+    state, seat, legal = branching_states()[0]
+    greedy = stub_bot("greedy").choose(state, seat, legal)
+    sampled = {stub_bot("sampled", s).choose(state, seat, legal) for s in range(20)}
+    assert sampled - {greedy}
+
+
+def test_sampled_never_returns_an_illegal_action():
+    bot = stub_bot("sampled", 1)
+    for _ in range(5):
+        for state, seat, legal in branching_states():
+            assert bot.choose(state, seat, legal) in legal
+
+
+def test_sampled_needs_a_distribution_and_unknown_readout_is_refused():
+    with pytest.raises(ValueError, match="distribution"):
+        PolicyBot(random_policy(1), RS, readout="sampled")
+    with pytest.raises(ValueError, match="greedy, sampled"):
+        PolicyBot(random_policy(1), RS, readout="random")
+
+
+def test_check_seat_readout_suffix(tmp_path):
+    run = fake_run(tmp_path / "r", layout=OBSERVATION_LAYOUT, vector_names=vector_names(RS))
+    check_seat(f"policy:{run}")
+    check_seat(f"policy:{run}#greedy")
+    check_seat(f"policy:{run}#sampled")
+    with pytest.raises(typer.BadParameter, match="greedy.*sampled"):
+        check_seat(f"policy:{run}#random")
+    odd = fake_run(tmp_path / "a#b", layout=OBSERVATION_LAYOUT, vector_names=vector_names(RS))
+    check_seat(f"policy:{odd}")  # a '#' in a folder name is not a suffix

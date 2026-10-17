@@ -11,7 +11,15 @@ from quack_rl.runner import Seat
 
 KNOWN_SEATS = ("bot:random", "human")
 BOT_FORM = "bot:draw<percent>-pts<round>-<strategy>"
-POLICY_FORM = "policy:<run folder>"
+POLICY_FORM = "policy:<run folder>[#greedy|#sampled]"
+
+
+def split_readout(folder: str) -> tuple[str, str]:
+    """`<folder>#sampled` into (folder, "sampled"). Only a trailing `#greedy`/`#sampled` counts."""
+    for readout in ("greedy", "sampled"):
+        if folder.endswith("#" + readout):
+            return folder.removesuffix("#" + readout), readout
+    return folder, "greedy"
 
 
 class HumanSeatRequired(typer.BadParameter):
@@ -27,7 +35,12 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
     known = f"known: {', '.join(KNOWN_SEATS)}, {BOT_FORM}, {POLICY_FORM}"
     reason = ""
     if spec.startswith("policy:"):
-        folder = spec.removeprefix("policy:")
+        folder, _ = split_readout(spec.removeprefix("policy:"))
+        head, sep, tail = folder.rpartition("#")
+        if sep and not Path(folder).is_dir() and head and Path(head).is_dir():
+            raise typer.BadParameter(
+                f"policy seat {spec!r}: unknown read-out {tail!r} (known: #greedy, #sampled)"
+            )
         if folder and Path(folder).is_dir():
             return
         raise typer.BadParameter(f"policy seat {spec!r}: run folder {folder!r} not found")
@@ -60,7 +73,8 @@ def parse_seat(
         assert rs is not None, "a policy seat needs the ruleset"
         from quack_rl.rl.policy_bot import PolicyBot  # torch stays optional
 
-        return PolicyBot.from_run(spec.removeprefix("policy:"), rs)
+        folder, readout = split_readout(spec.removeprefix("policy:"))
+        return PolicyBot.from_run(folder, rs, readout=readout, seed=seed or 0)
     assert rs is not None, "a heuristic bot needs the ruleset"
     draw_limit, points_round, strategy = parse_bot_name(spec.removeprefix("bot:"))
     return HeuristicBot(rs, draw_limit, points_round, strategy, seed)
