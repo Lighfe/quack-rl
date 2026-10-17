@@ -17,6 +17,7 @@ Against a stronger opponent the bot rolls less often and its average is lower th
 
 import math
 import multiprocessing
+import os
 import statistics
 from concurrent.futures import ProcessPoolExecutor
 
@@ -36,7 +37,7 @@ OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 RS = with_rounds(load_ruleset("v1"), 9)
 
 
-CHUNK = 250  # games per task, so the pool keeps all cores busy
+CHUNK = 250  # games per task, so the pool (at most 4 workers) keeps its workers busy
 
 
 def play_chunk(draw_limit: int, first: int) -> list[int]:
@@ -60,7 +61,10 @@ def simulate_all(also=None):
     result is returned as the second value.
     """
     tasks = [(limit, first) for limit in DRAW_LIMITS for first in range(0, GAMES, CHUNK)]
-    with ProcessPoolExecutor(mp_context=multiprocessing.get_context("spawn")) as pool:
+    with ProcessPoolExecutor(
+        max_workers=min(4, os.cpu_count() or 1),
+        mp_context=multiprocessing.get_context("spawn"),
+    ) as pool:
         futures = [pool.submit(play_chunk, *task) for task in tasks]
         extra = also() if also else None
         chunks = [future.result() for future in futures]
