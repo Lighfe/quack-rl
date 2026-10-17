@@ -18,7 +18,7 @@ from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackParallelEnv, reward
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v1", "v1.1"]
+VERSIONS = ["v1", "v1.1", "v1.8"]
 SEATS = ("p1", "p2")
 
 
