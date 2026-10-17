@@ -24,6 +24,7 @@ Fast subset for the inner loop: `uv run --with pytest pytest -m "not slow"`. It 
 ## Skills and subagents
 
 - Project skills go to `.agents/skills/<name>/SKILL.md`. `.claude/skills` is created as a symlink to `.agents/skills` together with the first project skill.
+- `rule_changes` (`.agents/skills/rule_changes/SKILL.md`): load it when you change or add a game rule or a ruleset version. Not for other work (adding a colour, RL training, notebook edits alone).
 - Subagent definitions go to `.claude/agents/`. They point to the role files in `docs/team/`.
 - When the owner asks for a Codex review, use the `codex-review` skill.
 
