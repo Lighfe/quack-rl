@@ -245,7 +245,7 @@ uvx marimo check <notebook.py>
 
 Make sure these are checked before handing a notebook back to the user. 
 
-**Important**: you have a tendency to over-do variables with an underscore prefix. You should only apply this to one or two variables at most. Consider creating a new variable instead of prefixing entire cells in marimo. 
+**Important**: do not over-use variables with an underscore prefix. Apply it to one or two variables at most. Consider creating a new variable instead of prefixing entire cells in marimo. 
 
 ## api docs
 
@@ -273,7 +273,7 @@ pytest <notebook.py>
 
 ## Additional resources
 
-- For marimo notebooks that run in width=columns [SQL.md](references/COLUMNS.md)
+- For marimo notebooks that run in width=columns [COLUMNS.md](references/COLUMNS.md)
 - For SQL use in marimo see [SQL.md](references/SQL.md)
 - For UI elements in marimo [UI.md](references/UI.md)
 - For exposing functions/classes as top level imports [TOP-LEVEL-IMPORTS.md](references/TOP-LEVEL-IMPORTS.md)
