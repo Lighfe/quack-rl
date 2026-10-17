@@ -21,6 +21,10 @@ class Component:
         """Amount added to the white total when this chip is placed."""
         return 0
 
+    def hand_size(self, chip: ChipSpec) -> int:
+        """Chips the player draws into a hand when this chip is placed (0: none)."""
+        return 0
+
     def round_end_droplet_halves(self, chip: ChipSpec, position_from_end: int) -> int:
         """Droplet half steps at round end; position_from_end 0 = last placed chip."""
         return 0

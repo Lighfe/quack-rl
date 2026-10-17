@@ -38,9 +38,12 @@ class Green(Component):
 
 @register
 class BlueSpellbook1(Component):
-    """Blue of spellbook 1: no effect yet (the pick step is built later)."""
+    """Blue of spellbook 1: draws a hand of as many chips as its value (the pick step)."""
 
     name = "blue@2"
+
+    def hand_size(self, chip: ChipSpec) -> int:
+        return chip.value
 
 
 @register

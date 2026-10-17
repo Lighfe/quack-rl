@@ -37,6 +37,7 @@ class PlayerState:
     chip_purchases: int = 0  # shop items of kind chip bought this round
     chip_colours: list[str] = dataclasses.field(default_factory=list)  # their colours, in buy order
     shop_done: bool = False
+    hand: list[str] = dataclasses.field(default_factory=list)  # blue chip hand: out of the bag, hidden
     final_field: int | None = None
 
     def owned(self, chip_id: str) -> int:
