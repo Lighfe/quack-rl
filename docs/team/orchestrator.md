@@ -30,7 +30,7 @@ A stage issue has the label `stage`; its sub-issues are the work of the stage.
 Find the active stage once, at the start of a `/goal` run, and keep it for the whole run. A qualifying stage issue is an open issue with the label `stage` that has at least one sub-issue, open or closed, with the label `ready` (closing an issue does not remove its labels). List the open stage issues, then read the sub-issues of each one with their state and labels:
 
 ```
-gh issue list --state open --label stage --json number --jq '.[].number'
+gh issue list --state open --label stage --limit 500 --json number --jq '.[].number'
 gh api --paginate 'repos/{owner}/{repo}/issues/<stage>/sub_issues' --jq '.[] | {number, state, labels: [.labels[].name]}'
 ```
 
@@ -272,7 +272,7 @@ For an escalated issue:
 
 For the whole loop:
 
-- `gh issue list --state open --label ready --search "-label:later -label:needs-owner"` shows no issue without an open blocker, or the active stage has ended (every entry of its non-empty sub-issue list is closed) and the stage review was posted or the stage issue was escalated, or the active stage has open sub-issues, none of them eligible, and the loop stopped, or the loop stopped because `git status --porcelain` was not empty
+- `gh issue list --state open --label ready --search "-label:later -label:needs-owner" --limit 500` shows no issue without an open blocker, or the active stage has ended (every entry of its non-empty sub-issue list is closed) and the stage review was posted or the stage issue was escalated, or the active stage has open sub-issues, none of them eligible, and the loop stopped, or the loop stopped because `git status --porcelain` was not empty
 - Your final message lists the closed issues, the escalated issues with the reason, the `ready` issues skipped for an open blocker with their open blockers (mark each open blocker that has the label `needs-owner`, for example `#<number> (needs-owner)`, so the owner sees a fix issue that waits for them), the `ready` issues not picked because they are not sub-issues of the active stage, the promoted parked blockers, and the reason if the loop stopped early
 - When the stage review was posted (in this run or earlier), your final message has "Stage #<N> is finished", the URL of the stage review comment, and this exact sentence: "Start the next session with `/stage-start`."
 - When the stage issue was escalated instead, your final message names the stage issue and the reason
