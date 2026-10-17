@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from quack_rl.components.base import Component
 from quack_rl.components.registry import register
 from quack_rl.rules import ChipSpec
@@ -20,7 +22,9 @@ class Orange(Component):
 class Blue(Component):
     name = "blue@1"
 
-    def place_bonus(self, chip: ChipSpec, previous: ChipSpec | None) -> int:
+    def place_bonus(
+        self, chip: ChipSpec, previous: ChipSpec | None, pot: Sequence[ChipSpec] = ()
+    ) -> int:
         return 1 if previous is not None and previous.value != 1 else 0
 
 
@@ -41,6 +45,12 @@ class BlueSpellbook1(Component):
 
 @register
 class Red(Component):
-    """Red of spellbook 1: no effect yet (the extra move by orange chips is built later)."""
+    """Red of spellbook 1: moves +1 with 1 or 2 orange chips in the pot, +2 with 3 or more."""
 
     name = "red@1"
+
+    def place_bonus(
+        self, chip: ChipSpec, previous: ChipSpec | None, pot: Sequence[ChipSpec] = ()
+    ) -> int:
+        oranges = sum(1 for c in pot if c.colour == "orange")
+        return 0 if oranges == 0 else 1 if oranges <= 2 else 2

@@ -39,8 +39,8 @@ def get_spellbook(name: int | str) -> Mapping[str, str]:
         ) from None
 
 
-# Spellbook 1 (ruleset v1.9). Blue and red have no effect yet: blue@2 and red@1 are placeholders
-# until the effects of blue (pick step) and red (orange chips in the pot) are built.
+# Spellbook 1 (ruleset v1.9). Blue has no effect yet: blue@2 is a placeholder
+# until the pick step is built.
 register_spellbook(
     1,
     {

@@ -14,7 +14,7 @@ def _draw(
     chip = rs.chip(chip_id)
     component = get_component(rs.component_name(chip))
     previous = rs.chip(p.placed[-1]) if p.placed else None
-    bonus = component.place_bonus(chip, previous)
+    bonus = component.place_bonus(chip, previous, [rs.chip(c) for c in p.placed])
     p.bag[chip_id] -= 1
     if p.bag[chip_id] == 0:
         del p.bag[chip_id]

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import ClassVar
 
 from quack_rl.rules import ChipSpec
@@ -8,8 +9,12 @@ class Component:
 
     name: ClassVar[str]
 
-    def place_bonus(self, chip: ChipSpec, previous: ChipSpec | None) -> int:
-        """Extra fields to advance when this chip is placed after `previous` (None: first chip)."""
+    def place_bonus(
+        self, chip: ChipSpec, previous: ChipSpec | None, pot: Sequence[ChipSpec] = ()
+    ) -> int:
+        """Extra fields to advance when this chip is placed after `previous` (None: first chip).
+
+        `pot` holds all chips the player placed this round, in order (without `chip`)."""
         return 0
 
     def explosion_weight(self, chip: ChipSpec) -> int:
