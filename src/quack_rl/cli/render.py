@@ -32,7 +32,8 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
         p = state.players[seat]
         scoring = scoring_field(p.field, rs)
         ruby = "yes" if scoring in rs.rubies else "no"
-        field_text = f"field {p.field}\nscore {scoring} ${rs.money[scoring]}\nruby: {ruby}"
+        gain = f" +{rs.points[scoring]}pt" if rs.points is not None else ""
+        field_text = f"field {p.field}\nscore {scoring} ${rs.money[scoring]}{gain}\nruby: {ruby}"
         table.add_row(
             seat,
             p.status.value,
@@ -44,6 +45,12 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
             _chips(p.placed, rs),
         )
     parts: list[RenderableType] = [table]
+    if rs.last_round_money_divisor is not None and state.round == rs.rounds:
+        parts.append(
+            Text(
+                f"Round {rs.rounds}: money becomes points (money // {rs.last_round_money_divisor})"
+            )
+        )
     if bag_assist:
         for seat in SEATS:
             bag = state.players[seat].bag

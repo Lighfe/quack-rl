@@ -5,7 +5,8 @@ import typer
 from rich.console import Console
 
 from quack_rl.cli.render import render_board
-from quack_rl.engine import BUY_PREFIX, DONE, DRAW, STOP, GameState
+from quack_rl.engine import BUY_PREFIX, DONE, DRAW, STOP, TAKE_MONEY, TAKE_POINTS, GameState
+from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
 
 BUY_KEYS = "123456789abc"
@@ -26,6 +27,10 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys["s"] = STOP
         elif action == DONE:
             keys["0"] = DONE
+        elif action == TAKE_MONEY:
+            keys["m"] = TAKE_MONEY
+        elif action == TAKE_POINTS:
+            keys["p"] = TAKE_POINTS
     for key, action in zip(BUY_KEYS, buys, strict=False):
         keys[key] = action
     return keys
@@ -50,7 +55,14 @@ class HumanSeat:
         self.params: dict[str, Any] = {}
         self._read_key = read_key
 
-    def _describe(self, action: str) -> str:
+    def _describe(self, action: str, state: GameState | None = None, seat: str = "") -> str:
+        if state is not None and action in (TAKE_MONEY, TAKE_POINTS):
+            p = state.players[seat]
+            field = scoring_field(p.final_field if p.final_field is not None else p.field, self.rs)
+            if action == TAKE_MONEY:
+                return f"{action} (${self.rs.money[field]})"
+            points = self.rs.points[field] if self.rs.points is not None else 0
+            return f"{action} (+{points}pt)"
         if action.startswith(BUY_PREFIX):
             item = self.rs.shop_item(action.removeprefix(BUY_PREFIX))
             return f"buy {item.id} ({item.price})"
@@ -59,7 +71,7 @@ class HumanSeat:
     def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
         keys = key_map(legal)
         self.console.print(render_board(state, self.rs, self.bag_assist))
-        menu = "   ".join(f"[{k}] {self._describe(a)}" for k, a in keys.items())
+        menu = "   ".join(f"[{k}] {self._describe(a, state, seat)}" for k, a in keys.items())
         self.console.print(
             f"{self.label} ({seat}), press your key (hidden): {menu}", markup=False, highlight=False
         )
