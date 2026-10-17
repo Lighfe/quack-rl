@@ -35,9 +35,9 @@ def _data(spellbook=None, keep_component=False):
     data = V1.model_dump()
     if spellbook is not None:
         data["spellbook"] = spellbook
-    if not keep_component:
+    if spellbook is not None and not keep_component:
         for chip in data["chips"]:
-            chip["component"] = None if spellbook else chip["component"]
+            del chip["component"]  # the key is absent, not None
     return data
 
 
@@ -49,7 +49,9 @@ def test_old_rulesets_have_no_spellbook():
 
 
 def test_spellbook_without_chip_components_loads(book):
-    rs = Ruleset.model_validate(_data(book))
+    data = _data(book)
+    assert all("component" not in chip for chip in data["chips"])
+    rs = Ruleset.model_validate(data)
     assert all(c.component is None for c in rs.chips)
     assert {c.id: rs.component_name(c) for c in rs.chips}["blue_1"] == "orange@1"
 
@@ -129,3 +131,45 @@ def test_engine_reads_component_through_spellbook(book):
     # Without a spellbook the second blue chip (value 2) follows a value-4 chip and gets +1.
     assert _fields_after_two_blue_draws(legacy) == 7
     assert _fields_after_two_blue_draws(spell) == 6
+
+
+GREEN_BLUE_BOOK = "test_green_blue"
+
+
+@pytest.fixture
+def green_blue_book():
+    # blue gets the green component (droplet halves for the last two placed chips)
+    register_spellbook(GREEN_BLUE_BOOK, {**COMPONENTS, "blue": "green@1"})
+    try:
+        yield GREEN_BLUE_BOOK
+    finally:
+        unregister_spellbook(GREEN_BLUE_BOOK)
+
+
+def test_resolve_reads_component_through_spellbook(green_blue_book):
+    from quack_rl.engine.resolve import apply_resolve
+    from quack_rl.engine.state import Status
+
+    def halves(rs):
+        state = new_game(rs)
+        for p in state.players.values():
+            p.placed = ["blue_4", "blue_2"]
+            p.final_field = 0
+            p.status = Status.EXPLODED  # no bonus die roll
+        events: list = []
+        apply_resolve(state, rs, ScriptedChance([]), events)
+        return [e for e in events if e["kind"] == "round_end_bonus"]
+
+    assert halves(Ruleset.model_validate(V1.model_dump())) == []
+    assert len(halves(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats
+
+
+def test_report_reads_component_through_spellbook(green_blue_book):
+    from quack_rl.report import _brew_outcomes
+
+    def green_halves(rs):
+        out = _brew_outcomes(rs, (("blue_4", 1), ("blue_2", 1)), 100)
+        return {key[2] for key in out}
+
+    assert green_halves(Ruleset.model_validate(V1.model_dump())) == {0}
+    assert green_halves(Ruleset.model_validate(_data(green_blue_book))) == {2}
