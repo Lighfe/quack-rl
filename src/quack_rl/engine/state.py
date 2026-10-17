@@ -11,6 +11,7 @@ SEATS: tuple[str, str] = ("p1", "p2")
 class Phase(StrEnum):
     BREW = "brew"
     RESOLVE = "resolve"
+    CHOICE = "choice"
     SHOP = "shop"
     GAME_OVER = "game_over"
 

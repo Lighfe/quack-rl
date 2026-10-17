@@ -16,7 +16,8 @@ from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
 OBSERVATION_LAYOUT = 2
-PHASES = [p.value for p in Phase]
+# layout 2 has no choice phase; layout 3 (v1.8) adds it in a later issue
+PHASES = [p.value for p in Phase if p is not Phase.CHOICE]
 STATUSES = [s.value for s in Status]
 _SCALARS = (
     "money",

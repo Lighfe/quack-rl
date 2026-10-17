@@ -5,6 +5,8 @@ WAIT = "wait"
 DRAW = "draw"
 STOP = "stop"
 DONE = "done"
+TAKE_MONEY = "take_money"
+TAKE_POINTS = "take_points"
 BUY_PREFIX = "buy:"
 
 
@@ -13,7 +15,8 @@ def buy(item_id: str) -> str:
 
 
 def action_names(rs: Ruleset) -> list[str]:
-    return [WAIT, DRAW, STOP, DONE, *(buy(item.id) for item in rs.shop)]
+    choice = [TAKE_MONEY, TAKE_POINTS] if rs.explosion_choice else []
+    return [WAIT, DRAW, STOP, DONE, *choice, *(buy(item.id) for item in rs.shop)]
 
 
 def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState) -> bool:
@@ -35,6 +38,8 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if p.status is not Status.BREWING:
             return [WAIT]
         return [DRAW] if not p.placed else [DRAW, STOP]
+    if state.phase is Phase.CHOICE:
+        return [TAKE_MONEY, TAKE_POINTS] if p.status is Status.EXPLODED else [WAIT]
     if state.phase is Phase.SHOP:
         if p.shop_done:
             return [WAIT]

@@ -24,7 +24,9 @@ def apply_resolve(
 ) -> None:
     """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2).
 
-    In the last round the money is multiplied by last_round_money_percent // 100.
+    v1 and v1.1: in the last round the money is multiplied by last_round_money_percent // 100.
+    v1.8: the field gives money and points; with explosion_choice an exploded potion waits for
+    the CHOICE phase; with last_round_money_divisor the last-round money becomes points.
     """
     extra_money = {seat: 0 for seat in SEATS}
     for seat in SEATS:
@@ -50,19 +52,30 @@ def apply_resolve(
                 face = chance.roll_die(seat)
                 extra_money[seat] += _apply_face(p, face)
                 events.append({"seat": seat, "kind": "die", "face": face.id})
+    choosing = False
     for seat in SEATS:
         p = state.players[seat]
         assert p.final_field is not None
-        money = rs.money[scoring_field(p.final_field, rs)]
-        if p.status is Status.EXPLODED:
-            money //= 2
-        money += extra_money[seat]
-        if state.round == rs.rounds:
-            money = money * rs.last_round_money_percent // 100
-        p.money = money
+        fld = scoring_field(p.final_field, rs)
         p.purchases = 0
         p.chip_purchases = 0
         p.chip_colours = []
         p.shop_done = False
+        p.money = 0
+        if p.status is Status.EXPLODED:
+            if rs.explosion_choice:
+                choosing = True
+                continue
+            money = rs.money[fld] // 2
+        else:
+            money = rs.money[fld] + extra_money[seat]
+            if rs.points is not None:
+                p.points += rs.points[fld]
+        if state.round == rs.rounds and rs.last_round_money_divisor is not None:
+            p.points += money // rs.last_round_money_divisor
+            money = 0
+        elif state.round == rs.rounds:
+            money = money * rs.last_round_money_percent // 100
+        p.money = money
         events.append({"seat": seat, "kind": "money", "amount": p.money})
-    state.phase = Phase.SHOP
+    state.phase = Phase.CHOICE if choosing else Phase.SHOP

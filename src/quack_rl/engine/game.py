@@ -5,6 +5,7 @@ from typing import Any
 from quack_rl.engine.actions import legal_actions
 from quack_rl.engine.brew import apply_brew
 from quack_rl.engine.chance import ChanceLog, ChanceSource
+from quack_rl.engine.choice import apply_choice
 from quack_rl.engine.resolve import apply_resolve
 from quack_rl.engine.shop import apply_shop
 from quack_rl.engine.state import SEATS, GameState, Phase
@@ -32,7 +33,7 @@ class StepResult:
 
 
 def needs_actions(state: GameState) -> bool:
-    return state.phase in (Phase.BREW, Phase.SHOP)
+    return state.phase in (Phase.BREW, Phase.CHOICE, Phase.SHOP)
 
 
 def step(
@@ -55,6 +56,8 @@ def step(
                 )
         if state.phase is Phase.BREW:
             apply_brew(new, rs, actions, log, events)
+        elif state.phase is Phase.CHOICE:
+            apply_choice(new, rs, actions, events)
         else:
             apply_shop(new, rs, actions, events)
     else:
