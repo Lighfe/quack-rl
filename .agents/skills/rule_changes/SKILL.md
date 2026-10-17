@@ -5,11 +5,11 @@ description: Load this skill when someone changes or adds a game rule or a rules
 
 # Changing the rules
 
-This is what the v1.8 stage (#96, issues #99 to #107) really had to touch. Use it as a map. Read `docs/specs/2026-10-16-ruleset-v1-8.md` for the shape of such a change.
+This list is a map of what a rule change touches. Read `docs/specs/2026-10-16-ruleset-v1-8.md` for the shape of such a change.
 
 ## Three rules
 
-1. Never edit a ruleset version that has recorded games. Saved games, runs and datasets name their version and must replay the same. A change is a new file (`v1.8.toml` was added next to `v1.toml` and `v1.1.toml`).
+1. Never edit a ruleset version that has recorded games. Saved games, runs and datasets name their version and must replay the same. A change is a new file (for example `v1.8.toml` sits next to `v1.toml` and `v1.1.toml`).
 2. New behaviour is switched by ruleset fields. The engine reads the field, for example `points`, `explosion_choice`, `last_round_money_divisor`. Old versions leave the field at its default, so they play as before.
 3. Pin defaults and notebooks explicitly to a ruleset version. Nothing may pick up the new version by accident: no default of `rules` is the newest version, and the notebooks name their version once (`RULES = "v1.1"`). `tests/test_rules_defaults.py` checks this.
 
@@ -27,7 +27,7 @@ This is what the v1.8 stage (#96, issues #99 to #107) really had to touch. Use i
    - `src/quack_rl/engine/resolve.py` and `src/quack_rl/engine/choice.py` (the new resolution step)
    - `src/quack_rl/engine/__init__.py` (exports)
 3. Record schema and replay
-   - `src/quack_rl/record/` (`schema.py`, `writer.py`, `reader.py`, `replay.py`): a game with the new actions must write and replay. v1.8 needed only the test `tests/test_record_v1_8.py`; check whether your change needs more.
+   - `src/quack_rl/record/` (`schema.py`, `writer.py`, `reader.py`, `replay.py`): a game with the new actions must write and replay. check that a test of the record with the new actions exists, for example `tests/test_record_v1_8.py`, and whether your change needs more than that.
 4. Bots
    - `src/quack_rl/bots/heuristic.py` (the heuristic bot must answer every new action)
    - `src/quack_rl/simgame.py` and `src/quack_rl/tournament.py`
@@ -49,7 +49,7 @@ This is what the v1.8 stage (#96, issues #99 to #107) really had to touch. Use i
 
 ## Checklist for a new ruleset version
 
-Work in this order. It worked in v1.8: each step builds on the one before and each was one commit.
+Work in this order, one commit per step, because each step builds on the one before.
 
 - [ ] Ruleset file and rules document: new ruleset file in `src/quack_rl/rules/`, new model fields with old-safe defaults, `SUPPORTED_RULES_VERSIONS`, the rules document in `docs/rules/`, test for the file
 - [ ] Engine: new actions, phase and resolution, switched by the new fields; old versions unchanged
