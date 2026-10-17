@@ -75,7 +75,7 @@ class Ruleset(_Frozen):
     last_round_money_divisor: int | None = Field(default=None, ge=1)
     # v1.9: the name of the spellbook that gives each colour its component. None means each
     # chip names its own `component` (v1, v1.1, v1.8).
-    spellbook: str | None = None
+    spellbook: int | str | None = None
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]

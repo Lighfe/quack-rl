@@ -59,8 +59,8 @@ def scan(files) -> list[tuple[str, str, object, int]]:
 
 def test_no_rules_default_is_v1_8():
     found = scan(SCANNED)
-    bad = [f for f in found if f[2] == "v1.8"]
-    assert not bad, f"default rules v1.8 found: {bad}"
+    bad = [f for f in found if f[2] in ("v1.8", "v1.9")]
+    assert not bad, f"default rules v1.8 or v1.9 found: {bad}"
 
 
 def test_scan_finds_the_known_defaults():
@@ -86,7 +86,7 @@ def test_scan_fails_on_a_planted_v1_8(tmp_path, name):
 
 def test_tournament_notebook_has_no_version_string():
     text = (ROOT / "notebooks" / "tournament_run.py").read_text(encoding="utf-8")
-    for version in ("v1", "v1.1", "v1.8"):
+    for version in ("v1", "v1.1", "v1.8", "v1.9"):
         assert f'"{version}"' not in text and f"'{version}'" not in text
 
 

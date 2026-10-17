@@ -30,3 +30,17 @@ class Green(Component):
 
     def round_end_droplet_halves(self, chip: ChipSpec, position_from_end: int) -> int:
         return 1 if position_from_end in (0, 1) else 0
+
+
+@register
+class BlueSpellbook1(Component):
+    """Blue of spellbook 1: no effect yet (the pick step is built later)."""
+
+    name = "blue@2"
+
+
+@register
+class Red(Component):
+    """Red of spellbook 1: no effect yet (the extra move by orange chips is built later)."""
+
+    name = "red@1"

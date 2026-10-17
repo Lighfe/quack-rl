@@ -8,6 +8,7 @@ from quack_rl.rules.load import (
 from quack_rl.rules.model import ChipSpec, DieFace, Ruleset, ShopItem
 from quack_rl.rules.spellbook import (
     UnknownSpellbook,
+    get_spellbook,
     register_spellbook,
     registered_spellbooks,
     unregister_spellbook,
@@ -20,6 +21,7 @@ __all__ = [
     "Ruleset",
     "ShopItem",
     "UnknownSpellbook",
+    "get_spellbook",
     "UnsupportedRulesVersion",
     "apply_overrides",
     "load_ruleset",
