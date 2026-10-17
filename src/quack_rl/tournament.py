@@ -414,9 +414,11 @@ def run_games(config: TournamentConfig, records_dir: Path | None = None) -> list
     return play_all(config, records_dir)[0]
 
 
-def results_csv(rows: Sequence[dict[str, Any]]) -> str:
+def results_csv(rows: Sequence[dict[str, Any]], columns: Sequence[str] | None = None) -> str:
+    """The results.csv text. The header is the keys of the first row (they come from the
+    ruleset of the run); with no rows it is `columns`, or the v1 columns."""
     out = io.StringIO()
-    fieldnames = list(rows[0]) if rows else CSV_COLUMNS
+    fieldnames = list(rows[0]) if rows else list(columns or CSV_COLUMNS)
     writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)

@@ -633,3 +633,108 @@ def test_v1_tournament_matches_the_golden_results_csv(tmp_path):
     assert len(golden) == len(new) == 150
     for column in golden[0]:
         assert [row[column] for row in golden] == [row.get(column) for row in new], column
+
+
+# --- v1.8: explosion choice by round, no points in the shop ----------------------
+
+from quack_rl.bots import RandomBot  # noqa: E402
+from quack_rl.engine import (  # noqa: E402
+    TAKE_MONEY,
+    TAKE_POINTS,
+    WAIT,
+    RngChance,  # noqa: E402
+    Status,
+    legal_actions,
+)
+from quack_rl.runner import play_game  # noqa: E402
+
+RS18 = load_ruleset("v1.8")
+
+
+def choice_state(rnd):
+    state = new_game(RS18)
+    state.phase = Phase.CHOICE
+    state.round = rnd
+    state.players["p1"].status = Status.EXPLODED
+    state.players["p1"].final_field = 3
+    return state
+
+
+def choice_action(bot, rnd):
+    state = choice_state(rnd)
+    legal = legal_actions(state, RS18, "p1")
+    assert legal == [TAKE_MONEY, TAKE_POINTS]
+    return bot.choose(state, "p1", legal)
+
+
+def test_v18_choice_money_before_points_round_points_from_it():
+    bot = HeuristicBot(RS18, 20, 4, "green", seed=1)
+    assert bot.name == "draw20-pts4-green"
+    assert choice_action(bot, 3) == TAKE_MONEY
+    assert choice_action(bot, 4) == TAKE_POINTS
+    assert choice_action(bot, 9) == TAKE_POINTS
+
+
+def test_v18_pts1_takes_points_every_round():
+    bot = HeuristicBot(RS18, 20, 1, "points", seed=1)
+    assert all(choice_action(bot, r) == TAKE_POINTS for r in range(1, RS18.rounds + 1))
+
+
+def test_v18_points_round_beyond_last_round_takes_money_every_round():
+    bot = HeuristicBot(RS18, 20, 12, "points", seed=1)
+    assert all(choice_action(bot, r) == TAKE_MONEY for r in range(1, RS18.rounds + 1))
+
+
+def test_v18_choice_wait_for_a_player_who_did_not_explode():
+    state = choice_state(2)
+    state.players["p1"].status = Status.STOPPED
+    bot = HeuristicBot(RS18, 20, 1, "points", seed=1)
+    assert bot.choose(state, "p1", legal_actions(state, RS18, "p1")) == WAIT
+
+
+def v18_shop_state(money, rnd):
+    state = new_game(RS18)
+    state.phase = Phase.SHOP
+    state.round = rnd
+    state.players["p1"].money = money
+    return state
+
+
+def test_v18_shop_never_buys_points_and_passes_in_the_last_round():
+    shop_ids = {i.id for i in RS18.shop}
+    for strategy in STRATEGIES:
+        bot = HeuristicBot(RS18, 20, 1, strategy, seed=1)
+        for rnd in range(1, RS18.rounds + 1):
+            for money in range(0, 40):
+                state = v18_shop_state(money, rnd)
+                legal = legal_actions(state, RS18, "p1")
+                action = bot.choose(state, "p1", legal)
+                assert action in legal
+                if action.startswith("buy:"):
+                    assert action.removeprefix("buy:") in shop_ids
+                    assert RS18.shop_item(action.removeprefix("buy:")).kind != "points"
+                if rnd == RS18.rounds:
+                    assert action == DONE
+
+
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
+def test_v18_game_with_each_strategy_has_no_illegal_action(strategy):
+    for seed in range(5):
+        seats = {
+            "p1": HeuristicBot(RS18, 30, 4, strategy, seed=seed),
+            "p2": HeuristicBot(RS18, 20, 1, "points", seed=seed + 100),
+        }
+        bought = []
+
+        def on_step(result, _ms, bought=bought):
+            bought.extend(e["item"] for e in result.events if e.get("kind") == "buy")
+
+        final = play_game(RS18, seats, RngChance(seed), on_step)  # an illegal action raises
+        assert final.phase is Phase.GAME_OVER
+        assert set(bought) <= {i.id for i in RS18.shop}
+
+
+def test_random_bot_plays_many_seeded_v18_games():
+    for seed in range(40):
+        seats = {"p1": RandomBot(seed=seed), "p2": RandomBot(seed=seed + 1000)}
+        assert play_game(RS18, seats, RngChance(seed)).phase is Phase.GAME_OVER

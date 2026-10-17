@@ -4,7 +4,17 @@ from typing import Any
 
 from quack_rl.bots.strategy import Strategy, load_strategy
 from quack_rl.components import get_component
-from quack_rl.engine import BUY_PREFIX, DONE, DRAW, STOP, GameState, Phase, buy
+from quack_rl.engine import (
+    BUY_PREFIX,
+    DONE,
+    DRAW,
+    STOP,
+    TAKE_MONEY,
+    TAKE_POINTS,
+    GameState,
+    Phase,
+    buy,
+)
 from quack_rl.rules import Ruleset
 
 BASELINE_NAME = "draw20-pts1-points"
@@ -51,7 +61,11 @@ def parse_bot_name(name: str) -> tuple[int, int, str]:
 
 
 class HeuristicBot:
-    """Draw or Stop by the chance to explode; buy points from a round on, then by strategy."""
+    """Draw or Stop by the chance to explode; buy points from a round on, then by strategy.
+
+    v1.8 (explosion choice): after an explosion take money before the points round and points
+    from it on; the shop has no points items and the bot buys nothing in the last round.
+    """
 
     kind = "bot"
 
@@ -83,6 +97,9 @@ class HeuristicBot:
         if state.phase is Phase.SHOP:
             action = self._shop(state, seat, legal)
             return action if action in legal else DONE if DONE in legal else legal[0]
+        if state.phase is Phase.CHOICE:
+            action = TAKE_POINTS if state.round >= self.points_round else TAKE_MONEY
+            return action if action in legal else legal[0]
         return legal[0]
 
     def _brew(self, state: GameState, seat: str) -> str:
@@ -95,11 +112,13 @@ class HeuristicBot:
         p = state.players[seat]
         if self._rs.max_purchases is not None and p.purchases >= self._rs.max_purchases:
             return DONE
+        if self._rs.explosion_choice and state.round >= self._rs.rounds:
+            return DONE  # v1.8: money of the last round is worth nothing in the shop
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
         # The v1.1 chip rule (max_chip_purchases): only points from the points round on,
         # and a fallback before it. Without it (v1) the shop works as before.
         chip_rule = self._rs.max_chip_purchases is not None
-        if state.round >= self.points_round:
+        if state.round >= self.points_round and not self._rs.explosion_choice:
             points = [self._rs.shop_item(i) for i in affordable]
             points = [i for i in points if i.kind == "points"]
             if points:

@@ -82,8 +82,10 @@ def play_sim_game(
                 stats.draws[event["seat"]] += 1
             elif event.get("kind") == "buy":
                 stats.buys[event["seat"]][event["item"]] += 1
-            elif event.get("kind") == "money":
+            elif event.get("kind") in ("money", "take_money"):
                 stats.money[event["seat"]][result.round] = event["amount"]
+            elif event.get("kind") == "take_points":
+                stats.money[event["seat"]][result.round] = 0  # v1.8: no money after points
             elif event.get("kind") in ("round_end", "game_end"):
                 for seat in SEATS:
                     stats.points[seat][result.round] = result.state.players[seat].points
