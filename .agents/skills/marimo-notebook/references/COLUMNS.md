@@ -3,7 +3,7 @@ A user may specify that they want to have a notebook with multiple columns. Belo
 ```python
 # /// script
 # dependencies = ["marimo"]
-# requires-python = ">=3.14"
+# requires-python = ">=3.12"
 # ///
 
 import marimo
