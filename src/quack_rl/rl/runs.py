@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import quack_rl
-from quack_rl.rl.encode import OBSERVATION_LAYOUT, vector_names
+from quack_rl.rl.encode import observation_layout, vector_names
 from quack_rl.rl.evaluate import EvalResult
 from quack_rl.rules import load_ruleset
 
@@ -52,7 +52,7 @@ def full_config(config: dict) -> dict:
     return {
         **config,
         "package_version": quack_rl.__version__,
-        "layout": OBSERVATION_LAYOUT,
+        "layout": observation_layout(load_ruleset(config["rules"])),
         "vector_names": vector_names(load_ruleset(config["rules"])),
     }
 
@@ -173,10 +173,11 @@ def check_resumable(runs_dir: Path, name: str) -> ResumeState:
             f"run {path}: newest checkpoint is at step {n}, steps is {config['steps']}; "
             "no steps left to resume"
         )
-    if config.get("layout") != OBSERVATION_LAYOUT:
+    layout = observation_layout(load_ruleset(config["rules"]))
+    if config.get("layout") != layout:
         raise LayoutMismatch(
             f"run {path} has observation layout {config.get('layout')}, "
-            f"the code has {OBSERVATION_LAYOUT}"
+            f"rules {config['rules']!r} have layout {layout}"
         )
     if config.get("vector_names") != vector_names(load_ruleset(config["rules"])):
         raise LayoutMismatch(f"run {path} has other vector names than rules {config['rules']!r}")
@@ -236,10 +237,11 @@ def load_model(path: Path | str, rules: str) -> Any:
     """Load `model.zip` of a run, after checking the layout and the vector names."""
     path = Path(path)
     config = json.loads((path / "config.json").read_text())
-    if config.get("layout") != OBSERVATION_LAYOUT:
+    layout = observation_layout(load_ruleset(rules))
+    if config.get("layout") != layout:
         raise LayoutMismatch(
             f"run {path} has observation layout {config.get('layout')}, "
-            f"the code has {OBSERVATION_LAYOUT}"
+            f"rules {rules!r} have layout {layout}"
         )
     if config.get("vector_names") != vector_names(load_ruleset(rules)):
         raise LayoutMismatch(f"run {path} has other vector names than rules {rules!r}")
