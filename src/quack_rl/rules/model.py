@@ -64,6 +64,12 @@ class Ruleset(_Frozen):
     track_end: int = Field(ge=1)
     last_round_money_percent: int = Field(ge=100, strict=True)
     money: list[Annotated[int, Field(ge=0)]]
+    # v1.8: points per field 0..track_end. None means the track gives no points.
+    points: list[Annotated[int, Field(ge=0)]] | None = None
+    # v1.8: an exploded player chooses the money or the points of the scoring field.
+    explosion_choice: bool = False
+    # v1.8: in the last round, money // this becomes points. None means no conversion.
+    last_round_money_divisor: int | None = Field(default=None, ge=1)
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]
@@ -82,6 +88,8 @@ class Ruleset(_Frozen):
         chip_ids = {c.id for c in self.chips}
         if len(self.money) != self.track_end + 1:
             raise ValueError("money needs one entry per field 0..track_end")
+        if self.points is not None and len(self.points) != self.track_end + 1:
+            raise ValueError("points needs one entry per field 0..track_end")
         if any(not 0 <= f <= self.track_end for f in self.rubies):
             raise ValueError("ruby field outside the track")
         for chip_id in self.start_bag:
