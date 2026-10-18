@@ -35,4 +35,4 @@ None yet. Recipes will be linked here.
 
 ## 3. Project map
 
-The project map follows. Until then, the old file list and checklist are in [project-map-legacy.md](project-map-legacy.md).
+The map is in [project-map.md](project-map.md). It explains how the parts work together in the order a rule change travels, where each lives, and which parts a change often does not touch.
