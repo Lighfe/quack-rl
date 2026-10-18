@@ -89,11 +89,14 @@ The engine knows nothing about RL. A new state field or action reaches RL only w
 
 ## 10. Docs
 
-The rules document, the row in the milestone table of the design spec, and the README where the change alters what it says (layout, CLI, scripts). Check by reading the rules document against the ruleset file; its table test does the mechanical part.
+- Think about: the rules document, the row in the milestone table of the design spec, and the README where the change alters what it says (layout, CLI, scripts). The rules document must state every new field, phase and action in the words of the ruleset file.
+- Goes wrong: a rules table that differs from the ruleset file; a milestone row left out; a README that still describes the old layout or the old CLI keys; the rules document written from memory and not from the file.
+- Check: read the rules document against the ruleset file; its table test does the mechanical part, so run it. Run the full test command once more at the end.
+- Does not apply: the README, when nothing it says changes. The rules document and the milestone row are always needed.
 
-## What the git history of such changes shows
+## Planning the work
 
-- The work splits well into small steps in the order above, each with its own tests and commit: rules, engine, record, bots, CLI, RL, defaults. Every step is checked while the next is not yet written. The steps that surprise an engineer cross a boundary: a hook with a new argument, an action list whose order matters, a table that two readers parse differently.
+- The work splits well into small steps in the order above, each with its own tests and commit: rules, engine, record, bots, CLI, RL, defaults. Check every step before the next is written. The steps that surprise an engineer cross a boundary: a hook with a new argument, an action list whose order matters, a table that two readers parse differently.
 - A new field alone (a switch with an old-safe default, used by the next version) can ship in its own small step. The next version then only sets it.
 - A new phase touches the most: the legal actions, the routing, the bot, the CLI prompt, the layout and the mask. Count them before you estimate.
 - The statistics and tournament code read event kinds. A change in how money or points arrive is easy to miss there, and the miss shows only in a table of results, not in a failing test, until a test for the new version compares the numbers.
