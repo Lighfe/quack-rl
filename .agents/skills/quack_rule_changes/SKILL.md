@@ -31,7 +31,7 @@ The skill has three parts, in this order:
 
 ## 2. Recipes
 
-None yet. Recipes will be linked here.
+- [A new ruleset version that adds a field or a phase](new-ruleset-version.md): from the spec to the pinned defaults, step by step, with the checks.
 
 ## 3. Project map
 
