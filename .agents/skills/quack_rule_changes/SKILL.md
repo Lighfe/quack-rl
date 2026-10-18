@@ -33,6 +33,7 @@ The skill has three parts, in this order:
 
 - [A new ruleset version that adds a field or a phase](new-ruleset-version.md): from the spec to the pinned defaults, step by step, with the checks.
 - [Adding or changing a colour](colour-change.md): the three cases (spellbook effect, place hook, a step added to a phase), five steps in order, the pitfalls and the tests to run.
+- [Changing the shop](shop-change.md): remove an item, add an item or change a price; which parts each one touches, eight steps in order, the pitfalls and the tests to run.
 
 ## 3. Project map
 
