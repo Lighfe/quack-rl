@@ -54,7 +54,7 @@ A game is written as JSON Lines: a header (rules version, overrides, seed, seats
 Where: `qr/bots/`, `qr/runner.py`, `qr/simgame.py`, `qr/tournament.py`, `qr/report.py`.
 
 - `bots/heuristic.py`: the heuristic bot (draw limit, stop round, shop strategy). It must answer every action the engine can offer, so a new action or phase needs a branch here. It reads the component hooks for its look-ahead. `bots/strategy.py` holds the shop strategies as lists of shop item ids; an id removed from a shop must go from the strategies that name it. `bots/random_bot.py` picks among legal actions and needs no change.
-- `runner.py`: plays a game with seats, writes the record. `simgame.py` plays one bot-vs-bot game and collects statistics from the events (it reads event kinds, so a new event that changes money or points may need a line there). `tournament.py` plays all pairs of a field and writes `results.csv`.
+- `runner.py`: plays a game with seats, writes the record. `simgame.py` plays one bot-vs-bot game and collects statistics from the events (it reads event kinds, so a new event that changes money or points may need a line there). `tournament.py` plays all pairs of a field and writes a table of results per pair.
 - `report.py`: the balance report, which reads the result files and calls the component hooks for odds.
 
 ## 6. CLI
