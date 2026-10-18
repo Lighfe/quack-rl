@@ -47,7 +47,7 @@ Usually changes: `actions.py` and `state.py` for a new action or state, the hand
 
 Where: `qr/record/`.
 
-A game is written as JSON Lines: a header (rules version, overrides, seed, seats), one line per step (legal actions, actions, chance outcomes, events), and a footer. The format is generic: new action names and event kinds need no schema change. `schema.py` has the line types, `writer.py` and `reader.py` write and read, `store.py` places files under `data/records/`, and `replay.py` rebuilds a game from its recorded chance and checks it (`verify_game`, `verify_seed`). Change this part only when the line format itself changes; otherwise add a test that a game with the new actions writes, reads and replays to the same final state.
+A game is written as JSON Lines: a header (rules version, overrides, seed, seats), one line per step (legal actions, actions, chance outcomes, events), and a footer. The format is generic: new action names and event kinds need no schema change. `schema.py` has the line types, `writer.py` and `reader.py` write and read, `store.py` decides where record files are placed on disk, and `replay.py` rebuilds a game from its recorded chance and checks it (`verify_game`, `verify_seed`). Change this part only when the line format itself changes; otherwise add a test that a game with the new actions writes, reads and replays to the same final state.
 
 ## 5. Bots, simulation and tournament
 
@@ -78,7 +78,7 @@ Where: `qr/rl/`.
 
 Where: `notebooks/`, `scripts/`, and `tests/test_rules_defaults.py`.
 
-Notebooks and scripts name one ruleset version (the notebooks once, as `RULES`) and stay on it until the owner decides otherwise. No default of a `rules` parameter, option or field may be the newest version. `tests/test_rules_defaults.py` scans the source and the notebooks for this; add the new version to its list. Saved data in `data/` (records, runs, datasets) belongs to the version it names and must still load.
+Notebooks and scripts name one ruleset version (the notebooks once, as `RULES`) and stay on it until the owner decides otherwise. No default of a `rules` parameter, option or field may be the newest version. `tests/test_rules_defaults.py` scans the source and the notebooks for this; add the new version to its list. Saved data (records, runs, datasets) belongs to the version it names and must still load.
 
 ## 9. Docs and specs
 
