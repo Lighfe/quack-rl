@@ -1,11 +1,6 @@
----
-name: rule_changes
-description: Load this skill when someone changes or adds a game rule or a ruleset version (a new ruleset file, a new ruleset field, a new phase or action). Not for other work, for example adding a colour, RL training, or editing a notebook alone.
----
+# Legacy file list and checklist
 
-# Changing the rules
-
-This list is a map of what a rule change touches. Read `docs/specs/2026-10-16-ruleset-v1-8.md` for the shape of such a change.
+This file keeps the old file list and the old checklist of the skill until the project map replaces them. It is not a skill of its own. Read `docs/specs/2026-10-16-ruleset-v1-8.md` for the shape of such a change.
 
 ## Three rules
 
