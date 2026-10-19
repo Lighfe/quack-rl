@@ -1,7 +1,8 @@
-"""Make the stored sample of layout 2 (v1 and v1.1): vectors and masks of random games.
+"""Make the stored sample of layouts 2, 3 and 4 (v1, v1.1, v1.8, v1.9): vectors and masks of random games.
 
-The sample was made from the code before layout 3 was added; do not regenerate it unless
-layout 2 is changed on purpose.
+The v1 and v1.1 part was made from the code before layout 3 was added, the v1.8 and v1.9 part
+from the code before layout 5 (issue #137). Do not regenerate it unless these layouts are
+changed on purpose.
 
 uv run python tests/fixtures/make_layout2_sample.py
 """
@@ -17,7 +18,7 @@ from quack_rl.rl import action_mask, observe, vectorize
 from quack_rl.rules import load_ruleset
 
 OUT = Path(__file__).parent / "layout2" / "sample.npz"
-VERSIONS = ["v1", "v1.1"]
+VERSIONS = ["v1", "v1.1", "v1.8", "v1.9"]
 SEEDS = [1, 2, 3]
 
 

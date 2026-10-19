@@ -129,7 +129,7 @@ def test_mask_in_choice_and_elsewhere():
     assert seen_choice == {"exploded", "waiting"}
 
 
-@pytest.mark.parametrize("version", ["v1", "v1.1"])
+@pytest.mark.parametrize("version", ["v1", "v1.1", "v1.8", "v1.9"])
 def test_layout2_output_equals_stored_sample(version):
     rs = load_ruleset(version)
     data = np.load(SAMPLE)
