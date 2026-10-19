@@ -28,10 +28,24 @@ def buy(item_id: str) -> str:
     return f"{BUY_PREFIX}{item_id}"
 
 
+LEGACY_COLOURS = 5  # the first five chip colours of a ruleset (v1.9: white to red) keep their place
+
+
+def _appended(item: ShopItem, rs: Ruleset) -> bool:
+    """A chip of a colour beyond the first five (v1.10: black, yellow, purple) is listed after
+    the pick actions, so the indices of the actions of v1.9 stay the same."""
+    if item.kind != "chip" or item.chip is None:
+        return False
+    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    return colours.index(rs.chip(item.chip).colour) >= LEGACY_COLOURS
+
+
 def action_names(rs: Ruleset) -> list[str]:
     choice = [TAKE_MONEY, TAKE_POINTS] if rs.explosion_choice else []
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
-    return [WAIT, DRAW, STOP, DONE, *choice, *(buy(item.id) for item in rs.shop), *pick]
+    early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
+    late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
+    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late]
 
 
 def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState, round_: int) -> bool:

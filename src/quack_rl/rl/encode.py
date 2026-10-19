@@ -9,6 +9,8 @@ Observation layout 3 (rulesets with `explosion_choice`, v1.8): layout 2 plus the
 (`docs/specs/2026-10-16-observation-layout-3.md`).
 Observation layout 4 (rulesets with a blue hand, v1.9): layout 3 with five colours, the own hand
 and the pick actions (`docs/specs/2026-10-17-observation-layout-4.md`).
+Observation layout 5 (rulesets with chip colours beyond layout 4 or a minimum buy round, v1.10):
+layout 4 with eight colours and a shop block (`docs/specs/2026-10-19-observation-layout-5.md`).
 """
 
 from typing import Any
@@ -33,6 +35,7 @@ from quack_rl.rules import Ruleset
 OBSERVATION_LAYOUT = 2  # the layout of v1 and v1.1; see `observation_layout` for a ruleset
 CHOICE_LAYOUT = 3
 HAND_LAYOUT = 4
+SHOP_LAYOUT = 5
 # layout 2 has no choice phase; layout 3 has it
 PHASES = [p.value for p in Phase if p is not Phase.CHOICE]
 PHASES_CHOICE = [p.value for p in Phase]
@@ -51,31 +54,47 @@ _SCALARS = (
 MAP_COLOURS = 4  # colour flags per chip in layouts 2 and 3
 MAP_CHANNELS = 2 + 2 * (MAP_COLOURS + 2)  # layouts 2 and 3; see `map_channels`
 HAND_COLOURS = 5  # layout 4: white, orange, green, blue, red
+SHOP_COLOURS = 8  # layout 5: and black, yellow, purple
+# colour flags per chip in the map, by layout
+LAYOUT_COLOURS = {
+    OBSERVATION_LAYOUT: MAP_COLOURS,
+    CHOICE_LAYOUT: MAP_COLOURS,
+    HAND_LAYOUT: HAND_COLOURS,
+    SHOP_LAYOUT: SHOP_COLOURS,
+}
 
 
 class LayoutRefused(ValueError):
-    """A trained policy was asked to act on a layout it was not built for (layout 4)."""
+    """A trained policy was asked to act on a layout it was not built for (layout 4 or 5)."""
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: 4 with a blue hand, else 3 with the explosion choice,
-    else 2."""
+    """The layout number of a ruleset: 5 with more than the five colours of layout 4 or a
+    minimum buy round, else 4 with a blue hand, else 3 with the explosion choice, else 2."""
     if has_hand(rs):
+        if len(_ruleset_colours(rs)) > HAND_COLOURS or any(i.min_round > 1 for i in rs.shop):
+            return SHOP_LAYOUT
         return HAND_LAYOUT
     return CHOICE_LAYOUT if rs.explosion_choice else OBSERVATION_LAYOUT
 
 
+def _ruleset_colours(rs: Ruleset) -> list[str]:
+    return list(dict.fromkeys(c.colour for c in rs.chips))
+
+
 def check_policy_layout(rs: Ruleset) -> None:
-    """Raise `LayoutRefused` for a ruleset on layout 4: no policy is trained for it yet."""
-    if observation_layout(rs) == HAND_LAYOUT:
+    """Raise `LayoutRefused` for a ruleset on layout 4 or 5: no policy is trained for it yet."""
+    layout = observation_layout(rs)
+    if layout >= HAND_LAYOUT:
         raise LayoutRefused(
-            f"rules {rs.version!r} use observation layout 4; no trained policy, self-play, "
-            "finetune, offline or evaluate run exists for layout 4 yet"
+            f"rules {rs.version!r} use observation layout {layout}; no trained policy, "
+            f"self-play, finetune, offline or evaluate run exists for layout {layout} yet "
+            "(name an older rules version to run a policy)"
         )
 
 
 def map_colours(rs: Ruleset) -> int:
-    return HAND_COLOURS if observation_layout(rs) == HAND_LAYOUT else MAP_COLOURS
+    return LAYOUT_COLOURS[observation_layout(rs)]
 
 
 def map_channels(rs: Ruleset) -> int:
@@ -88,7 +107,7 @@ def phases(rs: Ruleset) -> list[str]:
 
 
 def _colours(rs: Ruleset) -> list[str]:
-    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    colours = _ruleset_colours(rs)
     if len(colours) != map_colours(rs):
         raise ValueError(
             f"observation layout {observation_layout(rs)} has {map_colours(rs)} colour flags per chip "
@@ -174,6 +193,26 @@ def _hand_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     return [*values, len(hand)]
 
 
+def _has_shop_block(rs: Ruleset) -> bool:
+    return observation_layout(rs) == SHOP_LAYOUT
+
+
+def _shop_names(rs: Ruleset) -> list[str]:
+    """Layout 5: per shop item its minimum round and whether the round has reached it."""
+    if not _has_shop_block(rs):
+        return []
+    return [n for i in rs.shop for n in (f"shop.{i.id}.min_round", f"shop.{i.id}.open")]
+
+
+def _shop_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
+    if not _has_shop_block(rs):
+        return []
+    values: list[float] = []
+    for i in rs.shop:
+        values += [i.min_round, obs["round"] >= i.min_round]
+    return values
+
+
 def _map_names(rs: Ruleset) -> list[str]:
     colours = _colours(rs)
     names = []
@@ -206,6 +245,7 @@ def vector_names(rs: Ruleset) -> list[str]:
         *_player_names("opponent", rs),
         *derived_names(rs),
         *_hand_names(rs),
+        *_shop_names(rs),
         *_map_names(rs),
     ]
 
@@ -254,6 +294,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *_player_values(obs["opponent"], rs),
         *(obs["derived"][n] for n in derived_names(rs)),
         *_hand_values(obs, rs),
+        *_shop_values(obs, rs),
         *_map_values(obs, rs),
     ]
     return np.asarray(values, dtype=np.float32)
@@ -308,6 +349,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     if has_hand(rs):
         slot = [1.0, max_value] + [1.0] * len(_colours(rs))
         hand_high = [*slot * MAX_HAND, float(MAX_HAND)]
+    shop_high = [float(rs.rounds), 1.0] * len(rs.shop) if _has_shop_block(rs) else []
     derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names(rs)]
     derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names(rs)]
     high = [
@@ -319,6 +361,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *player,
         *derived_high,
         *hand_high,
+        *shop_high,
         *cell * (rs.track_end + 1),
     ]
     n_before = 3 + len(phases(rs)) + 2 * len(player)

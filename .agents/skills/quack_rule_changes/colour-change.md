@@ -30,7 +30,7 @@ The effect depends on what the player placed this round, or on another part of t
 The colour draws a hand, and the player must then pick. This is the largest case; it is a new action set and new state, so it also follows the new ruleset version recipe.
 
 - Touches: Components (a hook that says how many chips go into the hand), Engine (the state field for the hand with a default, the legal actions while a hand exists, the pick handling inside the brew phase, the full action list), Record and replay (a test only), Bots (a branch for the pick step), CLI (draw the own hand, keys and prompt lines for the new actions, enough buy keys), RL (a new layout with a hand block, the mask, the refusal of trained policies on the new layout).
-- The new actions go at the end of the full action list, because its order is the order of the RL action mask. The number of hand slots is the largest value of the colour's chips.
+- The new actions go at the end of the full action list, because its order is the order of the RL action mask. The new shop items of a new colour are not at the end of the shop rows: `action_names` lists the shop, then the pick actions, so items of a later colour need the rule in `_appended` (`engine/actions.py`) to land after the pick actions. The number of hand slots is the largest value of the colour's chips.
 - The hand leaves the bag, so every stop rule and every odds computation must say what happens to it (put back, played, or drawn again).
 
 ## The order of thought
@@ -85,7 +85,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - Effect on the pot (case B): `test_red_extra_by_orange_chips_in_the_pot`, `test_orange_after_red_does_not_count`, `test_place_bonus_pot_is_optional`.
 - Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
 - CLI: `tests/test_cli_v1_10.py` (labels and styles of a new colour, the menu by minimum round, round-end text, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
-- RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4`.
+- RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4` (the same set for v1.10 is `tests/test_rl_layout5.py`).
 - Defaults: the tests in `test_rules_defaults` scan for a default that points at the newest version.
 
 Edge cases to try for any new colour:
