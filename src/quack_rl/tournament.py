@@ -93,7 +93,7 @@ class TournamentConfig:
     bots: tuple[str, ...]  # seat specs, `bot:<name>`
     games: int  # games per pairing
     seed: int
-    rules: str = "v1"
+    rules: str = "v1.10"
     rounds: int = 9
     overrides: dict[str, str] = field(default_factory=dict)
     sweep: Sweep | None = None

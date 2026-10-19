@@ -1,7 +1,7 @@
 """Play bot games and write them as an offline RL dataset (Parquet) with its config.
 
 Usage: uv run python scripts/build_dataset.py --out data/datasets/NAME.parquet [--games N]
-       [--seed 0] [--rules v1.1] [--bots bot:a,bot:b,...] [--overwrite]
+       [--seed 0] [--rules v1.10] [--bots bot:a,bot:b,...] [--overwrite]
 
 Each row is one decision of the recorded seat (see `quack_rl.rl.dataset`). For every game a
 seeded RNG draws the recorded bot and the opponent from the list (mirror matches allowed) and
@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", type=Path, required=True, help="output Parquet file")
     p.add_argument("--games", type=int, default=5000, help="games to play (default: 5000)")
     p.add_argument("--seed", type=int, default=0, help="seed (default: 0)")
-    p.add_argument("--rules", default="v1.1", help="ruleset version (default: v1.1)")
+    p.add_argument("--rules", default="v1.10", help="ruleset version (default: v1.10)")
     p.add_argument(
         "--bots",
         default=",".join(DEFAULT_BOTS),

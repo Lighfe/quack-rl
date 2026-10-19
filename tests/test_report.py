@@ -261,6 +261,7 @@ def test_new_columns_match_the_record(tmp_path):
         bots=("bot:draw30-pts3-blue", "bot:draw15-pts1-balanced"),
         games=2,
         seed=3,
+        rules="v1",
         keep_records=True,
         sample_size=0,
     )

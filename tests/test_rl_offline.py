@@ -57,7 +57,7 @@ def test_load_shapes_and_legal_actions(data):
 
 
 def test_run_folder_loads(tmp_path):
-    train_offline_run(SAMPLE, "r", tmp_path, seed=0, steps=5, log_every=2)
+    train_offline_run(SAMPLE, "r", tmp_path, seed=0, steps=5, log_every=2, rules="v1.1")
     run = tmp_path / "r"
     assert {p.name for p in run.iterdir()} == {"config.json", "model.zip", "metrics.csv"}
     assert load_model(run, "v1.1") is not None
@@ -84,7 +84,7 @@ def test_no_new_game(tmp_path, monkeypatch):
 
     for name in ("__init__", "reset", "step"):
         monkeypatch.setattr(QuackEnv, name, boom)
-    train_offline_run(SAMPLE, "r", tmp_path, steps=3)
+    train_offline_run(SAMPLE, "r", tmp_path, steps=3, rules="v1.1")
     assert (tmp_path / "r" / "model.zip").exists()
     text = (ROOT / "src" / "quack_rl" / "rl" / "offline.py").read_text() + SCRIPT.read_text()
     assert "QuackEnv" not in text
@@ -124,7 +124,7 @@ def test_loss_finite_and_illegal_logit_gradient_zero(data):
 
 @pytest.mark.parametrize("seat", ["p1", "p2"])
 def test_greedy_action_legal_in_20_games(tmp_path, seat):
-    train_offline_run(SAMPLE, "r", tmp_path, steps=20)
+    train_offline_run(SAMPLE, "r", tmp_path, steps=20, rules="v1.1")
     bot = PolicyBot.from_run(tmp_path / "r", "v1.1")
     for g in range(10):
         # an illegal action would raise
@@ -145,16 +145,16 @@ def test_errors_leave_no_folder(tmp_path):
         bad,
     )
     with pytest.raises(FileNotFoundError):
-        train_offline_run(tmp_path / "none.parquet", "r", runs, steps=1)
+        train_offline_run(tmp_path / "none.parquet", "r", runs, steps=1, rules="v1.1")
     with pytest.raises(ValueError, match="at least 1"):
-        train_offline_run(SAMPLE, "r", runs, steps=0)
+        train_offline_run(SAMPLE, "r", runs, steps=0, rules="v1.1")
     with pytest.raises(ValueError, match="length 10, expected 848"):
-        train_offline_run(bad, "r", runs, steps=1)
+        train_offline_run(bad, "r", runs, steps=1, rules="v1.1")
     assert not runs.exists() or list(runs.iterdir()) == []
-    train_offline_run(SAMPLE, "r", runs, steps=1)
+    train_offline_run(SAMPLE, "r", runs, steps=1, rules="v1.1")
     before = (runs / "r" / "model.zip").read_bytes()
     with pytest.raises(FileExistsError):
-        train_offline_run(SAMPLE, "r", runs, steps=2)
+        train_offline_run(SAMPLE, "r", runs, steps=2, rules="v1.1")
     assert (runs / "r" / "model.zip").read_bytes() == before
 
 
@@ -166,9 +166,9 @@ def test_script_errors_exit_nonzero(tmp_path):
     )  # fmt: skip
     assert bad.returncode != 0 and "error:" in bad.stderr
     assert list(tmp_path.iterdir()) == []
-    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "0",
+    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "0", "--rules", "v1.1",
                         "--runs-dir", str(tmp_path)]) == 2  # fmt: skip
-    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "2",
+    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "2", "--rules", "v1.1",
                         "--runs-dir", str(tmp_path)]) == 0  # fmt: skip
-    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "2",
+    assert script.main(["--dataset", str(SAMPLE), "--run", "r", "--steps", "2", "--rules", "v1.1",
                         "--runs-dir", str(tmp_path)]) == 2  # fmt: skip

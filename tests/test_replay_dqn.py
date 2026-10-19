@@ -136,7 +136,7 @@ def test_policy_of_a_network_masks_illegal_actions():
 def test_short_run_finishes_with_finite_losses():
     seen = []
     q_net, rows, policy = train_dqn(
-        SAMPLE, "random", offline_steps=20, online_steps=40, seed=0,
+        SAMPLE, "random", offline_steps=20, online_steps=40, seed=0, rules="v1.1",
         after_offline=lambda p: seen.append(p),
     )  # fmt: skip
     assert len(rows) == 60 and [r["step"] for r in rows] == list(range(1, 61))
@@ -149,7 +149,7 @@ def test_short_run_finishes_with_finite_losses():
 
     from quack_rl.rl import QuackEnv, make_opponent
 
-    env = QuackEnv(seat="p1", opponent=make_opponent("random", 3, "v1.1"))
+    env = QuackEnv(seat="p1", opponent=make_opponent("random", 3, "v1.1"), rules="v1.1")
     obs, info = env.reset(seed=3)
     done = False
     while not done:
@@ -160,8 +160,8 @@ def test_short_run_finishes_with_finite_losses():
 
 
 def test_same_seed_same_losses():
-    a = train_dqn(SAMPLE, "random", 5, 5, seed=2)[1]
-    b = train_dqn(SAMPLE, "random", 5, 5, seed=2)[1]
+    a = train_dqn(SAMPLE, "random", 5, 5, seed=2, rules="v1.1")[1]
+    b = train_dqn(SAMPLE, "random", 5, 5, seed=2, rules="v1.1")[1]
     assert [r["loss"] for r in a] == [r["loss"] for r in b]
 
 

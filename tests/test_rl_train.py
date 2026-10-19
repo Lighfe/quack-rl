@@ -14,15 +14,15 @@ EPISODE_KEYS = {
 
 def test_bad_input_fails_before_training():
     with pytest.raises(ValueError):
-        train(256, opponent="nonsense", eval_games=10)
+        train(256, opponent="nonsense", eval_games=10, rules="v1.1")
     with pytest.raises(ValueError):
-        train(256, eval_games=0)
+        train(256, eval_games=0, rules="v1.1")
 
 
 def test_missing_train_group_names_the_install_command(monkeypatch):
     monkeypatch.setitem(sys.modules, "sb3_contrib", None)
     with pytest.raises(ImportError, match="uv sync --group train"):
-        train(256, eval_games=1)
+        train(256, eval_games=1, rules="v1.1")
 
 
 def test_result_field_names():
@@ -57,7 +57,7 @@ class Recorder:
 def run():
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     sink = Recorder()
-    return train(256, eval_games=10, sink=sink), sink
+    return train(256, eval_games=10, sink=sink, rules="v1.1"), sink
 
 
 @pytest.mark.usefixtures("needs_train")
@@ -77,7 +77,7 @@ def test_train_is_fast_enough():
     import time
 
     start = time.perf_counter()
-    train(256, eval_games=10)
+    train(256, eval_games=10, rules="v1.1")
     assert time.perf_counter() - start < 60
 
 
@@ -135,7 +135,7 @@ def test_untrained_policy_samples_and_respects_mask(run):
 @pytest.mark.usefixtures("needs_train")
 @pytest.mark.slow
 def test_second_opponent_runs_vs_random():
-    result = train(128, opponent="draw20-pts4-blue", eval_games=4)
+    result = train(128, opponent="draw20-pts4-blue", eval_games=4, rules="v1.1")
     for name in EVALS:
         assert getattr(result, name).games == 4
         assert getattr(result, f"{name}_vs_random").games == 4

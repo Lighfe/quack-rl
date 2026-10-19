@@ -1,4 +1,4 @@
-"""Nothing picks up v1.8 or v1.9 by accident: no default of `rules` is one of them, the notebooks name v1.1 once."""
+"""The default `rules` is v1.10 everywhere in the code; the notebooks keep their own pinned version."""
 
 import ast
 import re
@@ -57,32 +57,47 @@ def scan(files) -> list[tuple[str, str, object, int]]:
     return out
 
 
-def test_no_rules_default_is_v1_8_or_v1_9():
-    found = scan(SCANNED)
-    bad = [f for f in found if f[2] in ("v1.8", "v1.9")]
-    assert not bad, f"default rules v1.8 or v1.9 found: {bad}"
+CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
+DEFAULT = "v1.10"
+
+
+def test_every_rules_default_in_code_is_v1_10():
+    found = scan(CODE_FILES)
+    assert found
+    bad = [f for f in found if f[2] != DEFAULT]
+    assert not bad, f"default rules other than {DEFAULT} found: {bad}"
 
 
 def test_scan_finds_the_known_defaults():
     found = scan(SCANNED)
-    assert any(f[:3] == ("tournament.py", "field TournamentConfig", "v1") for f in found)
+    assert any(f[:3] == ("tournament.py", "field TournamentConfig", DEFAULT) for f in found)
     cli = [f for f in found if f[0] == "main.py" and f[1].startswith("param")]
-    assert len(cli) >= 3 and all(f[2] == "v1" for f in cli[:3])
-    assert any(f[0] == "single_env.py" and f[1] == "param __init__" and f[2] == "v1.1" for f in found)
-    assert any(f[0] == "report.py" and f[1] == "get" and f[2] == "v1" for f in found)
+    assert len(cli) >= 3 and all(f[2] == DEFAULT for f in cli[:3])
+    assert any(f[0] == "single_env.py" and f[1] == "param __init__" and f[2] == DEFAULT for f in found)
+    assert any(f[0] == "report.py" and f[1] == "get" and f[2] == DEFAULT for f in found)
 
 
 @pytest.mark.parametrize(
     "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
-@pytest.mark.parametrize("planted_version", ["v1.8", "v1.9"])
-def test_scan_fails_on_a_planted_version(tmp_path, name, planted_version):
+@pytest.mark.parametrize("planted_version", ["v1", "v1.1", "v1.8", "v1.9", "v1.10"])
+def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
-    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1(\.1)?"', rf'\1"{planted_version}"', text, count=1)
-    assert planted != text
+    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1\.10"', rf'\1"{planted_version}"', text, count=1)
+    assert (planted != text) == (planted_version != DEFAULT)
     copy.write_text(planted, encoding="utf-8")
-    assert any(f[2] == planted_version for f in scan([copy]))
+    bad = [f for f in scan([copy]) if f[2] != DEFAULT]
+    assert bool(bad) == (planted_version != DEFAULT)
+
+
+def test_grep_of_the_issue_shows_only_v1_10():
+    out = subprocess.run(
+        ["grep", "-rnE", r'rules[^=]*=\s*"v1(\.[0-9]+)?"', "src", "scripts"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout
+    lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
+    assert lines and all('"v1.10"' in ln for ln in lines), lines
 
 
 def test_no_notebook_names_v1_9():

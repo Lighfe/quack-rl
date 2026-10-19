@@ -63,8 +63,8 @@ Work through these five steps in order. Each step needs the one before it.
 
 ### 5. What happens to old versions
 
-- Think about: old versions keep their behaviour, their layout number and their saved data. New fields have old-safe defaults. The new version is added to the tests that loop over versions and to the defaults test, and no default points at it.
-- Goes wrong: an older version that plays differently because a shared component changed; a loop that was not extended, so the new colour is never run through a generic test; a default that picks the newest version; saved runs that load on a layout they were not trained for.
+- Think about: old versions keep their behaviour, their layout number and their saved data. New fields have old-safe defaults. The new version is added to the tests that loop over versions. No default points at it unless an issue makes it the default.
+- Goes wrong: an older version that plays differently because a shared component changed; a loop that was not extended, so the new colour is never run through a generic test; a default that picks the new version by accident; saved runs that load on a layout they were not trained for.
 - Check: the full test command. The tests of the older versions pass unchanged.
 
 ## Pitfalls
@@ -86,7 +86,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
 - CLI: `tests/test_cli_v1_10.py` (labels and styles of a new colour, the menu by minimum round, round-end text, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
 - RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4` (the same set for v1.10 is `tests/test_rl_layout5.py`).
-- Defaults: the tests in `test_rules_defaults` scan for a default that points at the newest version.
+- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v1.10`).
 
 Edge cases to try for any new colour:
 

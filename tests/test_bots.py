@@ -169,7 +169,7 @@ def test_parse_bot_name():
 def sim(out, p1, p2, seed="4", games="4"):
     return runner.invoke(
         app,
-        ["simulate", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
+        ["simulate", "--rules", "v1", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
     )
 
 

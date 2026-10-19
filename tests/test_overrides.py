@@ -23,7 +23,7 @@ def games_of(out: Path):
 
 def sim(out, *extra, games="3"):
     return runner.invoke(
-        app, ["simulate", "--games", games, "--seed", "3", "--out", str(out), *extra]
+        app, ["simulate", "--rules", "v1", "--games", games, "--seed", "3", "--out", str(out), *extra]
     )
 
 

@@ -179,7 +179,7 @@ def train_offline_run(
     runs_dir: Path | str = "data/runs",
     seed: int = 0,
     steps: int = 20_000,
-    rules: str = "v1.1",
+    rules: str = "v1.10",
     batch_size: int = 256,
     lr: float = 1e-3,
     hidden: int = 256,

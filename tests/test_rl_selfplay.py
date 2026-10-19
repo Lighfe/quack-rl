@@ -112,11 +112,11 @@ def test_evaluate_update_first_update_has_no_snapshots():
 
 def test_bad_input_fails_before_the_folder_exists(tmp_path):
     with pytest.raises(ValueError):
-        train_selfplay("x", 100, update_every=0, runs_dir=tmp_path)
+        train_selfplay("x", 100, update_every=0, runs_dir=tmp_path, rules="v1.1")
     with pytest.raises(ValueError):
-        train_selfplay("x", 100, eval_bots=("nonsense",), runs_dir=tmp_path)
+        train_selfplay("x", 100, eval_bots=("nonsense",), runs_dir=tmp_path, rules="v1.1")
     with pytest.raises(ValueError, match="greedy, sampled"):
-        train_selfplay("x", 100, readout="random", runs_dir=tmp_path)
+        train_selfplay("x", 100, readout="random", runs_dir=tmp_path, rules="v1.1")
     assert list(tmp_path.iterdir()) == []
 
 
@@ -124,7 +124,7 @@ def test_bad_input_fails_before_the_folder_exists(tmp_path):
 def test_selfplay_run_folder(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     train_selfplay(
-        "sp", 400, update_every=128, seed=1, eval_games=2, runs_dir=tmp_path, readout="sampled"
+        "sp", 400, update_every=128, seed=1, eval_games=2, runs_dir=tmp_path, readout="sampled", rules="v1.1"
     )
     run = tmp_path / "sp"
     files = sorted(p.name for p in (run / "checkpoints").iterdir())
@@ -147,4 +147,4 @@ def test_selfplay_run_folder(tmp_path):
 
     assert play_game(RS, {"p1": bot, "p2": RandomBot(1)}, RngChance(1)).phase is Phase.GAME_OVER
     with pytest.raises(FileExistsError):
-        train_selfplay("sp", 100, eval_games=1, runs_dir=tmp_path)
+        train_selfplay("sp", 100, eval_games=1, runs_dir=tmp_path, rules="v1.1")

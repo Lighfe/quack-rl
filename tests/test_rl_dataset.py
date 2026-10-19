@@ -28,7 +28,7 @@ def _same(a, b):
 
 def test_dataset_layout(tmp_path):
     out = tmp_path / "d.parquet"
-    write_dataset(out, BOTS, 20, seed=1)
+    write_dataset(out, BOTS, 20, seed=1, rules="v1.1")
     t = pq.read_table(out)
     assert str(t.schema.field("episode").type) == "int32"
     assert str(t.schema.field("step").type) == "int32"
@@ -37,7 +37,7 @@ def test_dataset_layout(tmp_path):
     assert str(t.schema.field("action").type) == "int16"
     assert str(t.schema.field("reward").type) == "float"
     assert str(t.schema.field("terminal").type) == "bool"
-    space = QuackEnv().observation_space
+    space = QuackEnv(rules="v1.1").observation_space
     ep = np.array(t["episode"].to_pylist())
     term = np.array(t["terminal"].to_pylist())
     assert sorted(set(ep)) == list(range(20))

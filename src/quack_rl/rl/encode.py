@@ -89,7 +89,7 @@ def check_policy_layout(rs: Ruleset) -> None:
         raise LayoutRefused(
             f"rules {rs.version!r} use observation layout {layout}; no trained policy, "
             f"self-play, finetune, offline or evaluate run exists for layout {layout} yet "
-            "(name an older rules version to run a policy)"
+            "(name an older rules version to run a policy, for example --rules v1.1)"
         )
 
 

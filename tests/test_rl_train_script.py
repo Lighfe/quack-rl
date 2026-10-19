@@ -60,7 +60,7 @@ def test_missing_run_fails_and_trains_nothing(monkeypatch, tmp_path, capsys):
 
 
 def test_bad_opponent_fails_with_known_forms(tmp_path, capsys):
-    code = train_script.main(["--run", "r", "--opponent", "nonsense", "--runs-dir", str(tmp_path)])
+    code = train_script.main(["--run", "r", "--rules", "v1.1", "--opponent", "nonsense", "--runs-dir", str(tmp_path)])
     err = capsys.readouterr().err
     assert code != 0
     assert "random" in err and "draw<percent>-pts<round>-<strategy>" in err
@@ -72,7 +72,7 @@ def test_existing_run_fails_and_stays_unchanged(tmp_path, capsys):
     folder = tmp_path / "old"
     folder.mkdir()
     (folder / "model.zip").write_text("keep")
-    code = train_script.main(["--run", "old", "--runs-dir", str(tmp_path)])
+    code = train_script.main(["--run", "old", "--rules", "v1.1", "--runs-dir", str(tmp_path)])
     err = capsys.readouterr().err
     assert code != 0 and str(folder) in err and "Traceback" not in err
     assert [p.name for p in folder.iterdir()] == ["model.zip"]
@@ -120,7 +120,7 @@ def test_defaults_go_to_train(monkeypatch):
     ((args, kwargs),) = calls
     assert args == (train_script.DEFAULT_STEPS,)
     assert kwargs == {
-        "rules": "v1.1", "opponent": "random", "seed": 0, "eval_games": 500,
+        "rules": "v1.10", "opponent": "random", "seed": 0, "eval_games": 500,
         "run": "r", "runs_dir": Path("data/runs"), "checkpoint_every": None,
     }  # fmt: skip
 
@@ -157,7 +157,7 @@ def test_prints_randombot_rows_for_other_opponents(monkeypatch, tmp_path, capsys
 def test_real_run_writes_the_run_folder(tmp_path, capsys):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     code = train_script.main([
-        "--run", "smoke", "--steps", "256", "--eval-games", "10", "--checkpoint-every", "128",
+        "--run", "smoke", "--rules", "v1.1", "--steps", "256", "--eval-games", "10", "--checkpoint-every", "128",
         "--runs-dir", str(tmp_path),
     ])  # fmt: skip
     assert code == 0
@@ -205,3 +205,10 @@ def test_help_shows_resume(capsys):
     with pytest.raises(SystemExit):
         train_script.main(["--help"])
     assert "--resume" in capsys.readouterr().out
+
+
+def test_default_rules_are_refused_with_the_hint_to_name_an_older_version(tmp_path, capsys):
+    code = train_script.main(["--run", "r", "--runs-dir", str(tmp_path)])
+    err = capsys.readouterr().err
+    assert code != 0 and "older rules version" in err and "Traceback" not in err
+    assert list(tmp_path.iterdir()) == []

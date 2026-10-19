@@ -43,7 +43,7 @@ def script(monkeypatch, keys):
 
 
 def play(tmp_path, *extra, seed="4"):
-    return runner.invoke(app, ["play", "--seed", seed, "--out", str(tmp_path), *extra])
+    return runner.invoke(app, ["play", "--rules", "v1", "--seed", seed, "--out", str(tmp_path), *extra])
 
 
 def play_files(tmp_path: Path) -> list[Path]:

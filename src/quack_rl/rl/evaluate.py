@@ -41,7 +41,7 @@ class EvalResult:
 def evaluate(
     policy: Policy,
     opponent: str | Any,
-    rules: str = "v1.1",
+    rules: str = "v1.10",
     games: int = 500,
     seed: int = 0,
     reads_observation: bool = True,

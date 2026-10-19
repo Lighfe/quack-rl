@@ -2,6 +2,16 @@
 
 A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v1.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`.
 
+## Rulesets
+
+| Version | Rules document | Notes |
+|---|---|---|
+| `v1`, `v1.1` | `docs/rules/rules-v1.md`, `rules-v1.1.md` | the first rules; the RL notebooks and the trained policies use `v1.1` |
+| `v1.8`, `v1.9` | `docs/rules/rules-v1.8.md`, `rules-v1.9.md` | explosion choice, blue hand and pick step, new red and orange 6 chips |
+| `v1.10` | `docs/rules/rules-v1.10.md` | black, yellow and purple chips, shop items with a minimum round. **The default**: every `--rules` option and `rules` parameter defaults to `v1.10` |
+
+Name another version with `--rules v1.1` (CLI and scripts) or `rules="v1.1"` (code). Saved games, runs and datasets name their version and still load. A trained policy exists only for the older observation layouts, so `PolicyBot`, `train`, `finetune`, `selfplay`, offline training and `evaluate` with a policy refuse the default: name an older version for them. The environments and the baseline bots work on `v1.10`. The notebooks keep the version they name.
+
 ## Set-up
 
 Requires [uv](https://docs.astral.sh/uv/).
@@ -53,13 +63,13 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
     uv run --group train python scripts/train.py --run NAME [--steps N] [--opponent random|<bot name>]
 
-Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`), `--resume NAME` (instead of `--run`: continue an interrupted run from its newest checkpoint, see `docs/specs/2026-10-14-resume.md`; `--steps`, `--opponent`, `--rules`, `--seed` and `--eval-games` come from its `config.json` and are refused). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
+Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.10`, which a policy run refuses: pass an older version such as `--rules v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`), `--resume NAME` (instead of `--run`: continue an interrupted run from its newest checkpoint, see `docs/specs/2026-10-14-resume.md`; `--steps`, `--opponent`, `--rules`, `--seed` and `--eval-games` come from its `config.json` and are refused). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
 
 ### Self-play
 
     uv run --group train python scripts/train_selfplay.py --run NAME [--steps N] [--update-every N]
 
-The learner plays against snapshots of itself (spec: `docs/specs/2026-10-13-self-play.md`). Options: `--run NAME` (required), `--steps N` (default 200000, decisions of the learner), `--update-every N` (default 50000: every N steps a snapshot `checkpoints/step_<n>.zip` is saved and the learner is evaluated), `--rules` (default `v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--eval-bot NAME` (heuristic bot for the evaluations, repeatable, default `draw20-pts1-points`), `--runs-dir PATH` (default `data/runs`). The opponent of each game is the newest snapshot (0.5), an older one (0.3) or `random` (0.2). The run folder is a normal run folder plus `selfplay.csv`: one row per update with the win rates against `random`, the heuristic bots, each older snapshot and the previous newest snapshot. `PolicyBot.from_run` reads it.
+The learner plays against snapshots of itself (spec: `docs/specs/2026-10-13-self-play.md`). Options: `--run NAME` (required), `--steps N` (default 200000, decisions of the learner), `--update-every N` (default 50000: every N steps a snapshot `checkpoints/step_<n>.zip` is saved and the learner is evaluated), `--rules` (default `v1.10`, which self-play refuses: pass an older version such as `--rules v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--eval-bot NAME` (heuristic bot for the evaluations, repeatable, default `draw20-pts1-points`), `--runs-dir PATH` (default `data/runs`). The opponent of each game is the newest snapshot (0.5), an older one (0.3) or `random` (0.2). The run folder is a normal run folder plus `selfplay.csv`: one row per update with the win rates against `random`, the heuristic bots, each older snapshot and the previous newest snapshot. `PolicyBot.from_run` reads it.
 
 ## Simulate, replay, verify
 

@@ -26,7 +26,7 @@ TRACEBACK = "Traceback (most recent call last)"
 def tour(out: Path, *extra: str, bots: str = BOTS, games: str = "3"):
     return runner.invoke(
         app,
-        ["tournament", "--bots", bots, "--games", games, "--seed", "5", "--out", str(out), *extra],
+        ["tournament", "--rules", "v1", "--bots", bots, "--games", games, "--seed", "5", "--out", str(out), *extra],
     )
 
 

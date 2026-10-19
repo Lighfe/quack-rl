@@ -1,7 +1,7 @@
 """Train a MaskablePPO agent against snapshots of itself and write its run folder.
 
 Usage: uv run --group train python scripts/train_selfplay.py --run NAME [--steps N]
-       [--update-every N] [--rules v1.1] [--seed 0] [--eval-games 500]
+       [--update-every N] [--rules v1.10] [--seed 0] [--eval-games 500]
        [--eval-bot NAME ...] [--runs-dir data/runs]
 
 The run folder `<runs-dir>/<NAME>` has the normal run files, `checkpoints/step_<n>.zip` (the
@@ -38,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="save a snapshot and evaluate every N steps (default: %(default)s)",
     )
-    p.add_argument("--rules", default="v1.1", help="ruleset version (default: %(default)s)")
+    p.add_argument("--rules", default="v1.10", help="ruleset version (default: %(default)s)")
     p.add_argument("--seed", type=int, default=0, help="seed (default: %(default)s)")
     p.add_argument(
         "--eval-games", type=int, default=500, help="games per evaluation (default: %(default)s)"

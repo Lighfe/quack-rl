@@ -1,7 +1,7 @@
 """Train a MaskablePPO agent in a dedicated experiment and write its run folder.
 
 Usage: uv run --group train python scripts/train.py --run NAME [--steps N] [--opponent random|<bot>]
-       [--rules v1.1] [--seed 0] [--eval-games 500] [--checkpoint-every N] [--runs-dir data/runs]
+       [--rules v1.10] [--seed 0] [--eval-games 500] [--checkpoint-every N] [--runs-dir data/runs]
        uv run --group train python scripts/train.py --resume NAME [--checkpoint-every N]
        [--runs-dir data/runs]
 
@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="'random' or draw<percent>-pts<round>-<strategy> (default: random)",
     )
-    p.add_argument("--rules", default=None, help="ruleset version (default: v1.1)")
+    p.add_argument("--rules", default=None, help="ruleset version (default: v1.10)")
     p.add_argument("--seed", type=int, default=None, help="seed (default: 0)")
     p.add_argument(
         "--eval-games",
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             name, opponent = args.run, args.opponent or "random"
             result = train(
                 args.steps if args.steps is not None else DEFAULT_STEPS,
-                rules=args.rules or "v1.1",
+                rules=args.rules or "v1.10",
                 opponent=opponent,
                 seed=args.seed if args.seed is not None else 0,
                 eval_games=args.eval_games if args.eval_games is not None else 500,

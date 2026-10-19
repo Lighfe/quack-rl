@@ -453,7 +453,7 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
         try:
-            buy_items = [item.id for item in load_ruleset(config.get("rules", "v1")).shop]
+            buy_items = [item.id for item in load_ruleset(config.get("rules", "v1.10")).shop]
         except (ValueError, KeyError, TypeError, OSError) as e:
             raise ReportError(f"config.json in {folder} names no usable ruleset: {e}") from None
         for item in buy_items:
@@ -647,7 +647,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         bots=(),
         games=1,
         seed=0,
-        rules=config.get("rules", "v1"),
+        rules=config.get("rules", "v1.10"),
         rounds=data.rounds,
         overrides=dict(config.get("overrides") or {}),
         sweep=Sweep(sweep["param"], tuple(sweep["values"])) if sweep else None,

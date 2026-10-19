@@ -22,7 +22,7 @@ SAMPLE = Path(__file__).parent / "fixtures" / "dataset" / "sample.parquet"
 @pytest.fixture(scope="module")
 def source(tmp_path_factory):
     runs = tmp_path_factory.mktemp("source")
-    train_offline_run(SAMPLE, "bc", runs, seed=0, steps=20, log_every=10)
+    train_offline_run(SAMPLE, "bc", runs, seed=0, steps=20, log_every=10, rules="v1.1")
     return runs / "bc"
 
 
@@ -30,7 +30,7 @@ def source(tmp_path_factory):
 def tuned(source, tmp_path_factory):
     out = tmp_path_factory.mktemp("tuned") / "ft"
     before = _hash(source / "model.zip")
-    finetune_online(source, out, 256, "random", seed=1)
+    finetune_online(source, out, 256, "random", seed=1, rules="v1.1")
     return out, before
 
 
@@ -85,7 +85,7 @@ def test_start_point_is_the_source_policy(source, tmp_path, monkeypatch):
         return original(self, *args, **kwargs)
 
     monkeypatch.setattr(MaskablePPO, "learn", spy)
-    finetune_online(source, tmp_path / "ft", 128, "random", seed=1)
+    finetune_online(source, tmp_path / "ft", 128, "random", seed=1, rules="v1.1")
     assert seen["actions"] == greedy(reference)
     ref = _params(reference)
     assert all(torch.equal(v, ref[k]) for k, v in seen["params"].items())
@@ -116,5 +116,5 @@ def test_refusals_before_training(source, tmp_path, kwargs, error):
 def test_existing_non_empty_out_dir_is_refused(source, tmp_path):
     (tmp_path / "keep.txt").write_text("x")
     with pytest.raises(FileExistsError):
-        finetune_online(source, tmp_path, 128, "random")
+        finetune_online(source, tmp_path, 128, "random", rules="v1.1")
     assert [p.name for p in tmp_path.iterdir()] == ["keep.txt"]

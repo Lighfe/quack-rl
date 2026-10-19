@@ -150,28 +150,28 @@ def test_train_refuses_existing_run_and_keeps_files(tmp_path):
     marker = tmp_path / "r1" / "marker.txt"
     marker.write_text("keep")
     with pytest.raises(FileExistsError, match="r1"):
-        train(256, eval_games=1, run="r1", runs_dir=tmp_path)
+        train(256, eval_games=1, rules="v1.1", run="r1", runs_dir=tmp_path)
     assert marker.read_text() == "keep"
     assert [p.name for p in (tmp_path / "r1").iterdir()] == ["marker.txt"]
 
 
 def test_train_refuses_path_name(tmp_path):
     with pytest.raises(ValueError):
-        train(256, eval_games=1, run="../x", runs_dir=tmp_path / "runs")
+        train(256, eval_games=1, rules="v1.1", run="../x", runs_dir=tmp_path / "runs")
     assert list(tmp_path.iterdir()) == []
 
 
 def test_train_without_run_creates_nothing(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "sb3_contrib", None)  # no SB3: train stops after the checks
     with pytest.raises(ImportError):
-        train(256, eval_games=1, runs_dir=tmp_path)
+        train(256, eval_games=1, rules="v1.1", runs_dir=tmp_path)
     assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.slow
 def test_real_train_without_run_creates_nothing(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
-    train(256, eval_games=2, runs_dir=tmp_path)
+    train(256, eval_games=2, rules="v1.1", runs_dir=tmp_path)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -203,7 +203,7 @@ def test_load_model_refuses_changed_vector_names(tmp_path):
 @pytest.mark.slow
 def test_real_train_run_folder_and_load_model(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
-    train(256, eval_games=2, run="real", runs_dir=tmp_path, checkpoint_every=128)
+    train(256, eval_games=2, rules="v1.1", run="real", runs_dir=tmp_path, checkpoint_every=128)
     path = tmp_path / "real"
     assert (path / "model.zip").exists()
     assert (path / "checkpoints" / "step_128.zip").exists()
@@ -215,7 +215,7 @@ def test_real_train_run_folder_and_load_model(tmp_path):
 @pytest.mark.slow
 def test_real_train_checkpoints_at_multiples_not_rollout_ends(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
-    train(256, eval_games=1, run="odd", runs_dir=tmp_path, checkpoint_every=100)
+    train(256, eval_games=1, rules="v1.1", run="odd", runs_dir=tmp_path, checkpoint_every=100)
     names = sorted(p.name for p in (tmp_path / "odd" / "checkpoints").iterdir())
     assert names == ["step_100.zip", "step_200.zip"]
 
@@ -369,7 +369,7 @@ def test_resume_end_to_end(tmp_path):
     pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
     from quack_rl.rl.train import resume
 
-    train(384, eval_games=1, run="e2e", runs_dir=tmp_path, checkpoint_every=128, seed=1)
+    train(384, eval_games=1, rules="v1.1", run="e2e", runs_dir=tmp_path, checkpoint_every=128, seed=1)
     path = tmp_path / "e2e"
     config_before = (path / "config.json").read_text()
     (path / "model.zip").unlink()

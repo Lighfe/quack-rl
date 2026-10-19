@@ -40,7 +40,7 @@ class PolicyBot:
     def __init__(
         self,
         policy: Policy,
-        rules: Ruleset | str,
+        rules: Ruleset | str = "v1.10",
         name: str = "policy",
         params: dict | None = None,
         readout: str = DEFAULT_READOUT,
@@ -83,7 +83,7 @@ class PolicyBot:
     def from_run(
         cls,
         path: Path | str,
-        rules: Ruleset | str,
+        rules: Ruleset | str = "v1.10",
         readout: str = DEFAULT_READOUT,
         seed: int = 0,
     ) -> "PolicyBot":

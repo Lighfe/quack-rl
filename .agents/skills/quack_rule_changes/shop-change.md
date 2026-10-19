@@ -30,7 +30,7 @@ Work through these steps in order. Each step needs the one before it.
 ### 1. Think about old versions first
 
 - Think about: old versions keep their shop. A removed item stays in every version that has recorded games, so its buy action is still a valid action there, its kind of item is still handled by the engine, and the code that buys it must not be deleted. A shop change is a new ruleset file, never an edit of an old one. Games that were recorded under an old version must replay to the same final state.
-- Goes wrong: the engine branch for a removed kind of item is deleted, and old records fail to replay; a ruleset file with recorded games is edited in place; a default or a notebook moves to the new version.
+- Goes wrong: the engine branch for a removed kind of item is deleted, and old records fail to replay; a ruleset file with recorded games is edited in place; a default or a notebook moves to the new version by accident.
 - Check: the tests of the older versions pass unchanged, and a recorded game of an older version still verifies.
 
 ### 2. The shop table of the new ruleset
@@ -71,8 +71,8 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions and to the defaults test. No default may point at the new version, and the notebooks stay on their pinned version.
-- Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the newest version.
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.10`), and the notebooks stay on their pinned version.
+- Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 
 ## Pitfalls
@@ -96,4 +96,4 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - CLI: `test_every_legal_buy_has_its_own_key`, `test_more_than_12_buy_actions_all_get_a_key`, `test_buy_prompt_lists_new_items_with_prices`.
 - RL: `test_action_list_has_pick_actions_and_new_shop`, `test_mask_equals_legal_actions_in_every_step`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`test_record_v1_9`), and the record tests of the older versions pass unchanged.
-- Defaults: `test_rules_defaults`.
+- Defaults: `test_rules_defaults` (every default is `v1.10`).

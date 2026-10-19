@@ -37,7 +37,7 @@ def test_random_policy_respects_mask_and_seed():
 
 
 def test_evaluate_counts_and_frozen():
-    res = evaluate(random_policy(0), "random", games=10, seed=1)
+    res = evaluate(random_policy(0), "random", rules="v1.1", games=10, seed=1)
     assert isinstance(res, EvalResult)
     assert res.games == 10
     assert res.wins + res.draws + res.losses == 10
@@ -52,14 +52,14 @@ def test_evaluate_counts_and_frozen():
 @pytest.mark.slow
 def test_evaluate_reproducible():
     for opp in ("draw20-pts4-blue", "random"):
-        a = evaluate(random_policy(5), opp, games=8, seed=2)
-        b = evaluate(random_policy(5), opp, games=8, seed=2)
+        a = evaluate(random_policy(5), opp, rules="v1.1", games=8, seed=2)
+        b = evaluate(random_policy(5), opp, rules="v1.1", games=8, seed=2)
         assert a == b
 
 
 def test_evaluate_games_zero():
     with pytest.raises(ValueError):
-        evaluate(random_policy(0), "random", games=0)
+        evaluate(random_policy(0), "random", rules="v1.1", games=0)
 
 
 def test_evaluate_uses_both_seats_and_seeds():
@@ -78,7 +78,7 @@ def test_evaluate_uses_both_seats_and_seeds():
 
     QuackEnv.reset = spy
     try:
-        evaluate(random_policy(0), Recorder(), games=4, seed=10)
+        evaluate(random_policy(0), Recorder(), rules="v1.1", games=4, seed=10)
     finally:
         QuackEnv.reset = orig
     assert per_game == [("p1", 10), ("p2", 11), ("p1", 12), ("p2", 13)]
@@ -94,10 +94,10 @@ def test_evaluate_counts_a_draw_only_as_draw():
     def passive(obs, mask):
         return int(np.flatnonzero(mask)[-1])
 
-    res = evaluate(passive, Passive(), games=6, seed=0)
+    res = evaluate(passive, Passive(), rules="v1.1", games=6, seed=0)
     env_results = []
     for i in range(6):
-        env = QuackEnv(seat="p1" if i % 2 == 0 else "p2", opponent=Passive())
+        env = QuackEnv(seat="p1" if i % 2 == 0 else "p2", opponent=Passive(), rules="v1.1")
         obs, info = env.reset(seed=i)
         done = False
         while not done:
@@ -120,7 +120,7 @@ def test_draw_is_not_win_or_loss(monkeypatch):
         }
 
     monkeypatch.setattr(QuackEnv, "_episode_summary", fake_summary)
-    res = evaluate(random_policy(0), "random", games=4)
+    res = evaluate(random_policy(0), "random", rules="v1.1", games=4)
     assert (res.wins, res.draws, res.losses) == (0, 4, 0)
     assert res.draw_rate == 1.0
     assert res.points_own == 3 and res.points_opponent == 3 and res.explosions_own == 1
