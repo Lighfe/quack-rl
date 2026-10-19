@@ -39,7 +39,8 @@ def get_spellbook(name: int | str) -> Mapping[str, str]:
         ) from None
 
 
-# Spellbook 1 (ruleset v1.9). Blue draws a hand and the player picks (blue@2).
+# Spellbook 1 (rulesets v1.9, v1.10). Blue draws a hand and the player picks (blue@2). Black,
+# yellow and purple are used only from v1.10; v1.9 has no chip of these colours.
 register_spellbook(
     1,
     {
@@ -48,5 +49,9 @@ register_spellbook(
         "green": "green@1",
         "blue": "blue@2",
         "red": "red@1",
+        "black": "black@1",
+        "yellow": "yellow@1",
+        "purple": "purple@1",
     },
 )
+

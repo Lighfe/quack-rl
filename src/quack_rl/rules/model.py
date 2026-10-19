@@ -25,6 +25,8 @@ class ShopItem(_Frozen):
     chip: str | None = None
     halves: int = 0
     points: int = 0
+    # v1.10: the item can be bought from this round on (rounds are numbered from 1).
+    min_round: int = Field(default=1, ge=1, strict=True)
 
 
 class DieFace(_Frozen):

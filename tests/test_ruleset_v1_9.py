@@ -55,9 +55,11 @@ def test_shop_prices_and_no_remove_item():
     assert all(i.kind != "remove_chip" for i in RS.shop)
 
 
-def test_spellbook_1_has_all_five_colours():
+def test_spellbook_1_has_the_five_colours_of_v1_9_and_the_three_of_v1_10():
+    # Spellbook 1 also knows black, yellow and purple since v1.10; v1.9 has no chip of them.
     book = get_spellbook(1)
-    assert set(book) == {"white", "orange", "green", "blue", "red"}
+    assert set(book) == {"white", "orange", "green", "blue", "red", "black", "yellow", "purple"}
+    assert {c.colour for c in RS.chips} == {"white", "orange", "green", "blue", "red"}
     for chip in RS.chips:
         get_component(RS.component_name(chip))  # every component is registered
 

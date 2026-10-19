@@ -19,7 +19,7 @@ def test_every_ruleset_component_is_registered():
 def test_unknown_component():
     assert issubclass(UnknownComponent, KeyError)
     with pytest.raises(UnknownComponent):
-        get_component("purple@1")
+        get_component("pink@1")
 
 
 def test_duplicate_registration_raises():

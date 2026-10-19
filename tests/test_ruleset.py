@@ -29,7 +29,7 @@ def doc_money(field: int) -> int:
 
 
 def test_supported_versions_is_v1_only():
-    assert SUPPORTED_RULES_VERSIONS == ("v1", "v1.1", "v1.8", "v1.9")
+    assert SUPPORTED_RULES_VERSIONS == ("v1", "v1.1", "v1.8", "v1.9", "v1.10")
 
 
 def test_load_v1_returns_ruleset():

@@ -12,9 +12,10 @@ Find your case first. A colour can be more than one.
 
 The colour only needs a component that already exists, or a new component class that uses the hooks that exist. The ruleset names a spellbook, the spellbook maps each colour to a component, and the engine asks the component.
 
+- A round-end effect that needs the whole pot or the other player's pot is a new hook, not `round_end_droplet_halves` (which sees one chip and its position). `pot_round_end(pot, other_pot)` returns points and droplet half steps; `puts_back_previous(chip, previous)` is the placement hook of yellow. Both default to "nothing", so older components stay unchanged.
 - Touches: Rules (the ruleset file with the chips, the shop and the start bag; the spellbook with one entry per colour; the exports when a name is public), Components (one class per effect, registered under a name with a version suffix), and the rules document.
 - Engine, record, bots, CLI and RL need no code when the component only uses existing hooks. They still need tests on the new colour.
-- White and orange are fixed in every spellbook. A new colour needs an entry in every spellbook that a ruleset can name, or a new spellbook. The older spellbooks stay as they are.
+- White and orange are fixed in every spellbook. A new colour needs an entry in every spellbook that a ruleset can name, or a new spellbook. An existing spellbook may get an entry for a colour that no older ruleset uses (spellbook 1 got black, yellow and purple for v1.10; the check against the chips of v1.9 still passes because v1.9 has no chip of them). Never change an existing entry. A test that lists the colours of a spellbook (`test_spellbook_1_has_all_five_colours` in `tests/test_ruleset_v1_9.py`) is then updated on purpose.
 
 ### Case B: the chip needs more of the pot or the board (the place hook)
 

@@ -24,7 +24,7 @@ Decide the whole change on paper before any code.
 A new ruleset file next to the old ones, and a new field in the model.
 
 - Think about: the default. The default of a new field must keep every older version playing exactly as before (no behaviour, `None`, an empty table). Then the older files need no edit. Think about what ties the field to others: lengths of tables, unknown ids, the rule that chips either name a component or get one from a spellbook.
-- Goes wrong: a default that changes old behaviour; a TOML integer against a `str` field (or the other way round), which fails validation; the new version missing from the list of supported versions, so it cannot be loaded; a new public name that is not exported; the rules document drifting from the file; an edit to an old ruleset file "just to add the field".
+- Goes wrong: a default that changes old behaviour; a TOML integer against a `str` field (or the other way round), which fails validation; the new version missing from the list of supported versions, so it cannot be loaded; a new public name that is not exported; a shop-item field that a pydantic model coerces (`"2"` passes for an int unless the field is `strict=True`); the rules document drifting from the file; an edit to an old ruleset file "just to add the field".
 - Check: a test file for the new version that loads the file and checks the new field, the validation errors, and that an older version still loads with the default. Run the ruleset tests and the other tests that loop over versions: the list of supported versions is checked there.
 - Does not apply: the model step, when the change only changes values and adds no field. The new file is still needed.
 
