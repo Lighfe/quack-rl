@@ -11,7 +11,7 @@ from typing import Any
 
 from quack_rl.bots import parse_bot_name
 from quack_rl.bots.heuristic import BASELINE_NAME
-from quack_rl.components import get_component
+from quack_rl.components import Component, get_component, pot_effects
 from quack_rl.rules import Ruleset, load_ruleset
 from quack_rl.tournament import BASE_COLUMNS, SEAT_CHECK_PREFIX, Sweep, TournamentConfig, _rules_for
 
@@ -102,68 +102,102 @@ _Bag = tuple[tuple[str, int], ...]
 
 def _brew_outcomes(
     rs: Ruleset, bag: _Bag, draw_limit: int, fractions: set[Fraction] | None = None
-) -> dict[tuple[int, bool, int], float]:
-    """Chance of each end of a brew for a bot with `draw_limit`: (advance, exploded, green halves).
+) -> dict[tuple[int, bool, int, int], float]:
+    """Chance of each end of a brew for a bot with `draw_limit`.
 
-    The bot rule of `HeuristicBot`: the first chip is always drawn; then it stops when the chance
-    to explode is more than the draw limit. A brew also ends on an explosion or an empty bag.
-    The advance is the sum of the chip advances (blue bonus included), so the final field is
-    `min(start field + advance, track_end)`. Green halves are the droplet halves of the green
-    chips among the last two placed chips.
+    The key is (advance, exploded, droplet halves, points). The bot rule of `HeuristicBot`: the
+    first chip is always drawn; then it stops when the chance to explode is more than the draw
+    limit. A brew also ends on an explosion or an empty bag. The advance is the sum of the chip
+    advances (blue bonus included), so the final field is `min(start field + advance, track_end)`.
+    The halves are the round-end droplet halves of the last two placed chips (green) plus the
+    halves of the pot effects (black, purple); the points are the pot effects' points.
+
+    The hooks get the inputs the engine gives them: `puts_back_previous(chip, previous)` at each
+    placement (a put-back chip returns to the bag and its explosion weight leaves the total, as
+    in `engine/brew.py`) and `pot_effects` at the end (same function as `apply_resolve`). The
+    odds are for one player, so the other pot is empty (a black chip then counts as the larger
+    pot). When no chip of the bag has such a hook, only the last two chips are tracked.
     """
     # With `fractions`, the explosion chances (in percent) met at the stop decisions are added.
-    memo: dict[tuple, dict[tuple[int, bool, int], float]] = {}
+    memo: dict[tuple, dict[tuple[int, bool, int, int], float]] = {}
     chips = {chip.id: chip for chip in rs.chips}
     parts = {i: get_component(rs.component_name(c)) for i, c in chips.items()}
     weight = {i: parts[i].explosion_weight(c) for i, c in chips.items()}
+    tracked = any(
+        type(parts[i]).puts_back_previous is not Component.puts_back_previous
+        or type(parts[i]).pot_round_end is not Component.pot_round_end
+        for i, _ in bag
+    )
 
-    def end_bonus(last: str | None, prev: str | None) -> int:
-        halves = 0
-        for position, chip_id in enumerate((last, prev)):
-            if chip_id is not None:
-                halves += parts[chip_id].round_end_droplet_halves(chips[chip_id], position)
-        return halves
+    def end_bonus(pot: tuple[str, ...]) -> tuple[int, int]:
+        halves = points = 0
+        for position, chip_id in enumerate(reversed(pot[-2:])):
+            halves += parts[chip_id].round_end_droplet_halves(chips[chip_id], position)
+        if tracked:
+            for _, effect in pot_effects(rs, pot, ()):
+                halves += effect.droplet_halves
+                points += effect.points
+        return halves, points
+
+    def place(chip_id: str, white: int, pot: tuple[str, ...]) -> tuple[int, tuple[str, ...], bool]:
+        """(white total, pot, put back?) after placing the chip, as the engine does."""
+        previous = chips[pot[-1]] if pot else None
+        new_white = white + weight[chip_id]
+        put_back = parts[chip_id].puts_back_previous(chips[chip_id], previous)
+        if put_back:
+            new_white -= weight[pot[-1]]
+            new_pot = (*pot[:-1], chip_id)
+        else:
+            new_pot = (*pot, chip_id)
+        return new_white, new_pot if tracked else new_pot[-2:], put_back
 
     def go(
-        remaining: _Bag, white: int, last: str | None, prev: str | None
-    ) -> dict[tuple[int, bool, int], float]:
+        remaining: _Bag, white: int, pot: tuple[str, ...]
+    ) -> dict[tuple[int, bool, int, int], float]:
         """Outcomes from this state on; the advance counts from now."""
-        key = (remaining, white, last, prev)
+        key = (remaining, white, pot)
         if key in memo:
             return memo[key]
         size = sum(n for _, n in remaining)
-        out: dict[tuple[int, bool, int], float] = {}
-        if last is not None:
-            bad = sum(n for i, n in remaining if white + weight[i] > rs.explosion_limit)
+        out: dict[tuple[int, bool, int, int], float] = {}
+        if pot:
+            bad = sum(n for i, n in remaining if place(i, white, pot)[0] > rs.explosion_limit)
             if fractions is not None:
                 fractions.add(Fraction(100 * bad, size))
             if bad * 100 > draw_limit * size:
-                out[(0, False, end_bonus(last, prev))] = 1.0
+                out[(0, False, *end_bonus(pot))] = 1.0
                 memo[key] = out
                 return out
-        previous = chips[last] if last is not None else None
-        for i, (chip_id, count) in enumerate(remaining):
+        previous = chips[pot[-1]] if pot else None
+        for chip_id, count in remaining:
             chip = chips[chip_id]
-            gain = chip.value + parts[chip_id].place_bonus(chip, previous)
-            new_white = white + weight[chip_id]
+            if tracked:
+                gain = chip.value + parts[chip_id].place_bonus(
+                    chip, previous, [chips[c] for c in pot]
+                )
+            else:
+                gain = chip.value + parts[chip_id].place_bonus(chip, previous)
+            new_white, new_pot, put_back = place(chip_id, white, pot)
             chance = count / size
             if new_white > rs.explosion_limit:
-                results = {(0, True, end_bonus(chip_id, last)): 1.0}
+                results = {(0, True, *end_bonus(new_pot)): 1.0}
             else:
-                left = list(remaining)
-                left[i] = (chip_id, count - 1)
-                new_remaining = tuple(x for x in left if x[1] > 0)
+                left = dict(remaining)
+                left[chip_id] -= 1
+                if put_back:
+                    left[pot[-1]] = left.get(pot[-1], 0) + 1
+                new_remaining = tuple(sorted((i, n) for i, n in left.items() if n > 0))
                 if new_remaining:
-                    results = go(new_remaining, new_white, chip_id, last)
+                    results = go(new_remaining, new_white, new_pot)
                 else:
-                    results = {(0, False, end_bonus(chip_id, last)): 1.0}
-            for (advance, exploded, green), p in results.items():
-                outcome = (advance + gain, exploded, green)
+                    results = {(0, False, *end_bonus(new_pot)): 1.0}
+            for (advance, exploded, halves, points), p in results.items():
+                outcome = (advance + gain, exploded, halves, points)
                 out[outcome] = out.get(outcome, 0.0) + chance * p
         memo[key] = out
         return out
 
-    return go(bag, 0, None, None)
+    return go(bag, 0, ())
 
 
 def _points_for_money(rs: Ruleset, money: int) -> float:
@@ -226,7 +260,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
     """Average final points of the `points` bot (points round 1) with one draw limit."""
     start = tuple(sorted(rs.start_bag.items()))
     die_total = sum(f.weight for f in rs.die)
-    brews: dict[_Bag, dict[tuple[int, bool, int], float]] = {}
+    brews: dict[_Bag, dict[tuple[int, bool, int, int], float]] = {}
     purchases = lru_cache(maxsize=None)(lambda money: _points_for_money(rs, money))
     states: dict[tuple[int, _Bag], float] = {(0, start): 1.0}  # (droplet halves, bag) -> chance
     expected = 0.0
@@ -236,7 +270,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
             if bag not in brews:
                 brews[bag] = _brew_outcomes(rs, bag, draw_limit)
             begin = min(halves // 2, rs.track_end)
-            for (advance, exploded, green), p_brew in brews[bag].items():
+            for (advance, exploded, green, pot_points), p_brew in brews[bag].items():
                 p = p_state * p_brew
                 scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
                 base_halves = halves + green + (1 if scoring in rs.rubies else 0)
@@ -259,7 +293,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                     total_money = money + extra_money
                     if round_no == rs.rounds:
                         total_money = total_money * rs.last_round_money_percent // 100
-                    expected += chance * (purchases(total_money) + die_points)
+                    expected += chance * (purchases(total_money) + die_points + pot_points)
                     key = (new_halves, new_bag)
                     nxt[key] = nxt.get(key, 0.0) + chance
         states = nxt

@@ -22,7 +22,7 @@ The colour only needs a component that already exists, or a new component class 
 The effect depends on what the player placed this round, or on another part of the state. Example: a red chip that moves extra by the number of orange chips already in the pot.
 
 - Touches: Components (the hook gets the new input as an optional argument with a default that keeps old components working), Engine (the call site passes the input), and every other caller of the hooks outside the engine: the balance report, the heuristic bot's look-ahead and the RL bounds. They are listed in the Components part of the map.
-- Pass the same input everywhere the hook is called. A caller that is missed computes odds, look-aheads or bounds from a different rule than the engine plays.
+- Pass the same input everywhere the hook is called. Call the hook through one shared function where possible (`pot_effects` for the pot-wide round-end hook). A caller that is missed computes odds, look-aheads or bounds from a different rule than the engine plays.
 - Decide what counts: chips placed before this one only, not the bag, not chips placed later. Say it in the spec and test each of these.
 
 ### Case C: the colour adds a step to a phase (the blue hand and pick step)

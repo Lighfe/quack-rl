@@ -24,25 +24,46 @@ BASELINE_NAME = "draw20-pts1-points"
 _NAME = re.compile(r"draw(\d+)-pts(\d+)-(.+)")
 
 
-def _explosive_chips(bag: dict[str, int], white_total: int, rs: Ruleset) -> tuple[int, int]:
-    """(chips that would push the white total over the limit, bag size)."""
+def _total_after(chip_id: str, white_total: int, last: str | None, rs: Ruleset) -> int:
+    """The white total after the chip is placed behind `last` (None: first chip of the pot).
+
+    As the engine does it: the chip's weight is added, and when the chip puts the chip before it
+    back into the bag (yellow after white), that chip's weight leaves the total."""
+    chip = rs.chip(chip_id)
+    component = get_component(rs.component_name(chip))
+    total = white_total + component.explosion_weight(chip)
+    if last is not None:
+        previous = rs.chip(last)
+        if component.puts_back_previous(chip, previous):
+            total -= get_component(rs.component_name(previous)).explosion_weight(previous)
+    return total
+
+
+def _explosive_chips(
+    bag: dict[str, int], white_total: int, rs: Ruleset, last: str | None = None
+) -> tuple[int, int]:
+    """(chips that would push the white total over the limit, bag size).
+
+    `last` is the chip placed last in the pot; with it the yellow put-back is counted."""
     bad = 0
     size = 0
     for chip_id, count in bag.items():
         size += count
-        chip = rs.chip(chip_id)
-        if (
-            white_total + get_component(rs.component_name(chip)).explosion_weight(chip)
-            > rs.explosion_limit
-        ):
+        if _total_after(chip_id, white_total, last, rs) > rs.explosion_limit:
             bad += count
     return bad, size
 
 
-def explosion_chance(bag: dict[str, int], white_total: int, rs: Ruleset) -> float:
+def explosion_chance(
+    bag: dict[str, int], white_total: int, rs: Ruleset, last: str | None = None
+) -> float:
     """Chance that the next draw explodes. The bag is public. An empty bag gives 0."""
-    bad, size = _explosive_chips(bag, white_total, rs)
+    bad, size = _explosive_chips(bag, white_total, rs, last)
     return bad / size if size else 0.0
+
+
+def _last(p: Any) -> str | None:
+    return p.placed[-1] if p.placed else None
 
 
 def bot_name(draw_limit: int, points_round: int, strategy: str) -> str:
@@ -113,7 +134,7 @@ class HeuristicBot:
 
     def _brew(self, state: GameState, seat: str) -> str:
         p = state.players[seat]
-        bad, size = _explosive_chips(p.bag, p.white_total, self._rs)
+        bad, size = _explosive_chips(p.bag, p.white_total, self._rs, _last(p))
         # chance > limit, in exact integer arithmetic: bad / size > percent / 100
         return STOP if bad * 100 > self.draw_limit * size else DRAW
 
@@ -133,9 +154,7 @@ class HeuristicBot:
         best_slot, best_advance = None, 0
         all_explode = True
         for slot, chip_id in enumerate(p.hand):
-            chip = self._rs.chip(chip_id)
-            weight = get_component(self._rs.component_name(chip)).explosion_weight(chip)
-            if p.white_total + weight > self._rs.explosion_limit:
+            if _total_after(chip_id, p.white_total, _last(p), self._rs) > self._rs.explosion_limit:
                 continue
             all_explode = False
             advance = self._advance(chip_id, p)
@@ -148,7 +167,7 @@ class HeuristicBot:
         bag = dict(p.bag)
         for chip_id in p.hand:
             bag[chip_id] = bag.get(chip_id, 0) + 1
-        bad, size = _explosive_chips(bag, p.white_total, self._rs)
+        bad, size = _explosive_chips(bag, p.white_total, self._rs, _last(p))
         return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:

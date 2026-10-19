@@ -1,6 +1,6 @@
 from typing import Any
 
-from quack_rl.components import get_component
+from quack_rl.components import get_component, pot_effects
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, scoring_field
 from quack_rl.rules import DieFace, Ruleset
@@ -25,14 +25,7 @@ def _apply_pot_effects(
     """Round-end effects that see the whole pot (black, purple), in component order."""
     p = state.players[seat]
     other = state.players[SEATS[1] if seat == SEATS[0] else SEATS[0]]
-    pot = [rs.chip(c) for c in p.placed]
-    other_pot = [rs.chip(c) for c in other.placed]
-    names = {rs.component_name(c) for c in pot}
-    components = sorted(
-        (get_component(n) for n in names), key=lambda c: (c.round_end_order, c.name)
-    )
-    for component in components:
-        effect = component.pot_round_end(pot, other_pot)
+    for component, effect in pot_effects(rs, p.placed, other.placed):
         if effect.points or effect.droplet_halves:
             p.points += effect.points
             p.droplet_halves += effect.droplet_halves
