@@ -274,6 +274,141 @@ def test_state_round_trip_after_a_put_back():
     assert again.players["p1"].placed == ["yellow_1"] and again.players["p1"].bag == {"white_2": 1}
 
 
+# --- scripted draws through whole rounds ------------------------------------------------------
+
+
+def play_brew(bags, draws1, draws2=("white_1",)):
+    """Play one brew phase through `step`: seat draws its scripted chips, then stops.
+
+    The bags are set by hand; every chip that is drawn comes from the script. Returns the state
+    after the brew phase and all events. Resolve is not run.
+    """
+    s = new_game(RS)
+    s.players["p1"].bag = dict(bags[0])
+    s.players["p2"].bag = dict(bags[1])
+    queues = {"p1": list(draws1), "p2": list(draws2)}
+    events: list = []
+    while s.phase is Phase.BREW:
+        actions, chance = {}, []
+        assert s.step < 40
+        for seat in SEATS:
+            p = s.players[seat]
+            if p.status is not Status.BREWING:
+                actions[seat] = legal_actions(s, RS, seat)[0]
+            elif queues[seat]:
+                actions[seat] = "draw"
+                chance.append(queues[seat].pop(0))
+            else:
+                actions[seat] = "stop"
+        r = step(s, RS, actions, ScriptedChance(chance))
+        s, events = r.state, events + list(r.events)
+    assert not queues["p1"] and not queues["p2"]
+    return s, events
+
+
+def test_yellow_saves_a_pot_that_the_same_draw_would_explode_without_it():
+    # white_3 + white_3 + white_1 = 7, still fine. A white_1 next would make 8 and explode.
+    bags = [{"white_3": 2, "white_1": 2, "yellow_1": 1, "orange_1": 1}, {"white_1": 1}]
+    base = ["white_3", "white_3", "white_1"]
+    s, ev = play_brew(bags, base + ["yellow_1", "white_1"])
+    p = s.players["p1"]
+    assert p.status is Status.STOPPED and p.white_total == 7
+    assert p.placed == ["white_3", "white_3", "yellow_1", "white_1"]
+    assert p.bag == {"white_1": 1, "orange_1": 1}
+    assert [e["kind"] for e in ev if e["seat"] == "p1" and e["kind"] == "pot_put_back"] == [
+        "pot_put_back"
+    ]
+    # control: the same draws with a non-yellow chip in the middle explode the pot
+    s, _ = play_brew(bags, base + ["orange_1", "white_1"])
+    assert s.players["p1"].status is Status.EXPLODED
+
+
+def test_put_back_is_recorded_before_the_next_draw_and_the_chip_can_be_drawn_again():
+    bags = [{"white_2": 1, "yellow_2": 1}, {"white_1": 1}]
+    s, ev = play_brew(bags, ["white_2", "yellow_2", "white_2"])
+    p = s.players["p1"]
+    kinds = [(e["kind"], e.get("chip")) for e in ev if e["seat"] == "p1" and e["kind"] != "stop"]
+    assert kinds[:4] == [
+        ("place", "white_2"),
+        ("place", "yellow_2"),
+        ("pot_put_back", "white_2"),
+        ("place", "white_2"),
+    ]
+    assert p.placed == ["yellow_2", "white_2"] and p.white_total == 2 and p.bag == {}
+
+
+def test_yellow_after_a_non_white_chip_through_draws():
+    bags = [{"orange_1": 1, "yellow_1": 1}, {"white_1": 1}]
+    s, ev = play_brew(bags, ["orange_1", "yellow_1"])
+    assert s.players["p1"].placed == ["orange_1", "yellow_1"]
+    assert not [e for e in ev if e["kind"] == "pot_put_back"]
+
+
+def test_state_round_trip_after_a_put_back_in_a_played_brew():
+    s, _ = play_brew([{"white_2": 1, "yellow_1": 1}, {"white_1": 1}], ["white_2", "yellow_1"])
+    assert state_from_dict(state_to_dict(s)) == s
+
+
+def finish_round(s, die):
+    """Resolve (scripted die results) and return the state after it and the events."""
+    r = step(s, RS, None, ScriptedChance(die))
+    return r.state, list(r.events)
+
+
+def test_round_end_with_two_green_black_and_purple_through_draws():
+    # p1 pot: black, purple, green_1, green_2 (last and second last green). p2 pot: black.
+    bags = [
+        {"black_1": 1, "purple_1": 1, "green_1": 1, "green_2": 1},
+        {"black_1": 1},
+    ]
+    s, _ = play_brew(bags, ["black_1", "purple_1", "green_1", "green_2"], ["black_1"])
+    s, ev = finish_round(s, ["money_1"])
+    mine = [(e["kind"], e.get("chip") or e.get("component")) for e in ev if e["seat"] == "p1"]
+    ordered = [m for m in mine if m[0] in ("round_end_bonus", "pot_round_end")]
+    assert ordered == [
+        ("round_end_bonus", "green_2"),
+        ("round_end_bonus", "green_1"),
+        ("pot_round_end", "black@1"),
+        ("pot_round_end", "purple@1"),
+    ]
+    p1, p2 = s.players["p1"], s.players["p2"]
+    assert p1.points == 1 and p1.droplet_halves == 4 and p2.droplet_halves == 2
+
+
+def test_black_equal_zero_and_exploded_pot_through_draws():
+    # nobody has black: nothing happens, no event
+    s, _ = play_brew([{"white_1": 1}, {"white_1": 1}], ["white_1"], ["white_1"])
+    s, ev = finish_round(s, ["money_1", "money_1"])
+    assert not [e for e in ev if e["kind"] == "pot_round_end"]
+    # p1 explodes with a black in the pot; p2 has black too: equal 1:1 gives both +1
+    bags = [{"black_1": 1, "white_3": 3}, {"black_1": 1}]
+    s, _ = play_brew(bags, ["black_1", "white_3", "white_3", "white_3"], ["black_1"])
+    assert s.players["p1"].status is Status.EXPLODED
+    s, ev = finish_round(s, ["money_1"])
+    assert (s.players["p1"].droplet_halves, s.players["p2"].droplet_halves) == (2, 2)
+    assert len([e for e in ev if e["kind"] == "pot_round_end"]) == 2
+
+
+def test_purple_chips_return_to_the_bag_in_the_next_round():
+    bags = [{"purple_1": 3}, {"white_1": 1}]
+    s, _ = play_brew(bags, ["purple_1"] * 3, ["white_1"])
+    s, _ = finish_round(s, ["money_1"])
+    p1 = s.players["p1"]
+    assert p1.points == 2 and p1.droplet_halves == 2
+    for _ in range(4):  # leave the choice and shop phases with the first legal actions
+        if s.phase in (Phase.GAME_OVER, Phase.BREW):
+            break
+        if s.phase is Phase.CHOICE:
+            acts = {
+                seat: legal_actions(s, RS, seat)[0] for seat in SEATS if legal_actions(s, RS, seat)
+            }
+        else:
+            acts = {seat: DONE for seat in SEATS}
+        s = step(s, RS, acts or None, ScriptedChance(["money_1"])).state
+    assert s.phase is Phase.BREW and s.round == 2
+    assert s.players["p1"].bag.get("purple_1") == 3 and s.players["p1"].placed == []
+
+
 # --- record, replay, verify ------------------------------------------------------------------
 
 
