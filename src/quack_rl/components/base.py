@@ -17,6 +17,8 @@ class Component:
     """Behavior of one chip type. Subclasses override only the hooks they use."""
 
     name: ClassVar[str]
+    # Position of the component's pot_round_end effect at round end (lower first, after green).
+    round_end_order: ClassVar[int] = 0
 
     def place_bonus(
         self, chip: ChipSpec, previous: ChipSpec | None, pot: Sequence[ChipSpec] = ()

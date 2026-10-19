@@ -34,8 +34,8 @@ def action_names(rs: Ruleset) -> list[str]:
     return [WAIT, DRAW, STOP, DONE, *choice, *(buy(item.id) for item in rs.shop), *pick]
 
 
-def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState) -> bool:
-    if item.price > p.money:
+def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState, round_: int) -> bool:
+    if item.price > p.money or item.min_round > round_:
         return False
     if item.kind == "remove_chip":
         return item.chip is not None and p.owned(item.chip) > 0
@@ -60,6 +60,6 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
     if state.phase is Phase.SHOP:
         if p.shop_done:
             return [WAIT]
-        buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p)]
+        buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p, state.round)]
         return [DONE, *buys]
     return []

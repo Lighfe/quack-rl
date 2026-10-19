@@ -68,6 +68,7 @@ class Black(Component):
     """Black: at round end, drop +1 each on equal counts (1 or more), +1.5 for the larger."""
 
     name = "black@1"
+    round_end_order = 1
 
     def pot_round_end(self, pot: Sequence[ChipSpec], other_pot: Sequence[ChipSpec]) -> PotRoundEnd:
         mine, theirs = _count(pot, "black"), _count(other_pot, "black")
@@ -93,6 +94,7 @@ class Purple(Component):
     """Purple: at round end, 1 chip: 1 point; 2: 1 point, drop +0.5; 3 or more: 2 points, drop +1."""
 
     name = "purple@1"
+    round_end_order = 2
 
     def pot_round_end(self, pot: Sequence[ChipSpec], other_pot: Sequence[ChipSpec]) -> PotRoundEnd:
         count = _count(pot, "purple")

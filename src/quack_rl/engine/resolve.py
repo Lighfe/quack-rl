@@ -19,6 +19,34 @@ def _apply_face(p: PlayerState, face: DieFace) -> int:
     return 0
 
 
+def _apply_pot_effects(
+    state: GameState, rs: Ruleset, seat: str, events: list[dict[str, Any]]
+) -> None:
+    """Round-end effects that see the whole pot (black, purple), in component order."""
+    p = state.players[seat]
+    other = state.players[SEATS[1] if seat == SEATS[0] else SEATS[0]]
+    pot = [rs.chip(c) for c in p.placed]
+    other_pot = [rs.chip(c) for c in other.placed]
+    names = {rs.component_name(c) for c in pot}
+    components = sorted(
+        (get_component(n) for n in names), key=lambda c: (c.round_end_order, c.name)
+    )
+    for component in components:
+        effect = component.pot_round_end(pot, other_pot)
+        if effect.points or effect.droplet_halves:
+            p.points += effect.points
+            p.droplet_halves += effect.droplet_halves
+            events.append(
+                {
+                    "seat": seat,
+                    "kind": "pot_round_end",
+                    "component": component.name,
+                    "points": effect.points,
+                    "halves": effect.droplet_halves,
+                }
+            )
+
+
 def apply_resolve(
     state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
@@ -37,12 +65,15 @@ def apply_resolve(
             events.append({"seat": seat, "kind": "ruby", "halves": 1})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
-            halves = get_component(rs.component_name(chip)).round_end_droplet_halves(chip, position_from_end)
+            halves = get_component(rs.component_name(chip)).round_end_droplet_halves(
+                chip, position_from_end
+            )
             if halves:
                 p.droplet_halves += halves
                 events.append(
                     {"seat": seat, "kind": "round_end_bonus", "chip": chip_id, "halves": halves}
                 )
+        _apply_pot_effects(state, rs, seat, events)
     eligible = [s for s in SEATS if state.players[s].status is not Status.EXPLODED]
     if eligible:
         best = max(scoring_field(state.players[s].final_field or 0, rs) for s in eligible)

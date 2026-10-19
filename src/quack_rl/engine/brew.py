@@ -17,6 +17,22 @@ def _put_back(p: PlayerState, seat: str, events: list[dict[str, Any]]) -> None:
     p.hand = []
 
 
+def _put_back_previous(
+    p: PlayerState, seat: str, rs: Ruleset, events: list[dict[str, Any]]
+) -> None:
+    """The chip placed before the one just placed leaves the pot and goes back into the bag.
+
+    The field (droplet) is not taken back; the explosion total goes down by the chip's weight."""
+    chip_id = p.placed.pop(-2)
+    p.placed_fields.pop(-2)
+    chip = rs.chip(chip_id)
+    p.white_total -= get_component(rs.component_name(chip)).explosion_weight(chip)
+    p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+    events.append(
+        {"seat": seat, "kind": "pot_put_back", "chip": chip_id, "white_total": p.white_total}
+    )
+
+
 def _draw_hand(
     p: PlayerState, seat: str, size: int, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
@@ -62,6 +78,8 @@ def _place(
             "bonus": bonus,
         }
     )
+    if component.puts_back_previous(chip, previous):
+        _put_back_previous(p, seat, rs, events)
     _put_back(p, seat, events)
     if p.white_total > rs.explosion_limit:
         p.status = Status.EXPLODED

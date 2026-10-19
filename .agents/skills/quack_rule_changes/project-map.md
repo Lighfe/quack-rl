@@ -26,7 +26,7 @@ Usually changes: the TOML file, `model.py` for a new field, `SUPPORTED_RULES_VER
 
 Where: `qr/components/`.
 
-- `base.py` defines `Component` with the hooks. Each has a default that does nothing: `place_bonus(chip, previous, pot)` extra fields when a chip is placed (`pot` holds the chips already placed this round), `explosion_weight(chip)` amount added to the white total, `hand_size(chip)` chips drawn into a hand when the chip is placed, `round_end_droplet_halves(chip, position_from_end)` droplet half steps at round end, and `features(chip)` descriptive numbers for encodings.
+- `base.py` defines `Component` with the hooks. Each has a default that does nothing: `place_bonus(chip, previous, pot)` extra fields when a chip is placed (`pot` holds the chips already placed this round), `explosion_weight(chip)` amount added to the white total, `hand_size(chip)` chips drawn into a hand when the chip is placed, `round_end_droplet_halves(chip, position_from_end)` droplet half steps at round end, `pot_round_end(pot, other_pot)` points and droplet half steps from the whole pot (called after green, in the order of `round_end_order`: a lower number first, so a new round-end effect sets it), `puts_back_previous(chip, previous)` whether the placed chip sends the previous chip back into the bag, and `features(chip)` descriptive numbers for encodings.
 - `chips.py` holds one class per component, registered under a name such as `blue@2` with the `@register` decorator. `registry.py` keeps the registry and `get_component`.
 - A change of what a colour does is a new component class plus a spellbook (or a chip `component`) that names it; the existing class stays for the versions that use it. A new hook means a new method in `Component` and a call site in the engine; every place that already calls the hooks must then pass the new argument or accept its default. Callers outside the engine are `qr/report.py` (odds), `qr/bots/heuristic.py` (look-ahead) and `qr/rl/encode.py` (bounds), so check them too.
 
@@ -37,7 +37,7 @@ Where: `qr/engine/`. The engine is a pure function: `step(state, rules, joint ac
 - `state.py`: `Phase`, `Status`, `PlayerState`, `GameState`, and `state_to_dict` / `state_from_dict`. A new per-player field goes into `PlayerState` with a default, and it must survive the dict round trip.
 - `actions.py`: the action names, `action_names(rules)` (the full action list; its order is the order of the RL action mask), and `legal_actions` per phase.
 - `game.py`: `step` and the routing from phase to handler; a joint action has exactly one action per seat, and phases without decisions take none.
-- Handlers per phase: `brew.py` (draw, place, stop, explosion, the hand and pick step), `resolve.py` (round end: money, rubies, die, droplets, points), `choice.py` (the explosion choice), `shop.py` (buying).
+- Handlers per phase: `brew.py` (draw, place, stop, explosion, the hand and pick step), `resolve.py` (round end: money, rubies, die, droplets, points), `choice.py` (the explosion choice), `shop.py` (buying). Which shop items are legal is decided in `actions.py` (`_can_buy`: price, `min_round`, chip limits); the shop handler trusts it.
 - `chance.py`: every random event goes through the chance source and is logged, so a game can be replayed. New randomness must use it.
 - `__init__.py`: the exports (action names, constants, helpers). A new public name goes here.
 
