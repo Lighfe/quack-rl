@@ -32,7 +32,7 @@ Besides images, you can also add metadata to the notebooks by adding to the PEP 
 # requires-python = ">=3.12"
 # dependencies = [
 #     "marimo",
-#     "polars==1.37.1",
+#     "polars==1.37.1",  # example version, use the version of the project
 # ]
 # [tool.marimo.opengraph]
 # title = "My dashboard"

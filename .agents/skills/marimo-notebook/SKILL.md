@@ -11,14 +11,14 @@ marimo uses Python to create notebooks, unlike Jupyter which uses JSON. Here's a
 # /// script
 # dependencies = [
 #     "marimo",
-#     "numpy==2.4.3",
+#     "numpy==2.4.3",  # example version, use the version of the project
 # ]
 # requires-python = ">=3.12"
 # ///
 
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.20.4"  # example version, written by marimo
 app = marimo.App(width="medium")
 
 
@@ -130,14 +130,12 @@ def _(mo):
 
 # Auto-run in script mode, wait for button in interactive
 @app.cell
-def _(is_script_mode, train_button, lr_slider, run_training, X_data, y_data):
-    if is_script_mode:
-        # Auto-run with slider defaults
-        results = run_training(X_data, y_data, lr=lr_slider.value)
-    else:
-        # Wait for button click
-        if train_button.value:
-            results = run_training(X_data, y_data, lr=lr_slider.value)
+def _(is_script_mode, mo, train_button, lr_slider, run_training, X_data, y_data):
+    # Script mode runs at once; interactive mode waits for the button click.
+    # mo.stop halts the cell, so no `if` on a UI value is needed and
+    # `results` is defined on every path that gets past it.
+    mo.stop(not is_script_mode and not train_button.value)
+    results = run_training(X_data, y_data, lr=lr_slider.value)
     return (results,)
 ```
 

@@ -59,7 +59,7 @@ Running `pytest` on
 # content of test_notebook.py
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.6"  # example version, written by marimo
 app = marimo.App()
 
 
@@ -115,7 +115,7 @@ __________________________________ test_fails __________________________________
     # content of test_notebook.py
     import marimo
 
-    __generated_with = "0.10.6"
+    __generated_with = "0.10.6"  # example version, written by marimo
     app = marimo.App()
 
 

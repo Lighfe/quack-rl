@@ -8,7 +8,7 @@ A user may specify that they want to have a notebook with multiple columns. Belo
 
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.23.9"  # example version, written by marimo
 app = marimo.App(width="columns")
 
 

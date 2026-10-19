@@ -9,14 +9,14 @@ The defined function or class can only refer to symbols defined in the setup cel
 # /// script
 # dependencies = [
 #     "marimo",
-#     "numpy==2.4.2",
+#     "numpy==2.4.2",  # example version, use the version of the project
 # ]
 # requires-python = ">=3.12"
 # ///
 
 import marimo
 
-__generated_with = "0.19.11"
+__generated_with = "0.19.11"  # example version, written by marimo
 app = marimo.App(width="medium")
 
 # Define setup cell
