@@ -58,7 +58,7 @@ Work through these five steps in order. Each step needs the one before it.
 ### 4. How bots, the CLI and the RL layouts cope with a new colour
 
 - Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the old layout from before you change the encoder, and refuse the new layout in every entry point that runs a trained policy until it is supported.
-- Goes wrong: a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw; an entry point that is forgotten and runs a policy on a layout it has no trained policy for.
+- Goes wrong: a chip label that clashes with another colour (`chip_text` in `render.py` uses the first letter of the colour, so black would be `B` like blue; `CHIP_LETTER` holds the exceptions, black is `K`); a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw; an entry point that is forgotten and runs a policy on a layout it has no trained policy for.
 - Check: the layout tests for the new colour count (names, length, bounds, mask), the stored sample of the older layouts, the CLI tests with scripted input, and the bot and environment tests with the new version in the list they loop over.
 
 ### 5. What happens to old versions
@@ -84,7 +84,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - Ruleset: the ruleset test of the version (`test_spellbook_1_has_all_five_colours`, `test_shop_prices_and_no_remove_item`), the spellbook tests (`test_white_and_orange_fixed_in_every_spellbook`, `test_spellbook_missing_a_colour_fails`).
 - Effect on the pot (case B): `test_red_extra_by_orange_chips_in_the_pot`, `test_orange_after_red_does_not_count`, `test_place_bonus_pot_is_optional`.
 - Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
-- CLI: `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
+- CLI: `tests/test_cli_v1_10.py` (labels and styles of a new colour, the menu by minimum round, round-end text, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
 - RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4`.
 - Defaults: the tests in `test_rules_defaults` scan for a default that points at the newest version.
 

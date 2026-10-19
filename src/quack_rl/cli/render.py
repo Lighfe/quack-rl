@@ -12,12 +12,20 @@ CHIP_STYLE = {
     "blue": "bold blue",
     "green": "bold green",
     "red": "bold red",
+    "black": "bold black on white",
+    "yellow": "bold yellow",
+    "purple": "bold magenta",
 }
+# First letter of the colour, except black: "B" is blue's.
+CHIP_LETTER = {"black": "K"}
 
 
 def chip_text(chip_id: str, rs: Ruleset) -> Text:
     chip = rs.chip(chip_id)
-    return Text(f"{chip.colour[0].upper()}{chip.value}", style=CHIP_STYLE.get(chip.colour, ""))
+    return Text(
+        f"{CHIP_LETTER.get(chip.colour, chip.colour[0].upper())}{chip.value}",
+        style=CHIP_STYLE.get(chip.colour, ""),
+    )
 
 
 def hand_text(chip_ids: list[str], rs: Ruleset) -> Text:

@@ -61,7 +61,7 @@ Where: `qr/bots/`, `qr/runner.py`, `qr/simgame.py`, `qr/tournament.py`, `qr/repo
 
 Where: `qr/cli/`.
 
-`main.py` has the commands (`play`, `simulate`, `tournament`, `replay`, `verify`) and the `--rules` option; the defaults stay pinned to a version. `render.py` draws the board and the steps: a new value, chip colour or state shown to a player is added here, and a hidden hand must not be drawn for the other seat. `human.py` prompts a human for each phase: a new action needs a key and a prompt line, and `BUY_KEYS` must have at least as many keys as the shop has items. `seats.py` turns a seat spec into a bot or a human.
+`main.py` has the commands (`play`, `simulate`, `tournament`, `replay`, `verify`) and the `--rules` option; the defaults stay pinned to a version. `render.py` draws the board and the steps (a chip is its colour's first letter plus its value, `CHIP_LETTER` overrides it where two colours share a letter; every colour needs an entry in `CHIP_STYLE`; the round-end and put-back events print in the generic `kind=… key=value` form): a new value, chip colour or state shown to a player is added here, and a hidden hand must not be drawn for the other seat. `human.py` prompts a human for each phase: a new action needs a key and a prompt line, and `BUY_KEYS` must have at least as many keys as the shop has items. `seats.py` turns a seat spec into a bot or a human.
 
 ## 7. RL: layout, action mask and environments
 
@@ -88,7 +88,7 @@ A rule change has a spec in `docs/specs/` (name the types of keys and values), t
 
 ## 10. Tests
 
-Where: `tests/`. Tests per version are named after the version (`test_ruleset_v1_9.py`, `test_engine_v1_9.py`, `test_record_v1_9.py`, `test_cli_v1_9.py`, `test_rl_layout4.py`). Several tests loop over all versions and need the new one added: `test_ruleset.py` (supported versions), `test_bots.py`, `test_tournament.py`, `test_rl_parallel_env.py` (`VERSIONS`), `test_rules_defaults.py`. Test the view of the other seat whenever state is added. Tests of recorded versions stay unchanged and must still pass.
+Where: `tests/`. Tests per version are named after the version (`test_ruleset_v1_9.py`, `test_engine_v1_9.py`, `test_record_v1_9.py`, `test_cli_v1_9.py`, `test_cli_v1_10.py`, `test_rl_layout4.py`). Several tests loop over all versions and need the new one added: `test_ruleset.py` (supported versions), `test_bots.py`, `test_tournament.py`, `test_rl_parallel_env.py` (`VERSIONS`), `test_rules_defaults.py`. Test the view of the other seat whenever state is added. Tests of recorded versions stay unchanged and must still pass.
 
 ## What a change often does not touch
 
