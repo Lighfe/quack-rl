@@ -131,7 +131,7 @@ A shop item can be bought only in a round that is at least its minimum round. An
 
 The shop has no "Remove one White 1" item. Orange 6 is only in the shop; the bonus die gives Orange 1.
 
-The shop has no droplet item, no victory points item and no remove item. The droplet moves only by rubies, green chips and the bonus die.
+The shop has no droplet item, no victory points item and no remove item. The droplet moves only by rubies, green chips, black chips, purple chips and the bonus die.
 
 ## 2. Setup
 
@@ -161,7 +161,7 @@ The first action of a round must be Draw: a player places at least one chip each
 
 A player on field 53 may still draw.
 
-Chips placed this round cannot go back into the bag during the round. They go back at the reset (4.5).
+Chips placed this round cannot go back into the bag during the round, with one exception: a yellow chip puts the white chip placed just before it back into the bag (see "Yellow"). All other placed chips go back at the reset (4.5).
 
 Brewing ends when no player brews anymore.
 
