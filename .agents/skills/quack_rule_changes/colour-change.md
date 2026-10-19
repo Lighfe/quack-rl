@@ -56,8 +56,8 @@ Work through these five steps in order. Each step needs the one before it.
 
 ### 4. How bots, the CLI and the RL layouts cope with a new colour
 
-- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout, never from a constant; a new colour count is a new layout, so keep a stored sample of the old layout from before you change the encoder, and refuse the new layout in every entry point that runs a trained policy until it is supported.
-- Goes wrong: a hard-coded colour count (a constant such as `MAP_COLOURS`) that makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw; an entry point that is forgotten and runs a policy on a layout it was not trained for.
+- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the old layout from before you change the encoder, and refuse the new layout in every entry point that runs a trained policy until it is supported.
+- Goes wrong: a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw; an entry point that is forgotten and runs a policy on a layout it has no trained policy for.
 - Check: the layout tests for the new colour count (names, length, bounds, mask), the stored sample of the older layouts, the CLI tests with scripted input, and the bot and environment tests with the new version in the list they loop over.
 
 ### 5. What happens to old versions
@@ -68,9 +68,7 @@ Work through these five steps in order. Each step needs the one before it.
 
 ## Pitfalls
 
-Each is its own item. They come from real colour changes.
-
-- A hard-coded colour count. A constant that lists the colours breaks when a colour is added. Search for every place that counts or lists colours, and derive the list from the ruleset or the layout.
+- A colour count fixed for one layout. The count must come from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`); a count fixed for one layout is wrong for another layout. Search for every place that counts or lists colours.
 - A hidden hand that leaks. A hand is hidden state. It must not appear in the opponent's observation, the render or the record shown to the other seat. Test the view of the other seat explicitly.
 - A TOML value of the wrong type for its field. A chip value, a price or a spellbook name of the wrong type fails when the ruleset loads. Load the file in a test.
 - The board and shop tests that list colours. Tests that name the colours of the spellbook, the number of shop items, the buy keys or the colours drawn on the board fail when a colour is added. Update them on purpose, and check that they still test something.

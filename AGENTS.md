@@ -25,7 +25,7 @@ Fast subset for the inner loop: `uv run --with pytest pytest -m "not slow"`. It 
 
 - Project skills go to `.agents/skills/<name>/SKILL.md`. `.claude/skills` is a directory with one symlink per skill, `.claude/skills/<name>` pointing to `../../.agents/skills/<name>`, added together with each skill.
 - `quack_rule_changes` (`.agents/skills/quack_rule_changes/SKILL.md`): load it when a game rule, a ruleset version, a colour or a shop item changes or is added. Not for RL training or notebook edits alone.
-- Subagent definitions go to `.claude/agents/`. They point to the role files in `docs/team/`.
+- The subagents come from the agent-graph-kit plugin. There is no `.claude/agents/` folder. The role files are in `docs/team/`.
 - When the owner asks for a Codex review, use the `codex-review` skill.
 
 ## Rules

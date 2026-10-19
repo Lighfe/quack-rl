@@ -22,7 +22,7 @@ The skill has three parts, in this order:
 
 ### Known mistakes
 
-- Hard-coded colour count. A constant that lists the colours (such as `MAP_COLOURS`) breaks when a colour is added. Search for every place that counts or lists colours before you add one, and derive the list from the rules instead.
+- Colour count fixed for one layout. The colour count of the RL board map must come from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`). A count fixed for one layout is wrong for another layout. Search for every place that counts or lists colours before you add one.
 - Hidden information leaks. A hand that is hidden must not appear in the opponent's view: not in the observation, not in the render, not in the record shown to the other side. Test the opponent's view explicitly whenever a change adds state.
 - Formatter side effects. `ruff --fix` and `ruff format` touch unrelated files. Run them, look at the diff, and restore the files that are not part of your change.
 - Wrong type in a ruleset file. A TOML integer against a `str` field fails validation (and the other way round). Check the type of every new field against the model and load the file in a test.
