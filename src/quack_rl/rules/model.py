@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from quack_rl.rules.cards import get_card_effect
 from quack_rl.rules.spellbook import get_spellbook
 
 
@@ -37,6 +38,13 @@ class DieFace(_Frozen):
     halves: int = 0
     amount: int = 0
     points: int = 0
+
+
+class CardSpec(_Frozen):
+    id: str
+    # The name of a registered card effect (`quack_rl.rules.cards`).
+    effect: str
+    count: int = Field(ge=1, strict=True)
 
 
 def _check_kind_fields(entry: "ShopItem | DieFace") -> None:
@@ -78,6 +86,8 @@ class Ruleset(_Frozen):
     # v1.9: the name of the spellbook that gives each colour its component. None means each
     # chip names its own `component` (v1, v1.1, v1.8).
     spellbook: int | str | None = None
+    # v1.11: the deck of round-start cards. Empty means the game has no cards.
+    cards: list[CardSpec] = Field(default_factory=list)
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]
@@ -89,6 +99,9 @@ class Ruleset(_Frozen):
         _check_unique_ids("chips", [c.id for c in self.chips])
         _check_unique_ids("shop", [i.id for i in self.shop])
         _check_unique_ids("die", [f.id for f in self.die])
+        _check_unique_ids("cards", [c.id for c in self.cards])
+        for card in self.cards:
+            get_card_effect(card.effect)  # raises for an unregistered effect name
         if len(set(self.rubies)) != len(self.rubies):
             raise ValueError("rubies: duplicate field numbers")
         for entry in [*self.shop, *self.die]:

@@ -5,7 +5,14 @@ from quack_rl.rules.load import (
     load_ruleset,
     with_rounds,
 )
-from quack_rl.rules.model import ChipSpec, DieFace, Ruleset, ShopItem
+from quack_rl.rules.cards import (
+    CardEffect,
+    UnknownCardEffect,
+    get_card_effect,
+    register_card_effect,
+    registered_card_effects,
+)
+from quack_rl.rules.model import CardSpec, ChipSpec, DieFace, Ruleset, ShopItem
 from quack_rl.rules.spellbook import (
     UnknownSpellbook,
     get_spellbook,
@@ -16,16 +23,22 @@ from quack_rl.rules.spellbook import (
 
 __all__ = [
     "SUPPORTED_RULES_VERSIONS",
+    "CardEffect",
+    "CardSpec",
     "ChipSpec",
     "DieFace",
     "Ruleset",
     "ShopItem",
+    "UnknownCardEffect",
     "UnknownSpellbook",
+    "get_card_effect",
     "get_spellbook",
     "UnsupportedRulesVersion",
     "apply_overrides",
     "load_ruleset",
+    "register_card_effect",
     "register_spellbook",
+    "registered_card_effects",
     "registered_spellbooks",
     "unregister_spellbook",
     "with_rounds",
