@@ -16,6 +16,7 @@ from quack_rl.engine import (
     GameState,
     Phase,
     buy,
+    explosion_limit,
     play,
 )
 from quack_rl.rules import Ruleset
@@ -40,25 +41,35 @@ def _total_after(chip_id: str, white_total: int, last: str | None, rs: Ruleset) 
 
 
 def _explosive_chips(
-    bag: dict[str, int], white_total: int, rs: Ruleset, last: str | None = None
+    bag: dict[str, int],
+    white_total: int,
+    rs: Ruleset,
+    last: str | None = None,
+    limit: int | None = None,
 ) -> tuple[int, int]:
     """(chips that would push the white total over the limit, bag size).
 
-    `last` is the chip placed last in the pot; with it the yellow put-back is counted."""
+    `last` is the chip placed last in the pot; with it the yellow put-back is counted.
+    `limit` is the explosion limit of the round (card 4); the ruleset limit when None."""
+    limit = rs.explosion_limit if limit is None else limit
     bad = 0
     size = 0
     for chip_id, count in bag.items():
         size += count
-        if _total_after(chip_id, white_total, last, rs) > rs.explosion_limit:
+        if _total_after(chip_id, white_total, last, rs) > limit:
             bad += count
     return bad, size
 
 
 def explosion_chance(
-    bag: dict[str, int], white_total: int, rs: Ruleset, last: str | None = None
+    bag: dict[str, int],
+    white_total: int,
+    rs: Ruleset,
+    last: str | None = None,
+    limit: int | None = None,
 ) -> float:
     """Chance that the next draw explodes. The bag is public. An empty bag gives 0."""
-    bad, size = _explosive_chips(bag, white_total, rs, last)
+    bad, size = _explosive_chips(bag, white_total, rs, last, limit)
     return bad / size if size else 0.0
 
 
@@ -134,7 +145,9 @@ class HeuristicBot:
 
     def _brew(self, state: GameState, seat: str) -> str:
         p = state.players[seat]
-        bad, size = _explosive_chips(p.bag, p.white_total, self._rs, _last(p))
+        bad, size = _explosive_chips(
+            p.bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
+        )
         # chance > limit, in exact integer arithmetic: bad / size > percent / 100
         return STOP if bad * 100 > self.draw_limit * size else DRAW
 
@@ -153,8 +166,9 @@ class HeuristicBot:
         p = state.players[seat]
         best_slot, best_advance = None, 0
         all_explode = True
+        limit = explosion_limit(state, self._rs)
         for slot, chip_id in enumerate(p.hand):
-            if _total_after(chip_id, p.white_total, _last(p), self._rs) > self._rs.explosion_limit:
+            if _total_after(chip_id, p.white_total, _last(p), self._rs) > limit:
                 continue
             all_explode = False
             advance = self._advance(chip_id, p)
@@ -167,7 +181,9 @@ class HeuristicBot:
         bag = dict(p.bag)
         for chip_id in p.hand:
             bag[chip_id] = bag.get(chip_id, 0) + 1
-        bad, size = _explosive_chips(bag, p.white_total, self._rs, _last(p))
+        bad, size = _explosive_chips(
+            bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
+        )
         return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:

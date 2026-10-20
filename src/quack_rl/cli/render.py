@@ -2,7 +2,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from quack_rl.engine import SEATS, GameState, StepResult, start_field
+from quack_rl.engine import SEATS, GameState, StepResult, explosion_limit, start_field
 from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
 
@@ -52,7 +52,7 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
             p.status.value,
             f"drop {p.droplet_halves / 2:g}\nstart {start_field(p, rs)}",
             field_text,
-            f"{p.white_total}/{rs.explosion_limit}",
+            f"{p.white_total}/{explosion_limit(state, rs)}",
             str(p.points),
             str(p.money),
             _chips(p.placed, rs),

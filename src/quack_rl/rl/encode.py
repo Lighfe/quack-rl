@@ -25,6 +25,7 @@ from quack_rl.engine import (
     Phase,
     Status,
     action_names,
+    explosion_limit,
     has_hand,
     legal_actions,
 )
@@ -37,8 +38,9 @@ CHOICE_LAYOUT = 3
 HAND_LAYOUT = 4
 SHOP_LAYOUT = 5
 # layout 2 has no choice phase; layout 3 has it
-PHASES = [p.value for p in Phase if p is not Phase.CHOICE]
-PHASES_CHOICE = [p.value for p in Phase]
+# the card phase takes no action and is folded away before an observation, so it has no slot
+PHASES = [p.value for p in Phase if p not in (Phase.CHOICE, Phase.CARD)]
+PHASES_CHOICE = [p.value for p in Phase if p is not Phase.CARD]
 STATUSES = [s.value for s in Status]
 _SCALARS = (
     "money",
@@ -159,7 +161,7 @@ def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
     return {
         "round": state.round,
         "rounds": rs.rounds,
-        "explosion_limit": rs.explosion_limit,
+        "explosion_limit": explosion_limit(state, rs),
         "phase": state.phase.value,
         "own": own,
         "opponent": _public(state.players[other_seat(seat)], rs),

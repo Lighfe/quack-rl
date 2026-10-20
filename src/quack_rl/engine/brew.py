@@ -2,6 +2,7 @@ from typing import Any
 
 from quack_rl.components import get_component
 from quack_rl.engine.actions import DRAW, PLAY_PREFIX, PUT_BACK_DRAW, PUT_BACK_STOP, STOP
+from quack_rl.engine.cards import explosion_limit
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status
 from quack_rl.rules import Ruleset
@@ -54,6 +55,7 @@ def _place(
     rs: Ruleset,
     chance: ChanceLog,
     events: list[dict[str, Any]],
+    limit: int | None = None,
 ) -> None:
     """Place a chip that is already out of the bag (drawn, or played from the hand).
 
@@ -81,7 +83,7 @@ def _place(
     if component.puts_back_previous(chip, previous):
         _put_back_previous(p, seat, rs, events)
     _put_back(p, seat, events)
-    if p.white_total > rs.explosion_limit:
+    if p.white_total > (rs.explosion_limit if limit is None else limit):
         p.status = Status.EXPLODED
         events.append({"seat": seat, "kind": "explode", "white_total": p.white_total})
         return
@@ -92,13 +94,18 @@ def _place(
 
 
 def _draw(
-    p: PlayerState, seat: str, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
+    p: PlayerState,
+    seat: str,
+    rs: Ruleset,
+    chance: ChanceLog,
+    events: list[dict[str, Any]],
+    limit: int | None = None,
 ) -> None:
     chip_id = chance.draw_chip(p, seat)
     p.bag[chip_id] -= 1
     if p.bag[chip_id] == 0:
         del p.bag[chip_id]
-    _place(p, seat, chip_id, rs, chance, events)
+    _place(p, seat, chip_id, rs, chance, events, limit)
 
 
 def apply_brew(
@@ -108,20 +115,21 @@ def apply_brew(
     chance: ChanceLog,
     events: list[dict[str, Any]],
 ) -> None:
+    limit = explosion_limit(state, rs)
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
         if action == DRAW:
-            _draw(p, seat, rs, chance, events)
+            _draw(p, seat, rs, chance, events, limit)
         elif action == STOP:
             p.status = Status.STOPPED
             events.append({"seat": seat, "kind": "stop", "field": p.field})
         elif action.startswith(PLAY_PREFIX):
             chip_id = p.hand.pop(int(action[len(PLAY_PREFIX) :]))
-            _place(p, seat, chip_id, rs, chance, events)
+            _place(p, seat, chip_id, rs, chance, events, limit)
         elif action == PUT_BACK_DRAW:
             _put_back(p, seat, events)
-            _draw(p, seat, rs, chance, events)
+            _draw(p, seat, rs, chance, events, limit)
         elif action == PUT_BACK_STOP:
             _put_back(p, seat, events)
             p.status = Status.STOPPED

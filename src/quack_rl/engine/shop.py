@@ -71,7 +71,8 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.shop_done = False
         p.field = start_field(p, rs)
     state.round += 1
-    state.phase = Phase.BREW
+    state.card = None
+    state.phase = Phase.CARD if rs.cards else Phase.BREW
     events.append({"seat": None, "kind": "round_end", "next_round": state.round})
 
 

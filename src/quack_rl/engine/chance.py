@@ -5,6 +5,8 @@ from typing import Any, Protocol
 from quack_rl.engine.state import PlayerState
 from quack_rl.rules import DieFace, Ruleset
 
+CARD_SEAT = "table"  # the seat field of a card draw in the chance log: nobody owns it
+
 
 class IllegalChance(ValueError):
     """A chance outcome that is not possible in the current state."""
@@ -14,6 +16,8 @@ class ChanceSource(Protocol):
     def draw_chip(self, bag: Mapping[str, int], seat: str) -> str: ...
 
     def roll_die(self, faces: Sequence[DieFace], seat: str) -> str: ...
+
+    def draw_card(self, deck: Sequence[str]) -> str: ...
 
 
 class RngChance:
@@ -39,6 +43,11 @@ class RngChance:
                 return face.id
         raise IllegalChance("die without faces")
 
+    def draw_card(self, deck: Sequence[str]) -> str:
+        if not deck:
+            raise IllegalChance("draw from an empty deck")
+        return deck[self._rng.randrange(len(deck))]
+
 
 class ScriptedChance:
     """Chance outcomes given in order (tests)."""
@@ -56,6 +65,9 @@ class ScriptedChance:
         return self._next()
 
     def roll_die(self, faces: Sequence[DieFace], seat: str) -> str:
+        return self._next()
+
+    def draw_card(self, deck: Sequence[str]) -> str:
         return self._next()
 
 
@@ -81,3 +93,10 @@ class ChanceLog:
                 self.outcomes.append({"seat": seat, "kind": "die", "value": face_id})
                 return face
         raise IllegalChance(f"{seat} rolled {face_id}, which is not a die face")
+
+    def draw_card(self, deck: Sequence[str]) -> str:
+        card_id = self.source.draw_card(deck)
+        if card_id not in deck:
+            raise IllegalChance(f"drew card {card_id}, which is not in the deck")
+        self.outcomes.append({"seat": CARD_SEAT, "kind": "card", "value": card_id})
+        return card_id

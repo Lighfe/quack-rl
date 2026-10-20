@@ -1,6 +1,7 @@
 from typing import Any
 
 from quack_rl.components import get_component, pot_effects
+from quack_rl.engine.cards import card_effect
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, scoring_field
 from quack_rl.rules import DieFace, Ruleset
@@ -54,8 +55,9 @@ def apply_resolve(
         p = state.players[seat]
         assert p.final_field is not None
         if scoring_field(p.final_field, rs) in rs.rubies:
-            p.droplet_halves += 1
-            events.append({"seat": seat, "kind": "ruby", "halves": 1})
+            halves = 2 if card_effect(state, rs) == "ruby_double" else 1
+            p.droplet_halves += halves
+            events.append({"seat": seat, "kind": "ruby", "halves": halves})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
             halves = get_component(rs.component_name(chip)).round_end_droplet_halves(

@@ -153,6 +153,12 @@ class Ruleset(_Frozen):
                 return c
         raise KeyError(chip_id)
 
+    def card(self, card_id: str) -> CardSpec:
+        for c in self.cards:
+            if c.id == card_id:
+                return c
+        raise KeyError(card_id)
+
     def shop_item(self, item_id: str) -> ShopItem:
         for item in self.shop:
             if item.id == item_id:

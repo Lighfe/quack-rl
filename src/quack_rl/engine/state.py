@@ -9,6 +9,7 @@ SEATS: tuple[str, str] = ("p1", "p2")
 
 
 class Phase(StrEnum):
+    CARD = "card"  # v1.11: the round-start card is drawn (no action)
     BREW = "brew"
     RESOLVE = "resolve"
     CHOICE = "choice"
@@ -52,6 +53,9 @@ class GameState:
     step: int
     players: dict[str, PlayerState]
     winner: str | None = None
+    # v1.11: the card ids still in the deck (one entry per copy), and the card of this round.
+    deck: list[str] = field(default_factory=list)
+    card: str | None = None
 
 
 def scoring_field(landing_field: int, rs: Ruleset) -> int:
@@ -67,9 +71,10 @@ def new_game(rs: Ruleset) -> GameState:
     return GameState(
         rules_version=rs.version,
         round=1,
-        phase=Phase.BREW,
+        phase=Phase.CARD if rs.cards else Phase.BREW,
         step=0,
         players={seat: PlayerState(bag=dict(rs.start_bag)) for seat in SEATS},
+        deck=[c.id for c in rs.cards for _ in range(c.count)],
     )
 
 

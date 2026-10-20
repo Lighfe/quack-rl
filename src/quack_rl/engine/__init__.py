@@ -16,7 +16,9 @@ from quack_rl.engine.actions import (
     legal_actions,
     play,
 )
+from quack_rl.engine.cards import card_effect, explosion_limit
 from quack_rl.engine.chance import (
+    CARD_SEAT,
     ChanceLog,
     ChanceSource,
     IllegalChance,
@@ -43,6 +45,7 @@ from quack_rl.engine.state import (
 )
 
 __all__ = [
+    "CARD_SEAT",
     "BUY_PREFIX",
     "DONE",
     "DRAW",
@@ -69,6 +72,8 @@ __all__ = [
     "StepResult",
     "action_names",
     "buy",
+    "card_effect",
+    "explosion_limit",
     "has_hand",
     "legal_actions",
     "needs_actions",

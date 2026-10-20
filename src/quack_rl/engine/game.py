@@ -4,6 +4,7 @@ from typing import Any
 
 from quack_rl.engine.actions import legal_actions
 from quack_rl.engine.brew import apply_brew
+from quack_rl.engine.cards import apply_card
 from quack_rl.engine.chance import ChanceLog, ChanceSource
 from quack_rl.engine.choice import apply_choice
 from quack_rl.engine.resolve import apply_resolve
@@ -63,7 +64,10 @@ def step(
     else:
         if actions is not None:
             raise IllegalAction("this step takes no actions")
-        apply_resolve(new, rs, log, events)
+        if state.phase is Phase.CARD:
+            apply_card(new, rs, log, events)
+        else:
+            apply_resolve(new, rs, log, events)
     new.step = state.step + 1
     return StepResult(
         state=new,

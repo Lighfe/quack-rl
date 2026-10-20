@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from quack_rl.engine import (
+    CARD_SEAT,
     SEATS,
     GameOver,
     GameState,
@@ -54,6 +55,9 @@ class RecordedChance:
 
     def roll_die(self, faces: Sequence[DieFace], seat: str) -> str:
         return self._take("die", seat)
+
+    def draw_card(self, deck: Sequence[str]) -> str:
+        return self._take("card", CARD_SEAT)
 
     def assert_consumed(self) -> None:
         if self._next != len(self._outcomes):
