@@ -2,7 +2,7 @@ from typing import Any
 
 from quack_rl.components import get_component
 from quack_rl.engine.actions import DRAW, PLAY_PREFIX, PUT_BACK_DRAW, PUT_BACK_STOP, STOP
-from quack_rl.engine.cards import explosion_limit
+from quack_rl.engine.cards import card_effect, explosion_limit
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status
 from quack_rl.rules import Ruleset
@@ -138,3 +138,8 @@ def apply_brew(
         for p in state.players.values():
             p.final_field = p.field
         state.phase = Phase.RESOLVE
+    elif card_effect(state, rs) == "restart_after_5":
+        for p in state.players.values():
+            if p.status is Status.BREWING and len(p.placed) >= 5 and not p.restart_offered:
+                p.restart_offered = p.restart_pending = True
+                state.phase = Phase.RESTART

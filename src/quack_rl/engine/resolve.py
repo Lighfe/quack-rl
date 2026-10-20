@@ -69,6 +69,12 @@ def apply_resolve(
                     {"seat": seat, "kind": "round_end_bonus", "chip": chip_id, "halves": halves}
                 )
         _apply_pot_effects(state, rs, seat, events)
+        if p.round_end_halves:
+            p.droplet_halves += p.round_end_halves
+            events.append(
+                {"seat": seat, "kind": "card_round_end_drop", "halves": p.round_end_halves}
+            )
+            p.round_end_halves = 0
     eligible = [s for s in SEATS if state.players[s].status is not Status.EXPLODED]
     if eligible:
         best = max(scoring_field(state.players[s].final_field or 0, rs) for s in eligible)

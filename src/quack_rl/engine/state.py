@@ -10,6 +10,8 @@ SEATS: tuple[str, str] = ("p1", "p2")
 
 class Phase(StrEnum):
     CARD = "card"  # v1.11: the round-start card is drawn (no action)
+    CARD_CHOICE = "card_choice"  # v1.11: cards 5 and 6, one joint choice
+    RESTART = "restart"  # v1.11: card 2, continue or restart after the 5th chip
     BREW = "brew"
     RESOLVE = "resolve"
     CHOICE = "choice"
@@ -40,6 +42,10 @@ class PlayerState:
     shop_done: bool = False
     hand: list[str] = dataclasses.field(default_factory=list)  # blue chip hand: out of the bag, hidden
     final_field: int | None = None
+    # v1.11: card 2 (restart offered this round, waiting for the answer), card 5 (drop at round end)
+    restart_offered: bool = False
+    restart_pending: bool = False
+    round_end_halves: int = 0
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)

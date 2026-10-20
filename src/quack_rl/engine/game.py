@@ -4,7 +4,7 @@ from typing import Any
 
 from quack_rl.engine.actions import legal_actions
 from quack_rl.engine.brew import apply_brew
-from quack_rl.engine.cards import apply_card
+from quack_rl.engine.cards import apply_card, apply_card_choice, apply_restart
 from quack_rl.engine.chance import ChanceLog, ChanceSource
 from quack_rl.engine.choice import apply_choice
 from quack_rl.engine.resolve import apply_resolve
@@ -34,7 +34,7 @@ class StepResult:
 
 
 def needs_actions(state: GameState) -> bool:
-    return state.phase in (Phase.BREW, Phase.CHOICE, Phase.SHOP)
+    return state.phase in (Phase.BREW, Phase.CHOICE, Phase.SHOP, Phase.CARD_CHOICE, Phase.RESTART)
 
 
 def step(
@@ -57,6 +57,10 @@ def step(
                 )
         if state.phase is Phase.BREW:
             apply_brew(new, rs, actions, log, events)
+        elif state.phase is Phase.CARD_CHOICE:
+            apply_card_choice(new, rs, actions, events)
+        elif state.phase is Phase.RESTART:
+            apply_restart(new, rs, actions, events)
         elif state.phase is Phase.CHOICE:
             apply_choice(new, rs, actions, events)
         else:

@@ -114,6 +114,8 @@ class DrawOnceBot:
     def choose(self, state, seat, legal):
         if state.phase is Phase.SHOP:
             return DONE
+        if state.phase in (Phase.CARD_CHOICE, Phase.RESTART):
+            return legal[0]
         return STOP if STOP in legal else DRAW
 
 
@@ -280,11 +282,11 @@ def test_without_card_1_the_ruby_step_is_one_half_step():
     assert r.state.players["p2"].droplet_halves == 0
 
 
-# --- cards 2, 5, 6: drawn and recorded, no effect for now --------------------------------
+# --- card 2: drawn and recorded, acts only in the brew (issue #144) -----------------------
 
 
-@pytest.mark.parametrize("card", ["card_2", "card_5", "card_6"])
-def test_cards_2_5_6_act_like_no_effect_for_now(card):
+@pytest.mark.parametrize("card", ["card_2"])
+def test_card_2_changes_nothing_at_the_draw(card):
     plain, special = card_step("card_8_to_12"), card_step(card)
     assert [e["kind"] for e in special.events] == ["card_draw"]
     assert special.events[0]["card"] == card

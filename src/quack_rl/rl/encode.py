@@ -38,9 +38,10 @@ CHOICE_LAYOUT = 3
 HAND_LAYOUT = 4
 SHOP_LAYOUT = 5
 # layout 2 has no choice phase; layout 3 has it
-# the card phase takes no action and is folded away before an observation, so it has no slot
-PHASES = [p.value for p in Phase if p not in (Phase.CHOICE, Phase.CARD)]
-PHASES_CHOICE = [p.value for p in Phase if p is not Phase.CARD]
+# the card phases have no slot yet (layout 6 comes with issue #147)
+_CARD_PHASES = (Phase.CARD, Phase.CARD_CHOICE, Phase.RESTART)
+PHASES = [p.value for p in Phase if p not in (Phase.CHOICE, *_CARD_PHASES)]
+PHASES_CHOICE = [p.value for p in Phase if p not in _CARD_PHASES]
 STATUSES = [s.value for s in Status]
 _SCALARS = (
     "money",

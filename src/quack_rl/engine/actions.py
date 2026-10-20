@@ -1,6 +1,6 @@
 from quack_rl.components import get_component
 from quack_rl.engine.state import GameState, Phase, PlayerState, Status
-from quack_rl.rules import Ruleset, ShopItem
+from quack_rl.rules import ChipSpec, Ruleset, ShopItem
 
 WAIT = "wait"
 DRAW = "draw"
@@ -12,6 +12,13 @@ BUY_PREFIX = "buy:"
 PLAY_PREFIX = "play:"
 PUT_BACK_DRAW = "put_back_draw"
 PUT_BACK_STOP = "put_back_stop"
+CONTINUE = "continue"  # v1.11 card 2
+RESTART = "restart"
+CARD_DROP_2 = "card_drop_2"  # card 6: drop +2 at once
+CARD_PURPLE = "card_purple"  # card 6: a purple 1 chip
+CARD_BLACK = "card_black"  # card 5: a black 1 chip
+CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
+CARD_DROP_END = "card_drop_end"  # card 5: drop +1.5 at round end
 MAX_HAND = 4  # the largest blue chip value in a ruleset: hand slots 0..3
 
 
@@ -45,7 +52,26 @@ def action_names(rs: Ruleset) -> list[str]:
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
-    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late]
+    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs)]
+
+
+def _card_actions(rs: Ruleset) -> list[str]:
+    """v1.11: the card actions, appended at the end of the list (the order of the RL mask)."""
+    effects = {rs.card(c.id).effect for c in rs.cards}
+    names: list[str] = []
+    if "restart_after_5" in effects:
+        names += [CONTINUE, RESTART]
+    if "choice_drop2_or_purple" in effects:
+        names += [CARD_DROP_2, CARD_PURPLE]
+    if "choice_black_or_value2_or_drop" in effects:
+        chips = (f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs))
+        names += [CARD_BLACK, *chips, CARD_DROP_END]
+    return names
+
+
+def value_two_chips(rs: Ruleset) -> list[ChipSpec]:
+    """Every chip of the ruleset with value 2, in ruleset order (card 5, option B)."""
+    return [c for c in rs.chips if c.value == 2]
 
 
 def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState, round_: int) -> bool:
@@ -69,6 +95,13 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if p.hand:
             return [*(play(i) for i in range(len(p.hand))), PUT_BACK_DRAW, PUT_BACK_STOP]
         return [DRAW] if not p.placed else [DRAW, STOP]
+    if state.phase is Phase.CARD_CHOICE:
+        if state.card is not None and rs.card(state.card).effect == "choice_drop2_or_purple":
+            return [CARD_DROP_2, CARD_PURPLE]
+        chips = [f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs)]
+        return [CARD_BLACK, *chips, CARD_DROP_END]
+    if state.phase is Phase.RESTART:
+        return [CONTINUE, RESTART] if p.restart_pending else [WAIT]
     if state.phase is Phase.CHOICE:
         return [TAKE_MONEY, TAKE_POINTS] if p.status is Status.EXPLODED else [WAIT]
     if state.phase is Phase.SHOP:
