@@ -31,7 +31,7 @@ def format_row(bot: str, games: int, seconds: float, raw_bytes: int, gz_bytes: i
     )
 
 
-def measure(bot: str, games: int, seed: int, rules: str = "v1.10", rounds: int = 9) -> str:
+def measure(bot: str, games: int, seed: int, rules: str = "v1.11", rounds: int = 9) -> str:
     rs = with_rounds(load_ruleset(rules), rounds)
     raw = 0
     gz = 0

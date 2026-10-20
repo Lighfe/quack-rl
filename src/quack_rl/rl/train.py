@@ -112,7 +112,7 @@ def _import_sb3():
 
 def train(
     steps: int,
-    rules: str = "v1.10",
+    rules: str = "v1.11",
     opponent: str = "random",
     seed: int = 0,
     eval_games: int = 500,

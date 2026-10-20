@@ -95,7 +95,7 @@ def test_play_set_stores_overrides(tmp_path, monkeypatch):
     keys = iter("ds0" * 5000)
     monkeypatch.setattr(human, "default_read_key", lambda: next(keys))
     result = runner.invoke(
-        app, ["play", "--seed", "4", "--out", str(tmp_path), "--set", "shop.orange_1.price=4"]
+        app, ["play", "--rules", "v1.10", "--seed", "4", "--out", str(tmp_path), "--set", "shop.orange_1.price=4"]
     )
     assert result.exit_code == 0, result.output
     (game,) = games_of(tmp_path)

@@ -120,7 +120,7 @@ def test_defaults_go_to_train(monkeypatch):
     ((args, kwargs),) = calls
     assert args == (train_script.DEFAULT_STEPS,)
     assert kwargs == {
-        "rules": "v1.10", "opponent": "random", "seed": 0, "eval_games": 500,
+        "rules": "v1.11", "opponent": "random", "seed": 0, "eval_games": 500,
         "run": "r", "runs_dir": Path("data/runs"), "checkpoint_every": None,
     }  # fmt: skip
 

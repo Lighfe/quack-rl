@@ -1,7 +1,7 @@
 """Train a policy from the Parquet dataset by masked behaviour cloning and write a run folder.
 
 Usage: uv run --group train python scripts/train_offline.py --dataset data/datasets/full.parquet
-       --run NAME [--steps 20000] [--seed 0] [--runs-dir data/runs] [--rules v1.10]
+       --run NAME [--steps 20000] [--seed 0] [--runs-dir data/runs] [--rules v1.11]
        [--batch-size 256] [--lr 0.001] [--hidden 256] [--log-every 100]
 
 Writes `<runs-dir>/<NAME>/` with `config.json`, `model.zip` and `metrics.csv` (step, loss,
@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--run", required=True, metavar="NAME", help="run folder name under --runs-dir")
     p.add_argument("--steps", type=int, default=20_000, help="gradient steps (default: 20000)")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--rules", default="v1.10")
+    p.add_argument("--rules", default="v1.11")
     p.add_argument("--runs-dir", type=Path, default=Path("data/runs"))
     p.add_argument("--batch-size", type=int, default=256)
     p.add_argument("--lr", type=float, default=1e-3)

@@ -80,7 +80,7 @@ COLUMNS = ("episode", "step", "obs", "action_mask", "action", "reward", "termina
 CHUNK_GAMES = 16  # games per Parquet row group: memory stays flat in the number of games
 
 
-def iter_games(bots: list[str], games: int, seed: int = 0, rules: str = "v1.10"):
+def iter_games(bots: list[str], games: int, seed: int = 0, rules: str = "v1.11"):
     """Play `games` games one by one and yield the columns of each game (see module docstring).
 
     Memory holds one game at a time. Raise ValueError on bad arguments, before the first game."""
@@ -109,7 +109,7 @@ def iter_games(bots: list[str], games: int, seed: int = 0, rules: str = "v1.10")
 
 
 def build_dataset(
-    bots: list[str], games: int, seed: int = 0, rules: str = "v1.10"
+    bots: list[str], games: int, seed: int = 0, rules: str = "v1.11"
 ) -> dict[str, list]:
     """Play `games` games and return all columns in memory (small builds and tests only)."""
     cols: dict[str, list] = {k: [] for k in COLUMNS}
@@ -157,7 +157,7 @@ def write_dataset(
     bots: list[str],
     games: int,
     seed: int = 0,
-    rules: str = "v1.10",
+    rules: str = "v1.11",
     overwrite: bool = False,
     command: str | None = None,
     chunk_games: int = CHUNK_GAMES,

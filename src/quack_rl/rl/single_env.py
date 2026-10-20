@@ -29,7 +29,7 @@ class QuackEnv(gym.Env):
         self,
         seat: str = "p1",
         opponent: Any = None,
-        rules: str | Ruleset = "v1.10",
+        rules: str | Ruleset = "v1.11",
         reward_fn: Callable[[GameState, str], float] = reward,
     ):
         """`seat` is "p1", "p2" or "random" (per episode). `opponent` has `choose(state, seat,

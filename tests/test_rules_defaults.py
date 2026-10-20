@@ -1,4 +1,4 @@
-"""The default `rules` is v1.10 everywhere in the code; the notebooks keep their own pinned version."""
+"""The default `rules` is v1.11 everywhere in the code; the notebooks keep their own pinned version."""
 
 import ast
 import re
@@ -58,10 +58,10 @@ def scan(files) -> list[tuple[str, str, object, int]]:
 
 
 CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
-DEFAULT = "v1.10"
+DEFAULT = "v1.11"
 
 
-def test_every_rules_default_in_code_is_v1_10():
+def test_every_rules_default_in_code_is_v1_11():
     found = scan(CODE_FILES)
     assert found
     bad = [f for f in found if f[2] != DEFAULT]
@@ -84,20 +84,20 @@ def test_scan_finds_the_known_defaults():
 def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
-    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1\.10"', rf'\1"{planted_version}"', text, count=1)
+    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v1\.11"', rf'\1"{planted_version}"', text, count=1)
     assert (planted != text) == (planted_version != DEFAULT)
     copy.write_text(planted, encoding="utf-8")
     bad = [f for f in scan([copy]) if f[2] != DEFAULT]
     assert bool(bad) == (planted_version != DEFAULT)
 
 
-def test_grep_of_the_issue_shows_only_v1_10():
+def test_grep_of_the_issue_shows_only_v1_11():
     out = subprocess.run(
         ["grep", "-rnE", r'rules[^=]*=\s*"v1(\.[0-9]+)?"', "src", "scripts"],
         cwd=ROOT, capture_output=True, text=True,
     ).stdout
     lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
-    assert lines and all('"v1.10"' in ln for ln in lines), lines
+    assert lines and all('"v1.11"' in ln for ln in lines), lines
 
 
 def test_no_notebook_names_v1_9():

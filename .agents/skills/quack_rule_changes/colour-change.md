@@ -86,7 +86,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
 - CLI: `tests/test_cli_v1_10.py` (labels and styles of a new colour, the menu by minimum round, round-end text, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
 - RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4` (the same set for v1.10 is `tests/test_rl_layout5.py`).
-- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v1.10`).
+- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v1.11`).
 
 Edge cases to try for any new colour:
 

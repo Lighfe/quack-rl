@@ -65,7 +65,7 @@ SELFPLAY_COLUMNS = (
 Loader = Callable[[Path], Any]  # snapshot file -> bot
 
 
-def load_snapshot_bot(path: Path, rules: str = "v1.10") -> PolicyBot:
+def load_snapshot_bot(path: Path, rules: str = "v1.11") -> PolicyBot:
     """A `PolicyBot` (most likely action) from a checkpoint file; needs the `train` group."""
     from sb3_contrib import MaskablePPO
 
@@ -108,7 +108,7 @@ class PoolOpponent:
     opponent is `random`; with one snapshot "older" falls back to the newest.
     """
 
-    def __init__(self, loader: Loader, rules: str = "v1.10", seed: int = 0):
+    def __init__(self, loader: Loader, rules: str = "v1.11", seed: int = 0):
         self.rules = rules
         self.pool: list[Path] = []
         self.cache = SnapshotCache(loader)
@@ -228,7 +228,7 @@ def train_selfplay(
     run: str,
     steps: int,
     update_every: int = DEFAULT_UPDATE_EVERY,
-    rules: str = "v1.10",
+    rules: str = "v1.11",
     seed: int = 0,
     eval_games: int = 500,
     eval_bots: tuple[str, ...] = DEFAULT_EVAL_BOTS,

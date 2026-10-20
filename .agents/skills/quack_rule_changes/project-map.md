@@ -63,7 +63,7 @@ Where: `qr/bots/`, `qr/runner.py`, `qr/simgame.py`, `qr/tournament.py`, `qr/repo
 
 Where: `qr/cli/`.
 
-`main.py` has the commands (`play`, `simulate`, `tournament`, `replay`, `verify`) and the `--rules` option; its default is `v1.10`. `render.py` draws the board and the steps (a chip is its colour's first letter plus its value, `CHIP_LETTER` overrides it where two colours share a letter; every colour needs an entry in `CHIP_STYLE`; the round-end and put-back events print in the generic `kind=… key=value` form): a new value, chip colour or state shown to a player is added here, and a hidden hand must not be drawn for the other seat. `human.py` prompts a human for each phase: a new action needs a key and a prompt line, and `BUY_KEYS` must have at least as many keys as the shop has items. `seats.py` turns a seat spec into a bot or a human.
+`main.py` has the commands (`play`, `simulate`, `tournament`, `replay`, `verify`) and the `--rules` option; its default is `v1.11`. `render.py` draws the board and the steps (a chip is its colour's first letter plus its value, `CHIP_LETTER` overrides it where two colours share a letter; every colour needs an entry in `CHIP_STYLE`; the round-end and put-back events print in the generic `kind=… key=value` form): a new value, chip colour or state shown to a player is added here, and a hidden hand must not be drawn for the other seat. `human.py` prompts a human for each phase: a new action needs a key (add it in `key_map`; a key must not clash with `BUY_KEYS`, which uses digits and letters, so the card options take digits only in `CARD_CHOICE`, where no buy key is legal) and a prompt line, and `BUY_KEYS` must have at least as many keys as the shop has items. `seats.py` turns a seat spec into a bot or a human.
 
 ## 7. RL: layout, action mask and environments
 
@@ -80,7 +80,7 @@ Where: `qr/rl/`.
 
 Where: `notebooks/`, `scripts/`, and `tests/test_rules_defaults.py`.
 
-The default of every `rules` parameter, option and field in `src` and `scripts` is `v1.10`. The notebooks name one ruleset version (once, as `RULES`) and stay on it until the owner decides otherwise. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v1.10` (it fails on a planted other default); the notebooks are checked for their pinned version. When a later version becomes the default, change all defaults and this test in one issue. Saved data (records, runs, datasets) belongs to the version it names and must still load.
+The default of every `rules` parameter, option and field in `src` and `scripts` is `v1.11`. The notebooks name one ruleset version (once, as `RULES`) and stay on it until the owner decides otherwise. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v1.11` (it fails on a planted other default); the notebooks are checked for their pinned version. When a later version becomes the default, change all defaults and this test in one issue. Saved data (records, runs, datasets) belongs to the version it names and must still load.
 
 ## 9. Docs and specs
 

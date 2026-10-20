@@ -199,7 +199,7 @@ def train_dqn(
     offline_steps: int,
     online_steps: int,
     seed: int = 0,
-    rules: str = "v1.10",
+    rules: str = "v1.11",
     online_capacity: int | None = None,
     after_offline: Callable[[Callable[[np.ndarray, np.ndarray], int]], Any] | None = None,
 ) -> tuple[Any, list[dict], Callable[[np.ndarray, np.ndarray], int]]:

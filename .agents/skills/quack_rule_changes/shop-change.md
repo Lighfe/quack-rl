@@ -71,7 +71,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.10`), and the notebooks stay on their pinned version.
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`), and the notebooks stay on their pinned version.
 - Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 
@@ -96,4 +96,4 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - CLI: `test_every_legal_buy_has_its_own_key`, `test_more_than_12_buy_actions_all_get_a_key`, `test_buy_prompt_lists_new_items_with_prices`.
 - RL: `test_action_list_has_pick_actions_and_new_shop`, `test_mask_equals_legal_actions_in_every_step`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record_v1_9.py`), and the record tests of the older versions pass unchanged.
-- Defaults: `test_rules_defaults` (every default is `v1.10`).
+- Defaults: `test_rules_defaults` (every default is `v1.11`).

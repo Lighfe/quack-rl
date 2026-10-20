@@ -26,7 +26,7 @@ def finetune_online(
     steps: int,
     opponent: str,
     seed: int = 0,
-    rules: str = "v1.10",
+    rules: str = "v1.11",
     learning_rate: float = 1e-4,
 ) -> Path:
     """Train the model of `run_dir` for `steps` timesteps against `opponent`; write `out_dir`.
