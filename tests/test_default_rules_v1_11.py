@@ -9,6 +9,7 @@ from quack_rl.rl import PolicyBot, QuackEnv, QuackParallelEnv, evaluate, make_op
 from quack_rl.rl.encode import LayoutRefused
 from quack_rl.rl.finetune import finetune_online
 from quack_rl.rl.offline import train_offline_run
+from quack_rl.rl.replay_dqn import train_dqn
 from quack_rl.rl.selfplay import train_selfplay
 from quack_rl.rl.train import train
 from quack_rl.rules import load_ruleset
@@ -45,6 +46,11 @@ def test_offline_without_rules_is_refused(tmp_path):
     with pytest.raises(LayoutRefused, match=HINT):
         train_offline_run(tmp_path / "d.parquet", "x", runs_dir=tmp_path, steps=1)
     assert not list(tmp_path.iterdir())
+
+
+def test_train_dqn_without_rules_is_refused(tmp_path):
+    with pytest.raises(LayoutRefused, match=HINT):
+        train_dqn(tmp_path / "d.parquet", "random", 1, 0)
 
 
 def test_evaluate_a_policy_without_rules_is_refused():

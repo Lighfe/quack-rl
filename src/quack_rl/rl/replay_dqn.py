@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from quack_rl.rl.encode import vector_names
+from quack_rl.rl.encode import check_policy_layout, vector_names
 from quack_rl.rl.offline import MASK_FILL, N_ACTIONS, load_offline_data
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.single_env import QuackEnv
@@ -212,15 +212,17 @@ def train_dqn(
     (`offline` or `online`), `loss`, `offline_count`, `online_count`. `after_offline`, when
     given, is called with the policy at the end of phase 1 (before the online games).
     `online_capacity` defaults to `online_steps` (nothing is overwritten). Raise ValueError for
-    negative steps, an empty dataset, a bad `obs` length or an unknown opponent, all before
+    negative steps, a ruleset on layout 4 to 6 (`LayoutRefused`), an empty dataset, a bad `obs` length or an unknown opponent, all before
     training."""
     import torch
     import torch.nn.functional as F
 
     if offline_steps < 0 or online_steps < 0:
         raise ValueError("offline_steps and online_steps must not be negative")
+    rs = load_ruleset(rules)
+    check_policy_layout(rs)  # LayoutRefused (a ValueError): name an older rules version
     make_opponent(opponent, seed=seed, rules=rules)  # ValueError on an unknown name
-    obs_dim = len(vector_names(load_ruleset(rules)))
+    obs_dim = len(vector_names(rs))
     offline = transitions_from_dataset(dataset_path, obs_dim)
     if len(offline["action"]) == 0:
         raise ValueError("the dataset has no rows")
