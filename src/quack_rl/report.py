@@ -100,8 +100,28 @@ CONFIRM_TEST = "tests/test_baseline_maximum.py"
 _Bag = tuple[tuple[str, int], ...]
 
 
+def _round_limits(rs: Ruleset) -> list[tuple[int, Fraction]]:
+    """The explosion limits a round can have, with their chance (v1.11, card 4).
+
+    One card is drawn per round without replacement, so each round has the same chance for a
+    card: its share of the deck. Without cards the only limit is the ruleset limit. Only the
+    limit of card 4 is part of the calculated maximum; the other card effects are not."""
+    total = sum(c.count for c in rs.cards)
+    if total == 0:
+        return [(rs.explosion_limit, Fraction(1))]
+    plus = sum(c.count for c in rs.cards if c.effect == "explosion_limit_plus_2")
+    limits = [(rs.explosion_limit, Fraction(total - plus, total))]
+    if plus:
+        limits.append((rs.explosion_limit + 2, Fraction(plus, total)))
+    return [(limit, chance) for limit, chance in limits if chance]
+
+
 def _brew_outcomes(
-    rs: Ruleset, bag: _Bag, draw_limit: int, fractions: set[Fraction] | None = None
+    rs: Ruleset,
+    bag: _Bag,
+    draw_limit: int,
+    fractions: set[Fraction] | None = None,
+    limit: int | None = None,
 ) -> dict[tuple[int, bool, int, int], float]:
     """Chance of each end of a brew for a bot with `draw_limit`.
 
@@ -117,7 +137,10 @@ def _brew_outcomes(
     in `engine/brew.py`) and `pot_effects` at the end (same function as `apply_resolve`). The
     odds are for one player, so the other pot is empty (a black chip then counts as the larger
     pot). When no chip of the bag has such a hook, only the last two chips are tracked.
+
+    `limit` is the explosion limit of the round (card 4); the ruleset limit when None.
     """
+    limit = rs.explosion_limit if limit is None else limit
     # With `fractions`, the explosion chances (in percent) met at the stop decisions are added.
     memo: dict[tuple, dict[tuple[int, bool, int, int], float]] = {}
     chips = {chip.id: chip for chip in rs.chips}
@@ -161,7 +184,7 @@ def _brew_outcomes(
         size = sum(n for _, n in remaining)
         out: dict[tuple[int, bool, int, int], float] = {}
         if pot:
-            bad = sum(n for i, n in remaining if place(i, white, pot)[0] > rs.explosion_limit)
+            bad = sum(n for i, n in remaining if place(i, white, pot)[0] > limit)
             if fractions is not None:
                 fractions.add(Fraction(100 * bad, size))
             if bad * 100 > draw_limit * size:
@@ -179,7 +202,7 @@ def _brew_outcomes(
                 gain = chip.value + parts[chip_id].place_bonus(chip, previous)
             new_white, new_pot, put_back = place(chip_id, white, pot)
             chance = count / size
-            if new_white > rs.explosion_limit:
+            if new_white > limit:
                 results = {(0, True, *end_bonus(new_pot)): 1.0}
             else:
                 left = dict(remaining)
@@ -249,7 +272,9 @@ def _draw_limit_classes(rs: Ruleset) -> list[int]:
     """
     chances: set[Fraction] = set()
     for bag in _bags(rs):
-        _brew_outcomes(rs, bag, 100, chances)  # at 100 the bot never stops: all states are met
+        for limit, _ in _round_limits(rs):
+            # at 100 the bot never stops: all states are met
+            _brew_outcomes(rs, bag, 100, chances, limit)
     reps: dict[int, int] = {}
     for limit in range(101):
         reps.setdefault(sum(1 for c in chances if c <= limit), limit)
@@ -260,42 +285,43 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
     """Average final points of the `points` bot (points round 1) with one draw limit."""
     start = tuple(sorted(rs.start_bag.items()))
     die_total = sum(f.weight for f in rs.die)
-    brews: dict[_Bag, dict[tuple[int, bool, int, int], float]] = {}
+    brews: dict[tuple[_Bag, int], dict[tuple[int, bool, int, int], float]] = {}
     purchases = lru_cache(maxsize=None)(lambda money: _points_for_money(rs, money))
     states: dict[tuple[int, _Bag], float] = {(0, start): 1.0}  # (droplet halves, bag) -> chance
     expected = 0.0
     for round_no in range(1, rs.rounds + 1):
         nxt: dict[tuple[int, _Bag], float] = {}
         for (halves, bag), p_state in states.items():
-            if bag not in brews:
-                brews[bag] = _brew_outcomes(rs, bag, draw_limit)
             begin = min(halves // 2, rs.track_end)
-            for (advance, exploded, green, pot_points), p_brew in brews[bag].items():
-                p = p_state * p_brew
-                scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
-                base_halves = halves + green + (1 if scoring in rs.rubies else 0)
-                money = rs.money[scoring] // 2 if exploded else rs.money[scoring]
-                faces = [None] if exploded else rs.die  # an exploded potion never rolls
-                for face in faces:
-                    chance = p if face is None else p * face.weight / die_total
-                    new_halves, new_bag, extra_money, die_points = base_halves, bag, 0, 0
-                    if face is not None:
-                        if face.kind == "droplet":
-                            new_halves += face.halves
-                        elif face.kind == "chip" and face.chip is not None:
-                            counts = dict(bag)
-                            counts[face.chip] = counts.get(face.chip, 0) + 1
-                            new_bag = tuple(sorted(counts.items()))
-                        elif face.kind == "points":
-                            die_points = face.points
-                        elif face.kind == "money":
-                            extra_money = face.amount
-                    total_money = money + extra_money
-                    if round_no == rs.rounds:
-                        total_money = total_money * rs.last_round_money_percent // 100
-                    expected += chance * (purchases(total_money) + die_points + pot_points)
-                    key = (new_halves, new_bag)
-                    nxt[key] = nxt.get(key, 0.0) + chance
+            for limit, p_limit in _round_limits(rs):
+                if (bag, limit) not in brews:
+                    brews[bag, limit] = _brew_outcomes(rs, bag, draw_limit, None, limit)
+                for (advance, exploded, green, pot_points), p_brew in brews[bag, limit].items():
+                    p = p_state * p_brew * float(p_limit)
+                    scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
+                    base_halves = halves + green + (1 if scoring in rs.rubies else 0)
+                    money = rs.money[scoring] // 2 if exploded else rs.money[scoring]
+                    faces = [None] if exploded else rs.die  # an exploded potion never rolls
+                    for face in faces:
+                        chance = p if face is None else p * face.weight / die_total
+                        new_halves, new_bag, extra_money, die_points = base_halves, bag, 0, 0
+                        if face is not None:
+                            if face.kind == "droplet":
+                                new_halves += face.halves
+                            elif face.kind == "chip" and face.chip is not None:
+                                counts = dict(bag)
+                                counts[face.chip] = counts.get(face.chip, 0) + 1
+                                new_bag = tuple(sorted(counts.items()))
+                            elif face.kind == "points":
+                                die_points = face.points
+                            elif face.kind == "money":
+                                extra_money = face.amount
+                        total_money = money + extra_money
+                        if round_no == rs.rounds:
+                            total_money = total_money * rs.last_round_money_percent // 100
+                        expected += chance * (purchases(total_money) + die_points + pot_points)
+                        key = (new_halves, new_bag)
+                        nxt[key] = nxt.get(key, 0.0) + chance
         states = nxt
     return expected
 
@@ -320,7 +346,10 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - the last round money is multiplied by `last_round_money_percent // 100`; an exploded
       potion halves its money (rounded down) and does not roll the die;
     - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips
-      to the bag.
+      to the bag;
+    - v1.11: the explosion limit of a round is the ruleset limit, or +2 with card 4, weighted by
+      the share of card 4 in the deck. The other card effects (cards 1 to 3, 5 to 7) are not
+      in the number, so with cards it is an estimate that the simulation does not confirm.
 
     It is confirmed by simulation in `tests/test_baseline_maximum.py`: no simulated average
     over the draw limits 0 to 50 is above it by more than 3 standard errors, and the best one
@@ -662,6 +691,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
     except (ValueError, KeyError, TypeError) as e:
         raise ReportError(f"config.json cannot be turned into a ruleset: {e}") from None
     simulated = data.baseline_points / n
+    cards = ["Cards: only the explosion limit of card 4 is in the calculated maximums."]
     return [
         *out,
         f"Baseline {BASELINE_NAME}: {n} games",
@@ -671,6 +701,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         f"The maximum is confirmed by simulation in {CONFIRM_TEST}: the best simulated draw limit"
         f" is at most {100 * CONFIRM_TOLERANCE:.0f}% below it.",
         f"Calculated maximum (loose upper bound, see baseline_maximum): {loose:.1f}",
+        *(cards if any(r.cards for r in rulesets.values()) else []),
     ]
 
 

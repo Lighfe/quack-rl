@@ -6,10 +6,14 @@ from quack_rl.bots.strategy import Strategy, load_strategy
 from quack_rl.components import get_component
 from quack_rl.engine import (
     BUY_PREFIX,
+    CARD_DROP_2,
+    CARD_DROP_END,
+    CONTINUE,
     DONE,
     DRAW,
     PUT_BACK_DRAW,
     PUT_BACK_STOP,
+    RESTART,
     STOP,
     TAKE_MONEY,
     TAKE_POINTS,
@@ -18,10 +22,12 @@ from quack_rl.engine import (
     buy,
     explosion_limit,
     play,
+    start_field,
 )
 from quack_rl.rules import Ruleset
 
 BASELINE_NAME = "draw20-pts1-points"
+RESTART_BELOW = 8  # card 2: the bot restarts only a pot that moved it fewer fields than this
 _NAME = re.compile(r"draw(\d+)-pts(\d+)-(.+)")
 
 
@@ -103,6 +109,12 @@ class HeuristicBot:
 
     v1.8 (explosion choice): after an explosion take money before the points round and points
     from it on; the shop has no points items and the bot buys nothing in the last round.
+
+    v1.11 (cards): the explosion look-ahead uses the explosion limit of the round (card 4).
+    Card 6 and card 5: take the drop (card 6 `card_drop_2`, card 5 `card_drop_end`), which
+    risks no chip in the bag. Card 2 (restart offered at 5 chips in the pot): restart when the
+    next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
+    bot fewer than `RESTART_BELOW` fields; else continue.
     """
 
     kind = "bot"
@@ -138,6 +150,13 @@ class HeuristicBot:
         if state.phase is Phase.SHOP:
             action = self._shop(state, seat, legal)
             return action if action in legal else DONE if DONE in legal else legal[0]
+        if state.phase is Phase.CARD_CHOICE:
+            wanted = CARD_DROP_2 if CARD_DROP_2 in legal else CARD_DROP_END
+            return wanted if wanted in legal else legal[0]
+        if state.phase is Phase.RESTART:
+            return RESTART if self._restart(state, seat) and RESTART in legal else (
+                CONTINUE if CONTINUE in legal else legal[0]
+            )
         if state.phase is Phase.CHOICE:
             action = TAKE_POINTS if state.round >= self.points_round else TAKE_MONEY
             return action if action in legal else legal[0]
@@ -150,6 +169,15 @@ class HeuristicBot:
         )
         # chance > limit, in exact integer arithmetic: bad / size > percent / 100
         return STOP if bad * 100 > self.draw_limit * size else DRAW
+
+    def _restart(self, state: GameState, seat: str) -> bool:
+        """Card 2: restart a pot that would be stopped now and has moved the bot little."""
+        p = state.players[seat]
+        bad, size = _explosive_chips(
+            p.bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
+        )
+        moved = p.field - start_field(p, self._rs)
+        return bad * 100 > self.draw_limit * size and moved < RESTART_BELOW
 
     def _advance(self, chip_id: str, p: Any) -> int:
         """How far the engine would move the player if the chip were played now."""
