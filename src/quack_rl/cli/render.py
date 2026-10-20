@@ -5,6 +5,7 @@ from rich.text import Text
 from quack_rl.engine import SEATS, GameState, StepResult, explosion_limit, start_field
 from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
+from quack_rl.rules.cards import get_card_effect
 
 CHIP_STYLE = {
     "white": "bold white",
@@ -36,6 +37,16 @@ def _chips(chip_ids: list[str], rs: Ruleset) -> Text:
     return Text(" ").join(chip_text(c, rs) for c in chip_ids) if chip_ids else Text("-")
 
 
+def card_line(state: GameState, rs: Ruleset) -> str:
+    """v1.11: the card of the round and the cards still in the deck (empty without cards)."""
+    if state.card is None:
+        card = "-"
+    else:
+        spec = rs.card(state.card)
+        card = f"{spec.id} ({get_card_effect(spec.effect).description})"
+    return f"card: {card}   deck: {len(state.deck)} left"
+
+
 def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableType:
     title = f"Round {state.round}/{rs.rounds} · {state.phase.value} · step {state.step}"
     table = Table(title=title, show_lines=True)
@@ -58,6 +69,8 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
             _chips(p.placed, rs),
         )
     parts: list[RenderableType] = [table]
+    if rs.cards:
+        parts.append(Text(card_line(state, rs)))
     if rs.last_round_money_divisor is not None and state.round == rs.rounds:
         parts.append(
             Text(

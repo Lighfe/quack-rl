@@ -7,16 +7,21 @@ from rich.console import Console
 from quack_rl.cli.render import chip_text, hand_text, render_board
 from quack_rl.engine import (
     BUY_PREFIX,
+    CARD_DROP_2,
+    CARD_DROP_END,
+    CONTINUE,
     DONE,
     DRAW,
     PLAY_PREFIX,
     PUT_BACK_DRAW,
     PUT_BACK_STOP,
+    RESTART,
     STOP,
     TAKE_MONEY,
     TAKE_POINTS,
     GameState,
 )
+from quack_rl.engine.actions import CARD_BLACK, CARD_CHIP_PREFIX, CARD_PURPLE
 from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
 
@@ -24,6 +29,9 @@ from quack_rl.rules import Ruleset
 BUY_KEYS = "123456789abcefghijklnoquvwxyz"
 PUT_BACK_DRAW_KEY = "r"
 PUT_BACK_STOP_KEY = "t"
+CONTINUE_KEY = "c"
+RESTART_KEY = "r"
+CARD_PREFIX = "card_"  # card 5 and 6 options: black, purple, drop, `card_chip:<id>`
 
 
 def default_read_key() -> str:
@@ -34,6 +42,10 @@ def default_read_key() -> str:
 def key_map(legal: list[str]) -> dict[str, str]:
     keys: dict[str, str] = {}
     buys = [a for a in legal if a.startswith(BUY_PREFIX)]
+    # The card choice offers only its own options, one digit each in the order of the list.
+    card_options = [a for a in legal if a.startswith(CARD_PREFIX)]
+    for number, action in enumerate(card_options, start=1):
+        keys[str(number)] = action
     for action in legal:
         if action == DRAW:
             keys["d"] = DRAW
@@ -45,6 +57,10 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys["m"] = TAKE_MONEY
         elif action == TAKE_POINTS:
             keys["p"] = TAKE_POINTS
+        elif action == CONTINUE:
+            keys[CONTINUE_KEY] = CONTINUE
+        elif action == RESTART:
+            keys[RESTART_KEY] = RESTART
         elif action == PUT_BACK_DRAW:
             keys[PUT_BACK_DRAW_KEY] = PUT_BACK_DRAW
         elif action == PUT_BACK_STOP:
@@ -89,6 +105,21 @@ class HumanSeat:
                 chip = chip_text(state.players[seat].hand[slot], self.rs).plain
                 return f"play {slot}: {chip}"
             return f"play {slot}"
+        if action == CONTINUE:
+            return "continue brewing"
+        if action == RESTART:
+            return "restart: put the pot back, start over"
+        if action == CARD_BLACK:
+            return f"a {chip_text(self._card_chip('black', 1), self.rs).plain} chip into the bag"
+        if action == CARD_PURPLE:
+            return f"a {chip_text(self._card_chip('purple', 1), self.rs).plain} chip into the bag"
+        if action == CARD_DROP_2:
+            return "drop +2 now"
+        if action == CARD_DROP_END:
+            return "drop +1.5 at round end"
+        if action.startswith(CARD_CHIP_PREFIX):
+            chip_id = action.removeprefix(CARD_CHIP_PREFIX)
+            return f"a {chip_text(chip_id, self.rs).plain} chip into the bag"
         if action == PUT_BACK_DRAW:
             return "put all back and Draw"
         if action == PUT_BACK_STOP:
@@ -97,6 +128,9 @@ class HumanSeat:
             item = self.rs.shop_item(action.removeprefix(BUY_PREFIX))
             return f"buy {item.id} ({item.price})"
         return action
+
+    def _card_chip(self, colour: str, value: int) -> str:
+        return next(c.id for c in self.rs.chips if c.colour == colour and c.value == value)
 
     def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
         keys = key_map(legal)
