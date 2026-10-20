@@ -12,7 +12,7 @@ from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackEnv, observation_bounds, observe, reward, vector_names, vectorize
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v1", "v1.1"]
+VERSIONS = ["v1", "v1.1", "v1.11"]
 
 
 def play(env, seed=0, action_seed=0):
