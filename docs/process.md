@@ -2,7 +2,7 @@
 
 This document tells how work is organized in this repo.
 
-Status: hooks of the agent-graph-kit plugin check the guarded calls and deny a call that is not allowed. This prose stays the main description.
+Status: hooks of the agent-graph-kit plugin check the guarded calls and deny a call that is not allowed. This prose is the main description.
 
 ## Work rules
 
