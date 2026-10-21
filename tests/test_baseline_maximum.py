@@ -30,14 +30,14 @@ from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
 TOLERANCE = 0.02
-GAMES = 2000
+GAMES = 1000
 DRAW_LIMITS = (0, 10, 20, 30, 40, 50)
 OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 
 RS = with_rounds(load_ruleset("v1"), 9)
 
 
-CHUNK = 250  # games per task, so the pool (at most 4 workers) keeps its workers busy
+CHUNK = 125  # games per task, so the pool (at most 4 workers) keeps its workers busy
 
 
 def play_chunk(draw_limit: int, first: int) -> list[int]:

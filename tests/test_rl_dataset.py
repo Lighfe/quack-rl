@@ -101,14 +101,19 @@ def test_sample_reproduces(tmp_path):
 
 
 def test_row_groups_and_chunking(tmp_path):
+    # the default chunk is 16 games: 17 games of the cheap random bot make two row groups
+    default = tmp_path / "default.parquet"
+    write_dataset(default, ["random"], 17, seed=1)
+    assert pq.ParquetFile(default).num_row_groups == 2
+    # the same games in other chunk sizes give the same table
     out = tmp_path / "d.parquet"
-    write_dataset(out, BOTS, 20, seed=1)
-    assert pq.ParquetFile(out).num_row_groups > 1
+    write_dataset(out, BOTS, 6, seed=1)
+    assert pq.ParquetFile(out).num_row_groups == 1
     other = tmp_path / "e.parquet"
-    write_dataset(other, BOTS, 20, seed=1, chunk_games=3)
-    assert pq.ParquetFile(other).num_row_groups == 7
+    write_dataset(other, BOTS, 6, seed=1, chunk_games=2)
+    assert pq.ParquetFile(other).num_row_groups == 3
     _same(pq.read_table(out), pq.read_table(other))
-    _same(pq.read_table(out), to_table(build_dataset(BOTS, 20, seed=1)))
+    _same(pq.read_table(out), to_table(build_dataset(BOTS, 6, seed=1)))
 
 
 def test_failed_build_leaves_no_file(tmp_path, monkeypatch):

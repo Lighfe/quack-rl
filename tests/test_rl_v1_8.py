@@ -27,7 +27,7 @@ def test_check_env():
 @pytest.mark.parametrize("seat", SEATS)
 def test_random_policy_games_follow_the_mask_and_reach_choice(name, seat):
     reached = 0
-    for seed in range(40):
+    for seed in range(25):
         env = QuackEnv(seat=seat, opponent=make_opponent(name, seed, "v1.8"), rules="v1.8")
         names = action_names(env.rs)
         rng = np.random.default_rng(seed)

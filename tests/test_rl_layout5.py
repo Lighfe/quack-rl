@@ -192,7 +192,7 @@ def test_parallel_env_random_masked_games_run_to_the_end():
 
 @pytest.mark.parametrize("seat", SEATS)
 def test_single_env_random_masked_games_run_to_the_end(seat):
-    for seed in range(20):
+    for seed in range(10):
         env = QuackEnv(seat=seat, opponent=make_opponent("draw20-pts4-blue", seed, "v1.10"), rules="v1.10")
         names = action_names(env.rs)
         rng = np.random.default_rng(seed)

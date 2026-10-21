@@ -30,7 +30,7 @@ from quack_rl.report import (
     build_report,
     realistic_baseline_maximum,
 )
-from quack_rl.rules import load_ruleset
+from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.runner import play_game
 from quack_rl.tournament import TournamentConfig, csv_columns, write_run
 
@@ -175,9 +175,11 @@ def test_brew_outcomes_use_the_limit_of_the_round():
 
 
 def test_realistic_maximum_on_v1_11_is_not_below_the_one_without_cards():
-    no_cards = RS.model_copy(update={"cards": []})
+    # 3 rounds instead of 9: the calculation is far cheaper and the property is the same
+    rs = with_rounds(RS, 3)
+    no_cards = rs.model_copy(update={"cards": []})
     # card 4 only raises the limit, so the maximum cannot fall (up to float noise)
-    assert realistic_baseline_maximum(RS) >= realistic_baseline_maximum(no_cards) - 1e-9
+    assert realistic_baseline_maximum(rs) >= realistic_baseline_maximum(no_cards) - 1e-9
 
 
 def test_report_numbers_equal_the_record_with_card_4_and_restarts(tmp_path):
@@ -186,6 +188,7 @@ def test_report_numbers_equal_the_record_with_card_4_and_restarts(tmp_path):
         games=6,
         seed=11,
         rules="v1.11",
+        rounds=4,  # the report's calculated maximum grows with the rounds; 4 keep it cheap
         keep_records=True,
         sample_size=0,
     )
@@ -215,7 +218,12 @@ def test_report_numbers_equal_the_record_with_card_4_and_restarts(tmp_path):
 
 def test_no_card_note_in_the_report_of_an_older_ruleset(tmp_path):
     config = TournamentConfig(
-        bots=("bot:draw20-pts1-points", "bot:random"), games=2, seed=1, rules="v1.10", sample_size=0
+        bots=("bot:draw20-pts1-points", "bot:random"),
+        games=2,
+        seed=1,
+        rules="v1.10",
+        rounds=3,  # the report's calculated maximum grows with the rounds; 3 are enough here
+        sample_size=0,
     )
     folder, _ = write_run(config, tmp_path)
     assert "Cards:" not in build_report(folder)
