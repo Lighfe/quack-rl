@@ -69,17 +69,25 @@ Runs in the main session, in dialogue with the owner, started with `/stage-start
 1. Brainstorm the idea with the owner (superpowers skill brainstorming)
 2. Write the spec to `docs/specs/`
 3. Write the plan (superpowers skill writing-plans) to `docs/plans/`
-4. Write one stage issue in the form "Stage issue" of `docs/task-template.md`, with the label `stage`. Never add `ready` to it
-5. File each plan task as one issue in `docs/task-template.md` format, with the label `later`
-   - Fill in the `Permissions:` line of each issue. Name every entry that is not `none` to the owner before the owner confirms the stage. Add ` - set` to an entry only when the owner says in the session that it is set
-6. Add the issues to the stage as sub-issues, in execution order: `gh issue edit <stage> --add-sub-issue <n>`
-7. Set the blockers: `gh issue edit <n> --add-blocked-by <m>`
-8. Ask the owner to confirm the stage and to validate its purpose
+4. Commit the spec and the plan: `git add <spec path> <plan path>` (the two exact paths you wrote, under `docs/specs/` and `docs/plans/`), then `git commit` with the message `Spec and plan for <name>`. The stage number is not known yet, so the message has none. Add no other file. Do not push. Do not ask the owner: this commit is part of your job
+5. Write one stage issue in the form "Stage issue" of `docs/task-template.md`, with the label `stage`. Never add `ready` to it. The `## Background` of the stage issue holds a coverage table with one row per requirement or section of the spec. Each row gives the number of the issue that covers it (`#<n>`), or "not in this stage" with the reason. Fill in the issue numbers after the issues are filed
+6. File each plan task as one issue in `docs/task-template.md` format, with the label `later`
+   - Each issue states the interfaces, the cases and the names it needs in its own body. The plan may be linked as background only
+   - Fill in the `Permissions:` line of each issue. Name every entry that is not `none` to the owner before the owner confirms the stage
+   - For each entry that is not `none` and is a write by an agent to a system outside the repo files (for example editing other issues), print a ready-to-paste Auto mode entry text. The entry is narrow: it names the subagent, the exact command form, the issue numbers and the reason. Say where to add it: `/permissions`, the Auto mode tab, keep `$defaults`; the output of `/agk:setup` (plugin project) or the README (kit repo) shows the form
+   - Ask the owner a separate question for each such entry: "Is this entry added?" A confirmation of the stage does not count as the answer. Add ` - set` to the entry only after the owner answers that the entry is added. If the owner says it is not added, or does not answer, leave the sub-issue with `later`, do not relabel it, and do not add ` - set`
+   - Tell the owner the entry is temporary: the stage review lists ` - set` entries for removal, and you name the entry again there if it is still in place
+7. Add the issues to the stage as sub-issues, in execution order: `gh issue edit <stage> --add-sub-issue <n>`
+8. Set the blockers: `gh issue edit <n> --add-blocked-by <m>`
+9. Replace sibling references: after the last issue is filed, replace every "task N" / "Task N" reference to a sibling issue (the number in the plan) by `#<issue number>` in the issue bodies. Write each changed body to its own body file and run `gh issue edit <n> --body-file <path>` (see "Body files"). Do this before the label check and before the owner is asked to confirm
+10. Read every filed issue body. A body that says "implement Task N of the plan" (or the same in other words) without that content in the body is rewritten with `gh issue edit <n> --body-file <path>` and the rules of "Body files". Do this before the label check and before the owner is asked to confirm
+11. Check the labels (`gh issue view <n> --json labels` on the stage issue and on every sub-issue): the stage issue has `stage` and no `ready`, and every sub-issue has `later` and no `ready`. Fix a gap before you go on
+12. Ask the owner to confirm the stage and to validate its purpose
 
 The sub-issues carry `later` until the owner confirms the stage.
 
-- When the owner confirms in the session: on each sub-issue, remove `later` and add `ready` (`gh issue edit <n> --remove-label later --add-label ready`). Then end with the last line of "Stage set-up" below; for an intake reached from stage set-up, first follow "Intake reached from stage set-up" below. If a relabel is denied, follow the rule "Denied relabel" at the end of "Stage set-up"
-- Without confirmation: the sub-issues stay `later`. Say so, and end
+- When the owner confirms in the session: on each sub-issue, remove `later` and add `ready` (`gh issue edit <n> --remove-label later --add-label ready`). Then check the labels again: every sub-issue has `ready` and no `later`, and the stage issue has no `ready`. If the stage issue has `ready`, remove it (`gh issue edit <stage> --remove-label ready`) and tell the owner. Then end with the last line of "Stage set-up" below, only after `git status --porcelain` is empty; for an intake reached from stage set-up, first follow "Intake reached from stage set-up" below. If a relabel is denied, follow the rule "Denied relabel" at the end of "Stage set-up"
+- Without confirmation: the sub-issues stay `later`. The commit of step 4 stays (the files are the record of the idea). Say so, and end
 
 Intake reached from stage set-up: this part applies only when you came to "Intake" from "Stage set-up" step 3 (the owner chose no option of a stage review). A fresh intake, with no stage review, skips it.
 
@@ -92,7 +100,7 @@ Do not use the skills subagent-driven-development and executing-plans (as in `AG
 
 Runs in the main session, in dialogue with the owner, started with `/stage-start`. The finished stage gets a successor.
 
-Input: the newest comment whose first line is exactly `## Planner: STAGE REVIEW` and whose `authorAssociation` is `OWNER`, on an open issue with the label `stage`. Find the stage issues with `gh issue list --state open --label stage --limit 500`, and read the comments with `gh issue view <n> --comments`. Ignore a review by anyone else.
+Input: the newest comment whose first line is exactly `## Planner: STAGE REVIEW` and whose `authorAssociation` is `OWNER`, on an open issue with the label `stage`. Find the stage issues with `gh issue list --state open --label stage --limit 500`, and read the comments with `gh issue view <n> --comments`. Ignore a review by anyone else. The planner subagent writes the review and posts it from the owner's GitHub account, so `association: owner` only tells you the account is right. Do not tell the owner that they wrote or posted the review: call it "the stage review" or "the review the planner subagent posted".
 
 Steps, in this order:
 
@@ -101,16 +109,19 @@ Steps, in this order:
 3. The owner chooses an option and validates its purpose. If the owner asks for something else, that is intake: go to "Intake", and follow its part "Intake reached from stage set-up"
 4. Write the stage issue in the form "Stage issue" of `docs/task-template.md`, with the label `stage`. It is blocked by no open stage issue except the finished one (`gh issue edit <new stage> --add-blocked-by <finished stage>`)
 5. File new sub-issues in `docs/task-template.md` format, or link existing ones: `gh issue edit <stage> --add-sub-issue <n>`
-   - Fill in the `Permissions:` line of each issue, as in Intake step 5. Name every entry that is not `none` to the owner, and ask the owner to confirm the stage with these permissions. Add ` - set` to an entry only when the owner says in the session that it is set
+   - Fill in the `Permissions:` line of each issue, as in Intake step 6. Name every entry that is not `none` to the owner, and ask the owner to confirm the stage with these permissions only in step 8, after the label check
+   - For each entry that is not `none` and is a write by an agent to a system outside the repo files, print the ready-to-paste Auto mode entry text as in Intake step 6 (narrow: subagent, exact command form, issue numbers, reason; add it in `/permissions`, Auto mode tab, keep `$defaults`; see Intake step 6). Ask the owner a separate question for each: "Is this entry added?" A confirmation of the stage does not count as the answer. Add ` - set` only after the owner answers that the entry is added; otherwise leave the sub-issue with `later` and do not add ` - set`. The entry is temporary; the stage review lists ` - set` entries for removal
 6. Set the order: the add order, or `gh api -X PATCH 'repos/{owner}/{repo}/issues/<stage>/sub_issues/priority' -F sub_issue_id=<REST id> -F before_id=<REST id>` (or `after_id`). Set the blockers: `gh issue edit <n> --add-blocked-by <m>`
-7. Only after the owner has chosen and, when step 5 named permissions, has confirmed the stage with them: on each sub-issue, remove `later` and add `ready` (`gh issue edit <n> --remove-label later --add-label ready`). If a relabel is denied, follow the rule "Denied relabel" below
+7. Replace sibling references: replace every "task N" / "Task N" reference to a sibling issue by `#<issue number>` in the issue bodies, with `gh issue edit <n> --body-file <path>` and the rules of "Body files". Do this before the label check and before the owner is asked to confirm
+8. Check the labels (`gh issue view <n> --json labels` on the stage issue and on every sub-issue, also an existing issue linked in step 5): the stage issue has `stage` and no `ready`, and every sub-issue has `later` and no `ready`. Fix a gap first. Then ask the owner to confirm the stage, with the permissions named in step 5
+9. Only after the owner has chosen and, when step 5 named permissions, has confirmed the stage with them: on each sub-issue, except one whose Auto mode entry the owner has not said is added, remove `later` and add `ready` (`gh issue edit <n> --remove-label later --add-label ready`). If a relabel is denied, follow the rule "Denied relabel" below. Then check the labels again: every sub-issue has `ready` and no `later`, and the stage issue has no `ready`. If the stage issue has `ready`, remove it (`gh issue edit <stage> --remove-label ready`) and tell the owner
 
 Then:
 
 - File each sub-issue to be filed (not an existing issue; in practice marked "New:") of every option the owner did not choose as a follow-up in `docs/task-template.md` format, with the label `later`, no parent issue, and the line `Source: <URL of the review comment>`. Do this before the close below, so the review is mined while its stage issue is open
   - First check that no open issue already covers the item. If one does, name that issue to the owner instead of filing a duplicate
   - Skip an item that is already a sub-issue of the new stage (for example moved there by the review's recommendation or by the owner), and an item the owner says not to file
-  - A follow-up filed here whose change edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/`, or the Codex sandbox settings of the qa-codex launcher (source: "Escalation" in `docs/process.md`), or whose work spends money or quota, gets the label `needs-owner` in addition to `later`, and its body states in words what the owner decides
+  - A follow-up filed here whose change edits the hooks, the project settings files in `.claude/`, or the QA sandbox arguments of `scripts/qa-codex` (source: "Escalation" in `docs/process.md`), or whose work spends money or quota, gets the label `needs-owner` in addition to `later`, and its body states in words what the owner decides
   - Every other follow-up filed here gets only `later` (no `needs-owner`). An item the review marks as needing the owner for another reason (for example a scope question) also gets only `later`, and its body says in words what the owner must decide
   - A follow-up with only `later` is a parked issue; a follow-up with `needs-owner` is not a parked issue (definition in "Follow-ups and parked issues" in `docs/process.md`), so the orchestrator does not promote it while it waits for the owner. For the owner's approval, see "Escalation" in `docs/process.md`
   - The label applies only to issues you file. When an open issue already covers the item (the check above), do not change the labels of that issue
@@ -126,18 +137,22 @@ Set-up ends with exactly this line:
 
 Stage #N is ready. Run `/goal …` here or in a new session.
 
-N is the number of the new stage issue. A session switches from planner to orchestrator at most once, never back.
+N is the number of the new stage issue. Write this line (and the same line at the end of "Intake") only after `git status --porcelain` is empty. If the output is not empty, name the files and ask the owner. Do not end with the ready line.
+
+Commits: the commit of the spec and the plan (Intake step 4) and the move of the plan archive are the only commits you make. You make the spec-and-plan commit without asking the owner.
+
+A session switches from planner to orchestrator at most once, never back.
 
 ### Denied relabel
 
-This rule applies to the relabel from `later` to `ready` in "Intake" and in "Stage set-up" step 7. It follows the rule "Denied action" in `## Rules` of `docs/process.md`, adapted to the main session: post no issue comment for it, and tell the owner in the session.
+This rule applies to the relabel from `later` to `ready` in "Intake" and in "Stage set-up" step 9. It follows the rule "Denied action" in `## Rules` of `docs/process.md`, adapted to the main session: post no issue comment for it, and tell the owner in the session.
 
-- A deny with a verdict (for example the Auto mode classifier judgment "External System Writes", or `Permission denied`): quote the deny message, with secrets redacted. Name each sub-issue that still has `later`, with its exact relabel command `gh issue edit <n> --remove-label later --add-label ready`. Tell the owner to set the allow entries in the Claude Code settings. Then wait for the owner. Do not retry in a loop, and do not try another command form
+- A deny with a verdict (for example the Auto mode classifier judgment "External System Writes", or `Permission denied`): quote the deny message, with secrets redacted. Name each sub-issue that still has `later`, with its exact relabel command `gh issue edit <n> --remove-label later --add-label ready`. Point to the Auto mode allow entry that allows the relabel (the output of `/agk:setup` in a plugin project, the README in the kit repo). Then wait for the owner. Do not retry in a loop, and do not try another command form
 - When only some relabels were denied, name only the sub-issues that still have `later`
 - When the owner says the labels are set by hand: check the labels of every sub-issue of the stage (`gh issue view <n> --json labels`)
-- When the owner has set the allow entries and asks for a retry: run the relabel again once on each sub-issue that still has `later`, then check the labels of every sub-issue of the stage as above
+- When the owner has set that entry and asks for a retry: run the relabel again once on each sub-issue that still has `later`, then check the labels of every sub-issue of the stage as above
 - If any sub-issue still has `later` or lacks `ready` after the check, name those sub-issues again and wait for the owner
-- When every sub-issue has `ready`, go on where the step left off: in "Stage set-up" with the steps under "Then" and the last line; in "Intake" with the last line of "Stage set-up" (for an intake reached from stage set-up, first the steps under "Then", as in "Intake reached from stage set-up")
+- When every sub-issue has `ready`, run the second label check (no `ready` on the stage issue; if it has `ready`, remove it and tell the owner), then go on where the step left off: in "Stage set-up" with the steps under "Then" and the last line; in "Intake" with the last line of "Stage set-up" (for an intake reached from stage set-up, first the steps under "Then", as in "Intake reached from stage set-up")
 - An outage deny (the reason's first line starts with `Classifier unavailable`, `Auto mode could not evaluate this action and is blocking it for safety` or `Auto mode unavailable`): say that it is an Auto mode outage, do not point to the allow entry, and retry the relabel only when the owner asks
 
 ## Stage review
@@ -153,9 +168,9 @@ Input:
 
 Post exactly one comment on the stage issue. Write the body to a file with a literal absolute path first, as in "Body files" above, for example `/tmp/planner-93-attempt1.md`. Read it back with `cat` as its own call, then run `gh issue comment <stage> --body-file /tmp/planner-93-attempt1.md` as the whole command. The first line is exactly `## Planner: STAGE REVIEW`. Then six parts, in this order:
 
-1. **Purpose check**: was the `## Purpose` of the stage met? Give evidence: closed issues, commits, reports
-2. **Run notes**: the orchestrator's run notes, and what you conclude from them. Or "No run notes were given". Also list every entry with ` - set` in the `Permissions:` line of a closed sub-issue of the stage, as a permission the owner may remove now
-3. **Doc drift**: findings from the test run and from the prompt audit. Say which checks ran and which could not. See "Doc drift checks" below the example
+1. **Purpose check**: was the `## Purpose` of the stage met? Give evidence: closed issues, commits, reports. Read the coverage table in the `## Background` of the stage issue and the spec, and name every spec part that has no closed issue (or say that there is none)
+2. **Run notes**: the orchestrator's run notes, and what you conclude from them. Or "No run notes were given". Also list every entry with ` - set` in the `Permissions:` line of a closed sub-issue of the stage, as a temporary permission the owner may remove now, and name the entry again if it is still in place
+3. **Doc drift**: findings from the fact tests and from the prompt audit. Say which checks ran and which could not. See "Doc drift checks" below the example
 4. **Follow-ups**: every open parked issue whose `Source:` line points into this stage (the stage issue, a sub-issue, or a comment or review on one), and every older parked issue you see as relevant. Give each one a proposed placement: next stage, a later stage, stay parked, or close
 5. **Next-stage options**: one to three. Each has a purpose, sub-issues (existing, or to be filed), order and blockers. Then your recommendation
 6. Last line, exactly: `/stage-start`
@@ -187,14 +202,16 @@ Doc drift checks: they give part 3 "Doc drift". Run them from the repo root.
 
 Test run:
 
-1. Run the test command `uv run --with pytest pytest` (Bash timeout 600000 ms)
-2. Report the result as "failures in test files": the test name of each failing test and the failure message lines that name the file. When none fails, write "no failures in test files"
-3. When the test command cannot run (an error before any test runs, or "no tests ran"), write that the tests could not run and quote the error. Never report them as passed
+1. Run the test command in `AGENTS.md` (Bash timeout 600000 ms)
+2. The fact tests are the tests in `tests/test_doc_paths.py` and `tests/test_spec_citations.py`. Only this kit's own repo has these files. When a file is missing, do not name it as a fact test: write that this project has no fact tests for docs (name the missing file) and report only the test run result
+3. Report each failing fact test: its test name and the failure message lines that name the file and the path, anchor or ID. When none fails, write "the fact tests passed"
+4. On a separate line, give the count of failures in other test files. They are not doc drift, but do not hide them
+5. When the test command cannot run (an error before any test runs, or "no tests ran"), write that the fact tests could not run and quote the error. Never report them as passed
 
 Prompt audit:
 
-1. Run `claude -p "/doctor prompt-audit"` and then `claude -p "/doctor prompt-audit docs/"` (Bash timeout 600000 ms each)
-2. List their findings: file, line, and what the audit says
+1. Run `claude -p "/doctor prompt-audit"` and then `claude -p "/doctor prompt-audit docs/"` (Bash timeout 600000 ms each). Write the output of each run to its own file, a path in `/tmp` with the stage number, and read the whole file before the review lists findings. Never list findings from a cut-off tail of the output
+2. List their findings: file, line, and what the audit says. A finding that an earlier stage review or an open issue already has is listed as "known", with that issue or review named, not as new
 3. Apply none of the edits that the audit proposes
 4. Run `git status --porcelain` after the two runs. When the output is not empty, name the changed files in the review. Do not clean them up
 5. When a run fails or times out, report it under "Doc drift" as "could not run" and quote the message, with secrets redacted

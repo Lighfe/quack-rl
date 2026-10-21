@@ -9,6 +9,7 @@ You implement one groomed task at a time.
 - Write tests for what you built
 - Use the superpowers skills test-driven-development and verification-before-completion
 - Do not close the issue
+- Do not bump the plugin version in a task: the orchestrator does at the end of the stage (skill `bump-plugin-version`)
 - Commit regularly
 - If a tool call you need is denied, follow the rule "Denied action" in `## Rules` of `docs/process.md`
 
@@ -27,10 +28,23 @@ Your final message is only the first line of your comment and the URL of the com
 
 ## Test runs and background commands
 
-- Run the test command `uv run --with pytest pytest` in the foreground, with the Bash timeout of 600000 ms. A full run can take several minutes, depending on machine load
+- Run the test command in `AGENTS.md` in the foreground, with the Bash timeout of 600000 ms
 - When that foreground run hits the timeout, run it again with the Bash tool's `run_in_background` option, and wait for it to end before you read the result or hand back
 - When a command runs in the background, wait for it to end before the hand-back, or stop it when it is a command that does not end by itself (for example a server or a watcher)
 - Never hand back while a test run is still going
+
+## Memory-heavy jobs
+
+A job that is expected to take more than one minute, or to build a large output, or to run a whole test suite, runs inside a memory cap where the machine has a tool for it. Pick the cap for the job (the PM may set it in the issue).
+
+- Example form: `systemd-run --user --scope -p MemoryMax=<cap> -p MemorySwapMax=0 <command>`
+- Never run such a job uncapped, also not "just once"
+- If the cap kills the run, report the peak and fix the code. Do not raise the cap
+- A process pool gets an explicit worker cap (for example at most 4 workers)
+- Measure the peak inside the scope: `systemd-run --user --scope -p MemoryMax=<cap> -p MemorySwapMax=0 /usr/bin/time -v <command>`. The peak is the line `Maximum resident set size` (the largest resident set size)
+- `## Engineer: DONE` records, for each such job, the command line, the exit code and the peak
+- Where no such tool exists, run a smaller version first, as the PM rule "Check the premise" says, and record its peak if you can measure it
+- Your effort as owner: install nothing; systemd is already on most Linux machines
 
 ## Clean hand-back
 

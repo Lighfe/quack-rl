@@ -2,7 +2,7 @@
 
 This document tells how work is organized in this repo.
 
-Status: hooks of the agent-graph-kit plugin check the guarded calls and deny a call that is not allowed. This prose is the main description.
+Status: the hooks check the guarded calls and deny a call that is not allowed. This document is the main description of the rules.
 
 ## Work rules
 
@@ -11,6 +11,7 @@ Status: hooks of the agent-graph-kit plugin check the guarded calls and deny a c
 - Commit regularly
 - Reading rules for the doc folders (prose only, no hook checks them):
   - `docs/archive/`: read a file there only when the owner or the issue points to it
+  - research notes folder (if the project has one): readable; you may build on earlier research and cite it
   - `docs/plans/`: reach a plan through the issue that came from it
   - `docs/reviews/`: a review matters in the session that asked for it; read an older review only when the owner or the issue points to one
 
@@ -49,10 +50,10 @@ The planner (the main session, started with `/stage-start`) does intake and stag
 6. On FAIL, back to step 3 with the QA comment as input
 7. On `## QA: UNVERIFIABLE`, back to step 2 (PM) with the QA comment as input
 8. On PASS, close the issue
-9. Repeat until every open issue with the label `ready` has an open blocker, or none is left, or the active stage has ended, or the active stage has open sub-issues, none of them eligible
+9. Repeat until every open issue with the label `ready` (stage issues are not counted) has an open blocker, or none is left, or the active stage has ended, or the active stage has open sub-issues, none of them eligible
 10. When the active stage has ended, the orchestrator launches the planner for the stage review on the stage issue, and then stops (see "Stage end" below)
 
-Stop condition for `/goal`: no open issue with the label `ready` is without an open blocker, or the active stage has ended (every entry of its non-empty sub-issue list is closed, see "Stage end" below) and the loop stopped after the stage review (or after the stage issue was escalated), or the active stage has open sub-issues, none of them eligible, and the loop stopped.
+Stop condition for `/goal`: no open issue with the label `ready` is without an open blocker (stage issues are not counted among the `ready` issues for this clause), or the active stage has ended (every entry of its non-empty sub-issue list is closed, see "Stage end" below) and the loop stopped after the stage review (or after the stage issue was escalated), or the active stage has open sub-issues, none of them eligible, and the loop stopped.
 
 ## Stages
 
@@ -81,7 +82,7 @@ Read the stage's sub-issues:
 gh api --paginate 'repos/{owner}/{repo}/issues/<stage>/sub_issues' --jq '.[] | {number, state, labels: [.labels[].name]}'
 ```
 
-Take the first eligible entry in that list order. Read the entries one by one; never count them with `--jq 'length'` on a paginated call.
+Take the first eligible entry in that list order. Read the entries one by one; never count them with `--jq 'length'` on a paginated call. `--jq` runs once for each page, so the count would be one number for each page.
 
 - The list order is the stored position on GitHub: the add order, then every reorder. New sub-issues go to the end of the list.
 - A closed sub-issue keeps its position, so the next pick is the first open, unblocked entry of the list.
@@ -128,10 +129,10 @@ The details are in "Stage end" in `docs/team/orchestrator.md`.
 - A launch that Claude Code denied before it ran (the hook posts `## Launch not started: …`) or that an auto mode outage stopped (the hook posts `## Launch stopped by outage: …`) is not pending and not a return
 - A launch that ended without a result of its role (and with no `## Owner: RESUME` after it) is a miss, and the issue is pending. After one miss, the orchestrator continues that agent with `SendMessage` or launches the same role once more, without the owner (`qa-codex` and the planner only get a new launch); the hook denies a call of any other role. Only two misses in a row of the same role escalate the issue to the owner. A miss is not a return
 - If the PM posts `## PM: NEEDS OWNER`, escalate the issue
-- `## QA: UNVERIFIABLE` means QA could not check a criterion because of a tool or sandbox limit of the checker. The PM makes the criterion checkable with the same intent. When the only way needs a change that a filed issue can fix (also an edit of the project settings files (`.claude/settings*.json`), the hooks of the agent-graph-kit plugin or the QA sandbox), the PM links that fix issue as a blocker and posts `## PM: WAITING`; a fix issue that edits hooks, settings or the QA sandbox gets `needs-owner`. The PM escalates (`## PM: NEEDS OWNER`) when making a criterion checkable changes its intent or scope, and in the other cases of the rule "A tool problem that an issue can fix" in `docs/team/pm.md`
+- `## QA: UNVERIFIABLE` means QA could not check a criterion because of a tool or sandbox limit of the checker. The PM makes the criterion checkable with the same intent. When the only way needs a change that a filed issue can fix (also an edit of the project settings files (`.claude/settings*.json`), the hooks or the QA sandbox), the PM links that fix issue as a blocker and posts `## PM: WAITING`; a fix issue that edits hooks, settings or the QA sandbox gets `needs-owner`. The PM escalates (`## PM: NEEDS OWNER`) when making a criterion checkable changes its intent or scope, and in the other cases of the rule "A tool problem that an issue can fix" in `docs/team/pm.md`
 - `## QA: INVALID` has other causes (for example no usable commit range, or retries used up) and is escalated
 - Denied action (PM, engineer, QA fallback `qa-engineer`): when a tool call you need gets a deny with a verdict (an auto mode classifier judgment such as "Instruction Poisoning", or `Permission denied`) and you do not retry it, do not end without a result. Post your result marker and quote the deny message (redact secrets):
-  - PM: when a filed issue can fix the cause (a change in this repo, or an open issue in any repo), link that fix issue as a native blocker and post `## PM: WAITING` (rule "A tool problem that an issue can fix" in `docs/team/pm.md`). The PM files the fix issue itself when none exists, as a follow-up with `later`; it also gets `needs-owner` when the fix edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/` or the Codex sandbox settings of the qa-codex launcher. `## PM: NEEDS OWNER` only when the owner alone can resolve the cause outside this repo (for example a missing user-level Auto mode allow entry), no filed issue can fix it, it needs a change of intent, scope or money, the call that files the fix issue or adds the blocker link is denied too, or the fix issue was closed without a fix; name what the owner must decide
+  - PM: when a filed issue can fix the cause (a change in this repo, or an open issue in any repo), link that fix issue as a native blocker and post `## PM: WAITING` (rule "A tool problem that an issue can fix" in `docs/team/pm.md`). The PM files the fix issue itself when none exists, as a follow-up with `later`; it also gets `needs-owner` when the fix edits the hooks, the project settings files in `.claude/` or the QA sandbox arguments of `scripts/qa-codex`. `## PM: NEEDS OWNER` only when the owner alone can resolve the cause outside this repo (for example a missing user-level Auto mode allow entry), no filed issue can fix it, it needs a change of intent, scope or money, the call that files the fix issue or adds the blocker link is denied too, or the fix issue was closed without a fix; name what the owner must decide
   - Engineer: `## Engineer: BLOCKED`
   - QA fallback: `## QA: UNVERIFIABLE`, and mark each affected criterion `- [ ] … - INVALID` with the deny message
 
@@ -147,7 +148,7 @@ The details are in "Stage end" in `docs/team/orchestrator.md`.
 
 - The owner is asked only for decisions that are really the owner's: money, settings, or a change of intent or scope. Everything else is resolved inside the team: the engineer asks the PM with `## Engineer: BLOCKED`, and the PM clarifies the issue. An issue that must wait for other open issues is not an owner decision either: the PM adds them as native "blocked by" links (also issues in other repos) and posts `## PM: WAITING`. The issue keeps `ready`, the pick skips it while it has an open blocker, and it goes back to the PM when all its blockers are closed. Nor is a role agent stopped by an auto mode outage: a hook marks the launch, and the orchestrator launches the same step again.
 - A tool problem with a fix issue is not an owner decision on the blocked issue either. When a deny with a verdict or a QA limit can be fixed by a filed issue, the PM links the fix issue as a blocker and posts `## PM: WAITING` (rule "A tool problem that an issue can fix" in `docs/team/pm.md`). The blocked issue keeps `ready` and goes back to the PM when the fix issue is closed, with no `## Owner: RESUME`. This applies only to a deny with a verdict and to QA limits; an outage deny is unchanged (the agent posts no result and ends, and the hook posts `## Launch stopped by outage: …`).
-- A fix issue that edits the hooks of the agent-graph-kit plugin, the project settings files in `.claude/` or the Codex sandbox settings of the qa-codex launcher has the label `needs-owner`. The owner decides on the fix issue, not on the blocked issue, in one of three ways:
+- A fix issue that edits the hooks, the project settings files in `.claude/` or the QA sandbox arguments of `scripts/qa-codex` has the label `needs-owner`. The owner decides on the fix issue, not on the blocked issue, in one of three ways:
   - remove `needs-owner` to approve it: it is then a parked issue, and the orchestrator promotes it when it blocks a sub-issue of the active stage
   - make the change and close the fix issue
   - close the fix issue as not planned: the blocked issue then goes back to the PM, which posts `## PM: NEEDS OWNER` and names the closed fix issue

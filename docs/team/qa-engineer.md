@@ -11,9 +11,11 @@ You check finished work against the issue that specified it.
 
 Read "identical" or "reproducible" records as equal game content, not byte-equal, when the criterion names ignored fields (`game_id`, `started_at`, `finished_at`); see "Criteria for reproducible records" in `docs/team/pm.md` and the tests in `tests/test_bots.py` that compare records (`test_simulate_same_seed_same_records` and `test_simulate_same_seed_only_ids_and_times_differ`).
 
+The QA sandbox may have no systemd bus: check the numbers (command line, exit code, peak) recorded in `## Engineer: DONE` and run only small checks of your own (a small build or the fast tests), never a heavy job uncapped.
+
 Do not install anything. If you need a tool that is not in the lockfile or the set-up, the criterion fails (undeclared dependency).
 
-Start the app and run the browser check in one command. A background process does not survive into your next command.
+If your tool list has a browser tool, start the app and run the browser check in one command. A background process does not survive into your next command. Without a browser tool, do not repeat a browser check.
 
 Your output is a verdict: PASS, FAIL, UNVERIFIABLE or INVALID.
 

@@ -34,11 +34,20 @@ gh issue list --state open --label stage --limit 500 --json number --jq '.[].num
 gh api --paginate 'repos/{owner}/{repo}/issues/<stage>/sub_issues' --jq '.[] | {number, state, labels: [.labels[].name]}'
 ```
 
-Read the entries one by one; never count them with `--jq 'length'` on a paginated call.
+Read the entries one by one; never count them with `--jq 'length'` on a paginated call. `--jq` runs once for each page, so the count would be one number for each page.
 
 - One qualifying stage issue: it is the active stage for the whole run, also after its last `ready` sub-issue is closed or escalated.
 - No qualifying stage issue: no stage is active for the whole run. Pick as above (any `ready` issue without an open blocker). Do not look for a stage again during the run.
 - Two or more qualifying stage issues: stop the loop and ask the owner.
+
+A stage issue never has the label `ready`. At the start of a `/goal` run, before you find the active stage, remove `ready` from each open stage issue that has it:
+
+```
+gh issue list --state open --label stage --label ready --limit 500 --json number --jq '.[].number'
+gh issue edit <n> --remove-label ready
+```
+
+Name each such issue in the final report as a stage issue with a wrong label. When no open stage issue has `ready`, do nothing.
 
 While a stage is active, a `ready` issue that is not a sub-issue of the active stage is never picked, also when the stage has no eligible sub-issue left. List it in the final report.
 
@@ -48,7 +57,7 @@ Next step while a stage is active. Before each pick (so also after each close, e
 
 1. The sub-issue list is not empty and every entry is closed: the stage has ended. Go to "Stage end".
 2. Otherwise promote the parked blockers of its sub-issues (see "Promotion of a parked blocker"), then pick the first eligible sub-issue in list order.
-3. Otherwise (open sub-issues left, none of them eligible): stop the loop. Your final report names the active stage issue, each of its open sub-issues with the reason it is not eligible (`needs-owner`, `later`, no `ready`, or its open blockers by number), and the `ready` issues not picked because they are not sub-issues of the active stage. Mark each open blocker that has the label `needs-owner` (for example `#<number> (needs-owner)`): it is a fix issue that waits for the owner.
+3. Otherwise (open sub-issues left, none of them eligible): stop the loop. Your final report names the active stage issue, each of its open sub-issues with the reason it is not eligible (`needs-owner`, `later`, no `ready`, or its open blockers by number), and the `ready` issues not picked because they are not sub-issues of the active stage. Mark each open blocker that has the label `needs-owner` (for example `#<number> (needs-owner)`): it is a fix issue that waits for the owner. When every open sub-issue of the active stage is not eligible only because of open blockers, and at least one such blocker is in another repo, the final report starts with one line for each such blocker, in exactly this form: `Waiting for <owner/repo>#<n>: <title>. Close it, then the loop can start again.` The loop stops and does not re-check the blocker. The line appears once per blocker in the report, not once per waiting issue (a blocker that blocks two sub-issues gets one line).
 
 Pick order inside the active stage: take the first eligible entry in the list order of the sub-issue read. The list order is the stored position on GitHub (the add order, then every reorder). A closed sub-issue keeps its position. The issue number is not used as a tie-break. Changing the order (`gh api -X PATCH …/sub_issues/priority`) is not a step of the loop.
 
@@ -69,8 +78,9 @@ When the active stage's sub-issue list is not empty and every entry is closed, t
 
 1. Run `git status --porcelain`. If the output is not empty, stop the loop and ask the owner, as in "Before each issue".
 2. Look for an earlier stage review on the stage issue: a comment whose first line is exactly `## Planner: STAGE REVIEW` and whose `authorAssociation` is `OWNER`. If one exists (from an earlier run), do not launch the planner again. Stop the loop. Your final report names the URL of the newest such comment and the line below (see "Definition of done").
-3. Otherwise launch the agent `planner` on the stage issue, with the run notes (see "Launch a subagent").
-4. Read its result (see "Read the result") and stop the loop.
+3. Release the plugin, before the planner is launched: run `uv run scripts/bump_plugin_version.py`. When it prints that no bump is needed, there is nothing to commit. Otherwise run the test command of `AGENTS.md` and commit the bump (`plugin/.claude-plugin/plugin.json`, `scripts/plugin-release.json` and the rebuilt copies in `plugin/`). When the script or the tests fail, do not commit: reset the files, name the failure in the run notes and go on. The skill `bump-plugin-version` describes the script
+4. Launch the agent `planner` on the stage issue, with the run notes (see "Launch a subagent").
+5. Read its result (see "Read the result") and stop the loop.
 
 The read for step 2 returns the newest stage review by the owner's login, or `null`:
 
@@ -91,6 +101,8 @@ The planner prompt always has a section `Run notes`. It covers the current sessi
 - auto mode classifier denies
 - outages: `## Launch not started: …` and `## Launch stopped by outage: …` receipts
 - collisions
+- the number of `## QA: UNAVAILABLE` results of the stage, in one line (for example "QA: UNAVAILABLE 3 times in this stage")
+- a launch with no result for more than 30 minutes, with its issue and the time
 - anything else unusual in the run
 
 When nothing happened, the section says so in one line, for example "Nothing unusual in this run."
@@ -110,7 +122,7 @@ A planner launch is not a return.
 
 ## Launch a subagent
 
-Launch a new subagent for each step. Each subagent starts with a fresh context. You may continue a role agent with `SendMessage` only if the message has the same `ROLE=… ISSUE=…` line first. Without it the hook denies the call. Never continue a planner with `SendMessage`.
+Launch a new subagent for each step. Each subagent starts with a fresh context. You may continue a role agent with `SendMessage` only if the message has the same `ROLE=… ISSUE=…` line first. Without it the hook denies the call. Never continue a planner with `SendMessage`. After `## QA: FAIL`, launch a fresh engineer: a QA round is longer than the 5 min prompt cache, so a continued engineer meets a cold cache and writes its whole old context again. Continue with `SendMessage` only after a miss.
 
 | Step | Agent | Input |
 |---|---|---|
@@ -178,11 +190,15 @@ If the result is missing, the role ended without a result (one miss): go on with
 | Engineer | `## Engineer: DONE` | Launch QA |
 | Engineer | `## Engineer: BLOCKED` | Send back: launch the PM with the engineer comment (the hook denies at 3 returns) |
 | QA | `## QA: PASS` | Close the issue |
-| QA | `## QA: FAIL` | Send back: launch or continue the engineer with the QA comment (the hook denies at 3 returns) |
+| QA | `## QA: FAIL` | Send back: launch a fresh engineer with the QA comment (the hook denies at 3 returns) |
 | QA | `## QA: UNVERIFIABLE` | Send back: launch the PM with the QA comment (the hook denies at 3 returns) |
 | QA | `## QA: UNAVAILABLE` | Launch the `qa-engineer` fallback |
 | QA | `## QA: INVALID` | Escalate the issue |
 | Planner | `## Planner: STAGE REVIEW` | Stop the loop and write the final report |
+
+An escalation for returns names the count from the rule (3) in its comment. Count the returns on the issue before you escalate; do not escalate at 2 returns.
+
+After two misses of the same step, you may diagnose read-only before you escalate (journal, `git log`, a memory-capped test run). Put the finding in the escalation comment.
 
 ## Hooks
 
@@ -194,6 +210,7 @@ The issue is pending when the last launched role ended without a result: its rec
 
 - One miss: go on with the same role once, without the owner. Continue the agent with `SendMessage` (same `ROLE=… ISSUE=…` line first) or launch the same role again. `qa-codex` and the planner only get a new launch. The prompt or the message names the receipt of the miss (for example `## Launch: engineer (attempt 1)`) and says that the earlier launch ended without a result, so the agent first checks what is already committed or posted. A dirty tree does not stop this go-on of `pm`, `engineer` or `qa`: the hook lets it pass G1, and you do not run your own clean-tree stop ("Before each issue") for it. The prompt or the message then also says that the earlier launch may have left uncommitted work, so the agent runs `git status` first. This does not hold for the planner: a planner go-on with a dirty tree is denied as not clean
 - Two misses in a row (the two newest receipts are misses of the same role, with no `## Owner: RESUME` after the older one): the hook denies, and you escalate the issue (a stage issue: escalate it and stop the loop)
+- Two launches of one step that end with no result may have a machine cause (the machine ran out of memory, for example from a heavy job without a memory cap). When you escalate after two misses, put this hint in the comment: check the journal or `dmesg` for an out of memory kill, and see "Memory-heavy jobs" in `docs/team/software-engineer.md`
 - A miss is not a return. Receipts voided by `## Launch not started: …` or `## Launch stopped by outage: …` are left out when misses are counted
 
 When auto mode denies a launch, the `qa-codex` call or a `SendMessage` continuation before it runs, a second hook posts `## Launch not started: <role> (…)` for that receipt. The launch never happened: launch the same step again. This is not a return.
@@ -228,7 +245,7 @@ Do not work around a deny in any other way.
    Then remove the label `needs-owner` and add the label `ready`.
    ````
 
-   For a stage issue, the last sentence is: remove the label `needs-owner` and do not add `ready`. The escalation comment's own first line is never the marker: never post a comment whose first line passes the resume match, so start the comment with another line, for example `Escalated: the PM asks for an owner decision`.
+   For a stage issue, the last sentence is: remove the label `needs-owner` and do not add `ready`. The escalation comment's own first line is never the marker: never post a comment whose first line passes the resume match (see the resume match in "Rules" of `docs/process.md`), so start the comment with another line, for example `Escalated: the PM asks for an owner decision`.
 2. Remove the label `ready` and add the label `needs-owner`.
 3. Continue with the next issue (see "Before each issue").
 
@@ -272,7 +289,7 @@ For an escalated issue:
 
 For the whole loop:
 
-- `gh issue list --state open --label ready --search "-label:later -label:needs-owner" --limit 500` shows no issue without an open blocker, or the active stage has ended (every entry of its non-empty sub-issue list is closed) and the stage review was posted or the stage issue was escalated, or the active stage has open sub-issues, none of them eligible, and the loop stopped, or the loop stopped because `git status --porcelain` was not empty
+- `gh issue list --state open --label ready --search "-label:later -label:needs-owner -label:stage" --limit 500` shows no issue without an open blocker, or the active stage has ended (every entry of its non-empty sub-issue list is closed) and the stage review was posted or the stage issue was escalated, or the active stage has open sub-issues, none of them eligible, and the loop stopped, or the loop stopped because `git status --porcelain` was not empty
 - Your final message lists the closed issues, the escalated issues with the reason, the `ready` issues skipped for an open blocker with their open blockers (mark each open blocker that has the label `needs-owner`, for example `#<number> (needs-owner)`, so the owner sees a fix issue that waits for them), the `ready` issues not picked because they are not sub-issues of the active stage, the promoted parked blockers, and the reason if the loop stopped early
 - When the stage review was posted (in this run or earlier), your final message has "Stage #<N> is finished", the URL of the stage review comment, and this exact sentence: "Start the next session with `/stage-start`."
 - When the stage issue was escalated instead, your final message names the stage issue and the reason
