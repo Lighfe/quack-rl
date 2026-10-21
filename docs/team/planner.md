@@ -127,8 +127,8 @@ Then:
   - The label applies only to issues you file. When an open issue already covers the item (the check above), do not change the labels of that issue
   - A filed issue reads on its own: no references such as "Option 2" or "point 3"; restate the content of the item in words
   - Tell the owner every issue you filed (number and title) and every to-be-filed item you did not file, with the reason: covered by an open issue, already in the new stage, or the owner said not to file it
-- File each finding of the review that proposes a change and belongs to no option (a doc drift finding, such as a failing test or a prompt audit finding, or a run-note conclusion that asks for a change) as a follow-up, with the rules of the entry above: the duplicate check, the skips (already in the new stage, or the owner says not to file it), the label `later` and, in the same cases, `needs-owner`, no parent issue, the line `Source: <URL of the review comment>`, a body that reads on its own, and the report to the owner of what you filed and did not file. Do this before the close below as well
-  - Do not file a finding that proposes no change (for example "the tests passed", or an observation with no action)
+- File each finding of the review that proposes a change and belongs to no option (a doc drift finding, such as a failing fact test or a prompt audit finding, or a run-note conclusion that asks for a change) as a follow-up, with the rules of the entry above: the duplicate check, the skips (already in the new stage, or the owner says not to file it), the label `later` and, in the same cases, `needs-owner`, no parent issue, the line `Source: <URL of the review comment>`, a body that reads on its own, and the report to the owner of what you filed and did not file. Do this before the close below as well
+  - Do not file a finding that proposes no change (for example "the fact tests passed", or an observation with no action)
 - Close the finished stage issue with exactly `gh issue close <number>` as the whole command. The close check allows it only when all its sub-issues are closed
 - Follow-ups that the owner decided to close: name them for the owner to close. Do not close them yourself: the close check denies a task issue without `## QA: PASS`
 - Archive the plan: move it from `docs/plans/` to `docs/archive/` once every stage issue made from it has been set up. A plan with several stages stays in `docs/plans/` until its last stage is set up. Commit the move
@@ -200,7 +200,7 @@ Example:
 
 Doc drift checks: they give part 3 "Doc drift". Run them from the repo root.
 
-Test run:
+Fact tests:
 
 1. Run the test command in `AGENTS.md` (Bash timeout 600000 ms)
 2. The fact tests are the tests in `tests/test_doc_paths.py` and `tests/test_spec_citations.py`. Only this kit's own repo has these files. When a file is missing, do not name it as a fact test: write that this project has no fact tests for docs (name the missing file) and report only the test run result
