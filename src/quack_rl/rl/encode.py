@@ -34,6 +34,7 @@ from quack_rl.engine import (
     has_hand,
     legal_actions,
 )
+from quack_rl.engine.board import board_position, has_50pts
 from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
@@ -234,6 +235,15 @@ def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
         obs["card"] = card_effect(state, rs)
         obs["deck"] = _deck_counts(state, rs)
         obs["restart_available"] = _restart_available(state, rs, seat)
+    if _has_board_block(rs):
+        # the point board is open information: both markers, both flags, both bonuses
+        board = rs.point_board
+        assert board is not None
+        obs["board"] = {
+            "own": _board_view(state.players[seat], rs),
+            "opponent": _board_view(state.players[other_seat(seat)], rs),
+            "tails": [int(f in board.rat_tails) for f in range(board.fields)],
+        }
     return obs
 
 
@@ -311,6 +321,44 @@ def _card_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     ]
 
 
+def _has_board_block(rs: Ruleset) -> bool:
+    return observation_layout(rs) == BOARD_LAYOUT
+
+
+def _board_view(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
+    return {
+        "position": board_position(p.points, rs),
+        "has_50pts": has_50pts(p.points, rs),
+        "rat_tail": p.rat_tail,
+    }
+
+
+def _board_names(rs: Ruleset) -> list[str]:
+    """Layout 7: per seat the one-hot marker field, the flag and the rat tail bonus; then the
+    tail locations (a tail after field f)."""
+    if not _has_board_block(rs):
+        return []
+    assert rs.point_board is not None
+    fields = rs.point_board.fields
+    names: list[str] = []
+    for who in ("own", "opponent"):
+        names += [f"{who}.board.marker.{k}" for k in range(fields + 1)]
+        names += [f"{who}.board.has_50pts", f"{who}.rat_tail"]
+    return [*names, *(f"board.tail.{f}" for f in range(fields))]
+
+
+def _board_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
+    if not _has_board_block(rs):
+        return []
+    assert rs.point_board is not None
+    values: list[float] = []
+    for who in ("own", "opponent"):
+        view = obs["board"][who]
+        values += [view["position"] == k for k in range(rs.point_board.fields + 1)]
+        values += [view["has_50pts"], view["rat_tail"]]
+    return [*values, *obs["board"]["tails"]]
+
+
 def _map_names(rs: Ruleset) -> list[str]:
     colours = _colours(rs)
     names = []
@@ -348,6 +396,7 @@ def vector_names(rs: Ruleset) -> list[str]:
         *_hand_names(rs),
         *_shop_names(rs),
         *_card_names(rs),
+        *_board_names(rs),
         *_map_names(rs),
     ]
 
@@ -401,6 +450,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *_hand_values(obs, rs),
         *_shop_values(obs, rs),
         *_card_values(obs, rs),
+        *_board_values(obs, rs),
         *_map_values(obs, rs),
     ]
     return np.asarray(values, dtype=np.float32)
@@ -414,11 +464,12 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     chip_cap = float(rs.max_chip_purchases) if rs.max_chip_purchases is not None else inf
     purchase_cap = float(rs.max_purchases) if rs.max_purchases is not None else inf
     chip_cap = min(chip_cap, purchase_cap)
+    max_points = float(rs.point_board.max_points) if rs.point_board is not None else inf
     scalar_high = {
         "money": inf,
         "white_total": inf,
         "ruby_fields_ahead": float(len(rs.rubies)),
-        "points": inf,
+        "points": max_points,
         "droplet_halves": inf,
         "purchases": purchase_cap,
         "chip_purchases": chip_cap,
@@ -464,6 +515,12 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         kinds = _card_kinds(rs)
         per_kind = [sum(c.count for c in rs.cards if c.effect == k) for k in kinds]
         card_high = [*[1.0] * len(kinds), *map(float, per_kind), 1.0, inf, inf]
+    board_high: list[float] = []
+    if _has_board_block(rs):
+        assert rs.point_board is not None
+        pb = rs.point_board
+        one_side = [*[1.0] * (pb.fields + 1), 1.0, float(pb.laps * len(pb.rat_tails))]
+        board_high = [*one_side, *one_side, *[1.0] * pb.fields]
     derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names(rs)]
     derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names(rs)]
     high = [
@@ -477,6 +534,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *hand_high,
         *shop_high,
         *card_high,
+        *board_high,
         *cell * (rs.track_end + 1),
     ]
     n_before = 3 + len(phases(rs)) + 2 * len(player)
