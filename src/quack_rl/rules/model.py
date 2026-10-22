@@ -47,6 +47,29 @@ class CardSpec(_Frozen):
     count: int = Field(ge=1, strict=True)
 
 
+class PointBoard(_Frozen):
+    """The points board (v2): fields 0..fields, `laps` laps, rat tails between some fields.
+
+    A rat tail after field f lies at total f and at total f + fields (on every lap).
+    """
+
+    fields: int = Field(ge=1, strict=True)
+    rat_tails: list[Annotated[int, Field(strict=True)]]
+    laps: int = Field(default=2, ge=1, strict=True)
+
+    @property
+    def max_points(self) -> int:
+        return self.fields * self.laps
+
+    @model_validator(mode="after")
+    def _check_tails(self) -> "PointBoard":
+        if any(not 0 <= t <= self.fields - 1 for t in self.rat_tails):
+            raise ValueError(f"rat_tails: every tail must lie in 0..{self.fields - 1}")
+        if any(a >= b for a, b in zip(self.rat_tails, self.rat_tails[1:])):
+            raise ValueError("rat_tails: must be strictly increasing")
+        return self
+
+
 def _check_kind_fields(entry: "ShopItem | DieFace") -> None:
     needed = {
         "droplet": "halves",
@@ -88,6 +111,8 @@ class Ruleset(_Frozen):
     spellbook: int | str | None = None
     # v1.11: the deck of round-start cards. Empty means the game has no cards.
     cards: list[CardSpec] = Field(default_factory=list)
+    # v2: the points board with rat tails. None means no board (the older versions).
+    point_board: PointBoard | None = None
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]

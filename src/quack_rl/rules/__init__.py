@@ -12,7 +12,7 @@ from quack_rl.rules.cards import (
     register_card_effect,
     registered_card_effects,
 )
-from quack_rl.rules.model import CardSpec, ChipSpec, DieFace, Ruleset, ShopItem
+from quack_rl.rules.model import CardSpec, ChipSpec, DieFace, PointBoard, Ruleset, ShopItem
 from quack_rl.rules.spellbook import (
     UnknownSpellbook,
     get_spellbook,
@@ -27,6 +27,7 @@ __all__ = [
     "CardSpec",
     "ChipSpec",
     "DieFace",
+    "PointBoard",
     "Ruleset",
     "ShopItem",
     "UnknownCardEffect",
