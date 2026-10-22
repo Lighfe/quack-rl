@@ -20,6 +20,12 @@ from quack_rl.engine.actions import (
     legal_actions,
     play,
 )
+from quack_rl.engine.board import (
+    board_position,
+    has_50pts,
+    rat_tail_bonus,
+    tails_between,
+)
 from quack_rl.engine.cards import card_effect, explosion_limit
 from quack_rl.engine.chance import (
     CARD_SEAT,
@@ -79,16 +85,20 @@ __all__ = [
     "Status",
     "StepResult",
     "action_names",
+    "board_position",
     "buy",
     "card_effect",
     "explosion_limit",
+    "has_50pts",
     "has_hand",
     "legal_actions",
     "needs_actions",
     "play",
+    "rat_tail_bonus",
     "new_game",
     "start_field",
     "state_from_dict",
     "state_to_dict",
     "step",
+    "tails_between",
 ]
