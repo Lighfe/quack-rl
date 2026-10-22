@@ -1,6 +1,7 @@
 from typing import Any
 
 from quack_rl.engine.actions import TAKE_MONEY, TAKE_POINTS
+from quack_rl.engine.board import add_points
 from quack_rl.engine.state import SEATS, GameState, Phase, scoring_field
 from quack_rl.rules import Ruleset
 
@@ -22,7 +23,7 @@ def apply_choice(
         if action == TAKE_MONEY:
             money = rs.money[fld]
             if state.round == rs.rounds and rs.last_round_money_divisor is not None:
-                p.points += money // rs.last_round_money_divisor
+                add_points(p, money // rs.last_round_money_divisor, rs)
                 money = 0
             elif state.round == rs.rounds:
                 money = money * rs.last_round_money_percent // 100
@@ -30,6 +31,6 @@ def apply_choice(
             events.append({"seat": seat, "kind": "take_money", "amount": p.money})
         else:
             gained = rs.points[fld] if rs.points is not None else 0
-            p.points += gained
+            gained = add_points(p, gained, rs)
             events.append({"seat": seat, "kind": "take_points", "amount": gained})
     state.phase = Phase.SHOP

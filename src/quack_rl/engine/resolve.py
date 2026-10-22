@@ -1,20 +1,21 @@
 from typing import Any
 
 from quack_rl.components import get_component, pot_effects
+from quack_rl.engine.board import add_points
 from quack_rl.engine.cards import card_effect
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, scoring_field
 from quack_rl.rules import DieFace, Ruleset
 
 
-def _apply_face(p: PlayerState, face: DieFace) -> int:
+def _apply_face(p: PlayerState, face: DieFace, rs: Ruleset) -> int:
     """Apply a bonus die face; return extra money for this round."""
     if face.kind == "droplet":
         p.droplet_halves += face.halves
     elif face.kind == "chip" and face.chip is not None:
         p.bag[face.chip] = p.bag.get(face.chip, 0) + 1
     elif face.kind == "points":
-        p.points += face.points
+        add_points(p, face.points, rs)
     elif face.kind == "money":
         return face.amount
     return 0
@@ -28,7 +29,7 @@ def _apply_pot_effects(
     other = state.players[SEATS[1] if seat == SEATS[0] else SEATS[0]]
     for component, effect in pot_effects(rs, p.placed, other.placed):
         if effect.points or effect.droplet_halves:
-            p.points += effect.points
+            add_points(p, effect.points, rs)
             p.droplet_halves += effect.droplet_halves
             events.append(
                 {
@@ -82,7 +83,7 @@ def apply_resolve(
             p = state.players[seat]
             if scoring_field(p.final_field or 0, rs) == best:
                 face = chance.roll_die(seat)
-                extra_money[seat] += _apply_face(p, face)
+                extra_money[seat] += _apply_face(p, face, rs)
                 events.append({"seat": seat, "kind": "die", "face": face.id})
     choosing = False
     for seat in SEATS:
@@ -102,9 +103,9 @@ def apply_resolve(
         else:
             money = rs.money[fld] + extra_money[seat]
             if rs.points is not None:
-                p.points += rs.points[fld]
+                add_points(p, rs.points[fld], rs)
         if state.round == rs.rounds and rs.last_round_money_divisor is not None:
-            p.points += money // rs.last_round_money_divisor
+            add_points(p, money // rs.last_round_money_divisor, rs)
             money = 0
         elif state.round == rs.rounds:
             money = money * rs.last_round_money_percent // 100

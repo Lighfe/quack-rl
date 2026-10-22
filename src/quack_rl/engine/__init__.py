@@ -21,6 +21,7 @@ from quack_rl.engine.actions import (
     play,
 )
 from quack_rl.engine.board import (
+    add_points,
     board_position,
     has_50pts,
     rat_tail_bonus,
@@ -85,6 +86,7 @@ __all__ = [
     "Status",
     "StepResult",
     "action_names",
+    "add_points",
     "board_position",
     "buy",
     "card_effect",

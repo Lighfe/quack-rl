@@ -1,6 +1,7 @@
 from typing import Any
 
 from quack_rl.engine.actions import BUY_PREFIX, DONE
+from quack_rl.engine.board import add_points
 from quack_rl.engine.state import (
     SEATS,
     GameState,
@@ -13,7 +14,7 @@ from quack_rl.engine.state import (
 from quack_rl.rules import Ruleset, ShopItem
 
 
-def _apply_item(p: PlayerState, item: ShopItem) -> None:
+def _apply_item(p: PlayerState, item: ShopItem, rs: Ruleset) -> None:
     if item.kind == "chip" and item.chip is not None:
         p.bag[item.chip] = p.bag.get(item.chip, 0) + 1
     elif item.kind == "remove_chip" and item.chip is not None:
@@ -29,7 +30,7 @@ def _apply_item(p: PlayerState, item: ShopItem) -> None:
     elif item.kind == "droplet":
         p.droplet_halves += item.halves
     elif item.kind == "points":
-        p.points += item.points
+        add_points(p, item.points, rs)
 
 
 def decide_winner(state: GameState, rs: Ruleset) -> str:
@@ -96,7 +97,7 @@ def apply_shop(
             if item.kind == "chip" and item.chip is not None:
                 p.chip_purchases += 1
                 p.chip_colours.append(rs.chip(item.chip).colour)
-            _apply_item(p, item)
+            _apply_item(p, item, rs)
             events.append({"seat": seat, "kind": "buy", "item": item.id, "price": item.price})
             if rs.max_purchases is not None and p.purchases >= rs.max_purchases:
                 p.shop_done = True

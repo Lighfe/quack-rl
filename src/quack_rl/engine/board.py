@@ -1,5 +1,6 @@
 """The points board of ruleset v2 (pure helpers): position, flag and rat tail bonus."""
 
+from quack_rl.engine.state import PlayerState
 from quack_rl.rules import Ruleset
 
 
@@ -8,6 +9,19 @@ def _board(rs: Ruleset):
     if board is None:
         raise ValueError("this ruleset has no point_board")
     return board
+
+
+def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
+    """Add points; with a point board the total stops at `max_points`. Return the amount added.
+
+    Points over the cap are lost. A ruleset without a board does not clamp.
+    """
+    total = p.points + amount
+    if rs.point_board is not None:
+        total = min(total, rs.point_board.max_points)
+    added = total - p.points
+    p.points = total
+    return added
 
 
 def board_position(points: int, rs: Ruleset) -> int:
