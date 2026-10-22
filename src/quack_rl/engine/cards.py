@@ -16,6 +16,7 @@ from quack_rl.engine.actions import (
     CARD_PURPLE,
     RESTART,
 )
+from quack_rl.engine.board import set_rat_tails
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, start_field
 from quack_rl.rules import Ruleset
@@ -68,7 +69,11 @@ def apply_card(
             if p.points == fewest:
                 p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
                 events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
-    state.phase = Phase.CARD_CHOICE if effect in _CHOICE_EFFECTS else Phase.BREW
+    if effect in _CHOICE_EFFECTS:
+        state.phase = Phase.CARD_CHOICE
+    else:
+        state.phase = Phase.BREW
+        set_rat_tails(state, rs, events)
 
 
 def apply_card_choice(
@@ -98,6 +103,7 @@ def apply_card_choice(
             p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
             events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
     state.phase = Phase.BREW
+    set_rat_tails(state, rs, events)
 
 
 def apply_restart(

@@ -25,6 +25,7 @@ from quack_rl.engine.board import (
     board_position,
     has_50pts,
     rat_tail_bonus,
+    set_rat_tails,
     tails_between,
 )
 from quack_rl.engine.cards import card_effect, explosion_limit
@@ -97,6 +98,7 @@ __all__ = [
     "needs_actions",
     "play",
     "rat_tail_bonus",
+    "set_rat_tails",
     "new_game",
     "start_field",
     "state_from_dict",

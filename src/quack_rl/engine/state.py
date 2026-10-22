@@ -46,6 +46,7 @@ class PlayerState:
     restart_offered: bool = False
     restart_pending: bool = False
     round_end_halves: int = 0
+    rat_tail: int = 0  # v2: pot fields gained at the round start (the rat tail bonus)
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)
@@ -70,7 +71,7 @@ def scoring_field(landing_field: int, rs: Ruleset) -> int:
 
 
 def start_field(p: PlayerState, rs: Ruleset) -> int:
-    return min(p.droplet_halves // 2, rs.track_end)
+    return min(p.droplet_halves // 2 + p.rat_tail, rs.track_end)
 
 
 def new_game(rs: Ruleset) -> GameState:

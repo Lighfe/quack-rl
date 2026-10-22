@@ -1,6 +1,8 @@
 """The points board of ruleset v2 (pure helpers): position, flag and rat tail bonus."""
 
-from quack_rl.engine.state import PlayerState
+from typing import Any
+
+from quack_rl.engine.state import SEATS, GameState, PlayerState, start_field
 from quack_rl.rules import Ruleset
 
 
@@ -53,3 +55,18 @@ def rat_tail_bonus(points: dict[str, int], rs: Ruleset) -> dict[str, int]:
         seat: 0 if total == lead else tails_between(total, lead, rs)
         for seat, total in points.items()
     }
+
+
+def set_rat_tails(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """Round start: set `rat_tail` from the points and move each pot to its boosted start field.
+
+    Does nothing for a ruleset without a point board."""
+    if rs.point_board is None:
+        return
+    bonus = rat_tail_bonus({seat: state.players[seat].points for seat in SEATS}, rs)
+    for seat in SEATS:
+        p = state.players[seat]
+        p.rat_tail = bonus[seat]
+        p.field = start_field(p, rs)
+        if bonus[seat] > 0:
+            events.append({"seat": seat, "kind": "rat_tail", "bonus": bonus[seat]})
