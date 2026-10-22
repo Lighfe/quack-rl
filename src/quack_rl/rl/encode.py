@@ -13,6 +13,8 @@ Observation layout 5 (rulesets with chip colours beyond layout 4 or a minimum bu
 layout 4 with eight colours and a shop block (`docs/specs/2026-10-19-observation-layout-5.md`).
 Observation layout 6 (rulesets with cards, v1.11): layout 5 with the card phases and a card block
 (`docs/specs/2026-10-20-observation-layout-6.md`).
+Observation layout 7 (rulesets with a point board, v2): layout 6 with the points of every field in
+the map (`docs/specs/2026-10-22-ruleset-v2.md`).
 """
 
 from typing import Any
@@ -41,7 +43,8 @@ CHOICE_LAYOUT = 3
 HAND_LAYOUT = 4
 SHOP_LAYOUT = 5
 CARD_LAYOUT = 6
-# layout 2 has no choice phase; layout 3 has it; the card phases are only in layout 6
+BOARD_LAYOUT = 7
+# layout 2 has no choice phase; layout 3 has it; the card phases are only in layouts 6 and 7
 _CARD_PHASES = (Phase.CARD, Phase.CARD_CHOICE, Phase.RESTART)
 PHASES = [p.value for p in Phase if p not in (Phase.CHOICE, *_CARD_PHASES)]
 PHASES_CHOICE = [p.value for p in Phase if p not in _CARD_PHASES]
@@ -71,18 +74,23 @@ LAYOUT_COLOURS = {
     HAND_LAYOUT: HAND_COLOURS,
     SHOP_LAYOUT: SHOP_COLOURS,
 }
-# layout 6 keeps the eight colours of layout 5
+# layouts 6 and 7 keep the eight colours of layout 5
 CARD_COLOURS = SHOP_COLOURS
 
 
+_CARD_LAYOUTS = (CARD_LAYOUT, BOARD_LAYOUT)
+
+
 class LayoutRefused(ValueError):
-    """A trained policy was asked to act on a layout it was not built for (layout 4, 5 or 6)."""
+    """A trained policy was asked to act on a layout it was not built for (layout 4, 5, 6 or 7)."""
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: 6 with cards, else 5 with more than the five colours of
+    """The layout number of a ruleset: 7 with a point board (v2), else 6 with cards, else 5 with more than the five colours of
     layout 4 or a minimum buy round, else 4 with a blue hand, else 3 with the explosion choice,
     else 2. The version name is not read."""
+    if rs.point_board is not None:
+        return BOARD_LAYOUT
     if rs.cards:
         return CARD_LAYOUT
     if has_hand(rs):
@@ -97,7 +105,7 @@ def _ruleset_colours(rs: Ruleset) -> list[str]:
 
 
 def check_policy_layout(rs: Ruleset) -> None:
-    """Raise `LayoutRefused` for a ruleset on layout 4, 5 or 6: no policy is trained for it yet."""
+    """Raise `LayoutRefused` for a ruleset on layout 4, 5, 6 or 7: no policy is trained for it yet."""
     layout = observation_layout(rs)
     if layout >= HAND_LAYOUT:
         raise LayoutRefused(
@@ -109,22 +117,27 @@ def check_policy_layout(rs: Ruleset) -> None:
 
 def map_colours(rs: Ruleset) -> int:
     layout = observation_layout(rs)
-    return CARD_COLOURS if layout == CARD_LAYOUT else LAYOUT_COLOURS[layout]
+    return CARD_COLOURS if layout in _CARD_LAYOUTS else LAYOUT_COLOURS[layout]
+
+
+def _has_map_points(rs: Ruleset) -> bool:
+    return observation_layout(rs) == BOARD_LAYOUT
 
 
 def map_channels(rs: Ruleset) -> int:
-    """Map channels per field: money, ruby, then own and opponent: colour flags, value, order."""
-    return 2 + 2 * (map_colours(rs) + 2)
+    """Map channels per field: money, (layout 7: points,) ruby, then own and opponent: colour
+    flags, value, order."""
+    return 2 + _has_map_points(rs) + 2 * (map_colours(rs) + 2)
 
 
 def phases(rs: Ruleset) -> list[str]:
-    if observation_layout(rs) == CARD_LAYOUT:
+    if observation_layout(rs) in _CARD_LAYOUTS:
         return PHASES_CARDS
     return PHASES_CHOICE if rs.explosion_choice else PHASES
 
 
 def _has_card_block(rs: Ruleset) -> bool:
-    return observation_layout(rs) == CARD_LAYOUT
+    return observation_layout(rs) in _CARD_LAYOUTS
 
 
 def _card_kinds(rs: Ruleset) -> list[str]:
@@ -251,7 +264,7 @@ def _hand_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
 
 
 def _has_shop_block(rs: Ruleset) -> bool:
-    return observation_layout(rs) in (SHOP_LAYOUT, CARD_LAYOUT)
+    return observation_layout(rs) in (SHOP_LAYOUT, *_CARD_LAYOUTS)
 
 
 def _shop_names(rs: Ruleset) -> list[str]:
@@ -302,7 +315,10 @@ def _map_names(rs: Ruleset) -> list[str]:
     colours = _colours(rs)
     names = []
     for f in range(rs.track_end + 1):
-        names += [f"map.{f}.money", f"map.{f}.ruby"]
+        names.append(f"map.{f}.money")
+        if _has_map_points(rs):
+            names.append(f"map.{f}.points")
+        names.append(f"map.{f}.ruby")
         for who in ("own", "opponent"):
             names += [f"map.{f}.{who}.colour.{c}" for c in colours]
             names += [f"map.{f}.{who}.value", f"map.{f}.{who}.order"]
@@ -358,7 +374,10 @@ def _map_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     colours = _colours(rs)
     values: list[float] = []
     for f in range(rs.track_end + 1):
-        values += [rs.money[f], f in rs.rubies]
+        values.append(rs.money[f])
+        if _has_map_points(rs):
+            values.append(rs.points[f] if rs.points is not None else 0)
+        values.append(f in rs.rubies)
         for who in ("own", "opponent"):
             slot = obs[who]["board"].get(f)
             if slot is None:
@@ -412,7 +431,10 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *[inf] * (2 * len(rs.chips)),
     ]
     max_value = float(max(c.value for c in rs.chips))
-    cell = [float(max(rs.money)), 1.0]
+    cell = [float(max(rs.money))]
+    if _has_map_points(rs):
+        cell.append(float(max(rs.points)) if rs.points is not None else 0.0)
+    cell.append(1.0)
     for _ in range(2):
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
     # A seat explodes on the draw that passes the limit, so its white total ends below
