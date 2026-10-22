@@ -166,7 +166,7 @@ Input:
 - The stage issue: its body (`gh issue view <stage>`), its sub-issues (`gh api --paginate 'repos/{owner}/{repo}/issues/<stage>/sub_issues'`), and their comments as needed (`gh issue view <n> --comments`)
 - The section "Run notes" of the launch prompt. When the prompt has no "Run notes", the review says "No run notes were given"
 
-Post exactly one comment on the stage issue. Write the body to a file with a literal absolute path first, as in "Body files" above, for example `/tmp/planner-93-attempt1.md`. Read it back with `cat` as its own call, then run `gh issue comment <stage> --body-file /tmp/planner-93-attempt1.md` as the whole command. The first line is exactly `## Planner: STAGE REVIEW`. Then six parts, in this order:
+Post exactly one comment on the stage issue. Write the body to a file with a literal absolute path first, as in "Body files" above, for example `/tmp/planner-93-attempt1.md`. Read it back with `cat` as its own call, then run `gh issue comment <stage> --body-file /tmp/planner-93-attempt1.md` as the whole command. The first line is exactly `## Planner: STAGE REVIEW`. When `AGENTS.md` has the heading `Kit-repo release steps`, do the planner step under it before you write it; when it does not have that heading, do nothing for this. Then six parts, in this order:
 
 1. **Purpose check**: was the `## Purpose` of the stage met? Give evidence: closed issues, commits, reports. Read the coverage table in the `## Background` of the stage issue and the spec, and name every spec part that has no closed issue (or say that there is none)
 2. **Run notes**: the orchestrator's run notes, and what you conclude from them. Or "No run notes were given". Also list every entry with ` - set` in the `Permissions:` line of a closed sub-issue of the stage, as a temporary permission the owner may remove now, and name the entry again if it is still in place
@@ -210,7 +210,7 @@ Fact tests:
 
 Prompt audit:
 
-1. Run `claude -p "/doctor prompt-audit"` and then `claude -p "/doctor prompt-audit docs/"` (Bash timeout 600000 ms each). Write the output of each run to its own file, a path in `/tmp` with the stage number, and read the whole file before the review lists findings. Never list findings from a cut-off tail of the output. Two runs are needed because the scopes read different files: the default run reads `AGENTS.md`, the skills and the agent files, and the `docs/` run reads `docs/process.md`, `docs/team/` and `docs/task-template.md`
+1. Run `claude -p "/doctor prompt-audit"` and then `claude -p "/doctor prompt-audit docs/"` (Bash timeout 600000 ms each). Write the output of each run to its own file, a path in `/tmp` with the stage number, and read the whole file before the review lists findings. Never list findings from a cut-off tail of the output. Two runs are needed because the scopes read different files: the default run reads `AGENTS.md`, the skills and the agent files, and the `docs/` run reads `docs/process.md`, `docs/team/`, `docs/task-template.md` and `docs/checks/`
 2. List their findings: file, line, and what the audit says. A finding that an earlier stage review or an open issue already has is listed as "known", with that issue or review named, not as new
 3. Apply none of the edits that the audit proposes
 4. Run `git status --porcelain` after the two runs. When the output is not empty, name the changed files in the review. Do not clean them up

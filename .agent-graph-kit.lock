@@ -6,11 +6,11 @@
     "docs/checks/hook-activation.md": "f188f69c2ea386df572ffdc5a45b222ec95460e58e540e902c09d028fb65d6b1",
     "docs/process.md": "415bba6adc5fb9b2316beea4a5edad884f69ac5883905712d556411f17a4b273",
     "docs/task-template.md": "aee078da298e980fa2d9bafdee6858f4638121f0116be0099dec786e3cc23b65",
-    "docs/team/orchestrator.md": "23c6ea5ce3b6c602acf9be737a0bb8b6ee734d61d388ba8b0fa67bedc690d4c2",
-    "docs/team/planner.md": "1d2f251dc19fa736fda0e5a20f6a96f5a5dd0467aa959dcbb75b3f30fc6b8ae5",
+    "docs/team/orchestrator.md": "839ffb8dbdeb512e78b478dbbeaadce6790493fa6915713b6ece1f8e8d48f813",
+    "docs/team/planner.md": "814b76ae3488be879f199823be76470cce7b4abe56731e56a41cf28652f4dbd6",
     "docs/team/pm.md": "721e2445232e038737eb443bf1dc70229de31efd2fa88e4a34dfa0679c8bd7be",
     "docs/team/qa-engineer.md": "c484f5a292ceb9b86cf9ddc551f2d1c2e8eaee43ecc15ab427e5a35bd02ee205",
-    "docs/team/software-engineer.md": "252fd5592a3237aeb37cf6f7959298143c7c4aabf27da26bdd0d1da83b717a68",
+    "docs/team/software-engineer.md": "f9d680f80ec3655ed26ee7f85b16c015d82e362d52567e1b023a1f016188973b",
     "scripts/qa-codex": "1d5fdd00fa6986bfc092fa6633118e95b9ae6944e2dc0c0319ad38a78877e26f"
   }
 }
