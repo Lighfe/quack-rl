@@ -5,13 +5,21 @@ import numpy as np
 import pytest
 
 from quack_rl.bots.heuristic import explosion_chance
-from quack_rl.engine import RngChance, Status, legal_actions, needs_actions, new_game, step
+from quack_rl.engine import (
+    TAKE_MONEY,
+    RngChance,
+    Status,
+    legal_actions,
+    needs_actions,
+    new_game,
+    step,
+)
 from quack_rl.engine.state import Phase, scoring_field
 from quack_rl.rl import observation_bounds, observe, vector_names, vectorize
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v2", "v2"]
+VERSIONS = ["v2"]
 
 
 def _states(rs, seed):
@@ -47,28 +55,29 @@ def test_money_if_stop_normal_exploded_and_last_round():
 
     state = _state(rs, 9, 9, s1=Status.EXPLODED)
     d = derived(state, rs, "p1")
-    assert d["own.money_if_stop"] == rs.money[f] // 2
+    # v2 has the explosion choice: an exploded seat takes the full table money, not half of it
+    assert d["own.money_if_stop"] == rs.money[f]
     assert d["opponent.money_if_stop"] == rs.money[f]
 
     state = _state(rs, 9, 9, s1=Status.EXPLODED)
     state.round = rs.rounds
     d = derived(state, rs, "p1")
-    pct = rs.last_round_money_percent
-    assert d["own.money_if_stop"] == (rs.money[f] // 2) * pct // 100
-    assert d["opponent.money_if_stop"] == rs.money[f] * pct // 100
-    assert pct > 100
+    # the last-round money becomes points at once: no money is left to take
+    assert rs.last_round_money_divisor is not None
+    assert d["own.money_if_stop"] == 0
+    assert d["opponent.money_if_stop"] == 0
 
 
 def test_money_if_stop_equals_engine_money_without_die():
-    """Resolve gives the table money when the seat rolls no die (exploded seat)."""
+    """The explosion choice gives the table money to an exploded seat that takes money."""
     rs = load_ruleset("v2")
     state = _state(rs, 20, 20, s1=Status.EXPLODED, s2=Status.EXPLODED)
     for p in state.players.values():
         p.final_field = p.field
     d = derived(state, rs, "p1")
-    state.phase = Phase.RESOLVE
-    result = step(state, rs, None, RngChance(0))
-    amounts = {e["seat"]: e["amount"] for e in result.events if e["kind"] == "money"}
+    state.phase = Phase.CHOICE
+    result = step(state, rs, {"p1": TAKE_MONEY, "p2": TAKE_MONEY}, RngChance(0))
+    amounts = {e["seat"]: e["amount"] for e in result.events if e["kind"] == "take_money"}
     assert amounts["p1"] == d["own.money_if_stop"]
     assert amounts["p2"] == d["opponent.money_if_stop"]
 
