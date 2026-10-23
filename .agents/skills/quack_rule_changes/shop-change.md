@@ -91,9 +91,9 @@ Work through these steps in order. Each step needs the one before it.
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape.
 
 - Ruleset: `tests/test_ruleset_v2.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
-- Action list and legal actions: `test_action_names_list_pick_actions_only_with_blue_hand`, `test_shop_legal_actions_follow_money`, `test_shop_item_priced_at_money_left_is_legal`, `test_remove_white_1_legal_when_white_1_only_in_bag` (the removal rule that old versions keep).
+- Action list and legal actions: `tests/test_state_actions.py`, `test_shop_legal_actions_follow_money`, `test_shop_item_priced_at_money_left_is_legal`, `tests/test_state_actions.py` (the removal rule that old versions keep).
 - Bots: the shop tests in `test_bots` (`test_strategy_priority_before_points_round`).
-- CLI: `test_every_legal_buy_has_its_own_key`, `test_more_than_12_buy_actions_all_get_a_key`, `test_buy_prompt_lists_new_items_with_prices`.
-- RL: `test_action_list_has_pick_actions_and_new_shop`, `test_mask_equals_legal_actions_in_every_step`.
+- CLI: `test_keys_map_to_legal_actions`, `test_buy_keys_continue_with_letters`, `test_choose_prints_board_and_menu_with_buy_details`.
+- RL: `test_action_mask_equals_legal_actions_at_every_step` in `tests/test_rl_encode.py`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record.py`), and the record tests of the older versions pass unchanged.
 - Defaults: `test_rules_defaults` (every default is `v2`).

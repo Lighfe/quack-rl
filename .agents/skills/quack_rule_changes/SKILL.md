@@ -21,6 +21,12 @@ The skill has three parts, in this order:
 - The default `rules` value is `v2`, everywhere in the code (CLI, tournament, run and simulate functions, RL modules and scripts). v2 is the only ruleset; the older rulesets, observation layouts 2 to 6, the training stack and the notebooks are archived in `archive/` (see `archive/README.md`) and not checked. A later ruleset version (v2.1 is next) is not the default until an issue makes it the default, and that issue changes every default, the defaults test and these skill texts together. `tests/test_rules_defaults.py` checks that every default is the current default version and fails on a default that points anywhere else.
 - There is one observation layout, 7, chosen by `rs.point_board`. No policy is trained on it and the policy stack (`PolicyBot`, `train`, `finetune`, `selfplay`, offline training, `evaluate` with a policy) is archived. Environments and baseline bots work on v2.
 
+### Standard rule, plus extras
+
+- Implement the standard rule once. A card or a special case adds an extra effect on top of it. Never write a base rule with an "if card X is active" value or a special order.
+- Example 1: a ruby field gives its standard 1 ruby, and a card adds one more.
+- Example 2: the rat tail bonus is one function that cards read, and a card changes the result with an additive adjustment.
+
 ### Known mistakes
 
 - Colour count fixed for one layout. The colour count of the RL board map must come from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`). A count fixed for one layout is wrong for another layout. Search for every place that counts or lists colours before you add one.

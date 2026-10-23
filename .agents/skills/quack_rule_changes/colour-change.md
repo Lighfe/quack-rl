@@ -82,14 +82,14 @@ Work through these five steps in order. Each step needs the one before it.
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape for the new colour.
 
 - Ruleset: the ruleset test of the version (`tests/test_ruleset_v2.py`), the spellbook tests in `tests/test_spellbook.py`.
-- Effect on the pot (case B): `test_red_extra_by_orange_chips_in_the_pot`, `test_orange_after_red_does_not_count`, `test_place_bonus_pot_is_optional`.
-- Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
-- CLI: `tests/test_cli_v2.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`.
+- Effect on the pot (case B): `test_only_blue_has_a_place_bonus` in `tests/test_components.py`, `test_pick_red_beats_orange_with_three_orange_in_the_pot` in `tests/test_bots.py`.
+- Hand and pick step (case C): `tests/test_brew.py`, `test_pick_plays_the_highest_advance`, `test_random_bot_answers_all_three_kinds_at_the_pick_step`, `test_view_of_the_other_seat_has_no_hand_and_no_pending_choice`.
+- CLI: `tests/test_cli_v2.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_keys_map_to_legal_actions`, `test_own_hand_is_shown_and_the_other_hand_is_not`.
 - RL: `tests/test_rl_layout7.py`, `tests/test_rl_layout7_sample.py` and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
 - Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2`).
 
 Edge cases to try for any new colour:
 
-- An empty bag: `test_empty_bag_after_blue_without_hand_stops`, and for a hand case `test_empty_bag_with_a_hand_gives_the_pick_step_and_put_back_draw`. A bag with fewer chips than the colour draws: `test_bag_with_fewer_chips_than_the_blue_value`.
-- A colour with zero chips in the pot: a pot-dependent chip placed first must give no bonus (the zero case of `test_red_extra_by_orange_chips_in_the_pot`, and `test_bag_does_not_count` for chips that are in the bag but not in the pot).
-- The end of the track: `test_track_end_caps_red_with_extra`.
+- An empty bag: `test_empty_bag_stops_the_player`, and for a hand case `test_pick_stop_rule_counts_the_hand_in_the_bag`. A bag with fewer chips than the colour draws: `test_bag_key_is_removed_when_its_count_reaches_zero`.
+- A colour with zero chips in the pot: a pot-dependent chip placed first must give no bonus (`test_pick_red_beats_orange_with_three_orange_in_the_pot` as the shape to copy, with the count at zero; chips that are in the bag but not in the pot must not count).
+- The end of the track: `test_two_chips_on_track_end_later_chip_fills_the_slot`.
