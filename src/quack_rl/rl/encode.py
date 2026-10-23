@@ -1,21 +1,11 @@
 """Observation of one seat: a readable dict, a flat float32 vector and an action mask.
 
 The view holds only what the seat may know: no draw order, no opponent bag, no simultaneous
-choice of the opponent. Observation layout 2 (rules v1, v1.1): a board map of the placed
-chips, both bags (remaining and complete), the rule scalars and derived features of the
-generic rules.
-Observation layout 3 (rulesets with `explosion_choice`, v1.8): layout 2 plus the phase
-`choice`, the points of the own scoring field and a last-round flag
-(`archive/docs/specs/2026-10-16-observation-layout-3.md`).
-Observation layout 4 (rulesets with a blue hand, v1.9): layout 3 with five colours, the own hand
-and the pick actions (`archive/docs/specs/2026-10-17-observation-layout-4.md`).
-Observation layout 5 (rulesets with chip colours beyond layout 4 or a minimum buy round, v1.10):
-layout 4 with eight colours and a shop block
-(`archive/docs/specs/2026-10-19-observation-layout-5.md`).
-Observation layout 6 (rulesets with cards, v1.11): layout 5 with the card phases and a card block
-(`archive/docs/specs/2026-10-20-observation-layout-6.md`).
-Observation layout 7 (rulesets with a point board, v2): layout 6 with the points of every field in
-the map (`docs/specs/2026-10-22-ruleset-v2.md`).
+choice of the opponent. The one observation layout is number 7 (`BOARD_LAYOUT`): a board map
+of the placed chips with the money, points and ruby of every field, both bags (remaining and
+complete), the rule scalars, derived features, the hand, the shop, the card block and the point
+board block (`docs/specs/2026-10-22-ruleset-v2.md`). The layouts 2 to 6 are archived
+(`archive/src/quack_rl/rl/encode.py`).
 """
 
 from typing import Any
@@ -40,17 +30,8 @@ from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
-OBSERVATION_LAYOUT = 2  # the layout of v1 and v1.1; see `observation_layout` for a ruleset
-CHOICE_LAYOUT = 3
-HAND_LAYOUT = 4
-SHOP_LAYOUT = 5
-CARD_LAYOUT = 6
 BOARD_LAYOUT = 7
-# layout 2 has no choice phase; layout 3 has it; the card phases are only in layouts 6 and 7
-_CARD_PHASES = (Phase.CARD, Phase.CARD_CHOICE, Phase.RESTART)
-PHASES = [p.value for p in Phase if p not in (Phase.CHOICE, *_CARD_PHASES)]
-PHASES_CHOICE = [p.value for p in Phase if p not in _CARD_PHASES]
-PHASES_CARDS = [p.value for p in Phase]
+PHASES = [p.value for p in Phase]
 RESTART_EFFECT = "restart_after_5"
 LIMIT_PLUS_2_EFFECT = "explosion_limit_plus_2"
 STATUSES = [s.value for s in Status]
@@ -64,38 +45,13 @@ _SCALARS = (
     "chip_purchases",
     "shop_done",
 )
-# Map channels per field: money, ruby, then own and opponent: colour flags, value, order.
-MAP_COLOURS = 4  # colour flags per chip in layouts 2 and 3
-MAP_CHANNELS = 2 + 2 * (MAP_COLOURS + 2)  # layouts 2 and 3; see `map_channels`
-HAND_COLOURS = 5  # layout 4: white, orange, green, blue, red
-SHOP_COLOURS = 8  # layout 5: and black, yellow, purple
-# colour flags per chip in the map, by layout
-LAYOUT_COLOURS = {
-    OBSERVATION_LAYOUT: MAP_COLOURS,
-    CHOICE_LAYOUT: MAP_COLOURS,
-    HAND_LAYOUT: HAND_COLOURS,
-    SHOP_LAYOUT: SHOP_COLOURS,
-}
-# layouts 6 and 7 keep the eight colours of layout 5
-CARD_COLOURS = SHOP_COLOURS
-
-
-_CARD_LAYOUTS = (CARD_LAYOUT, BOARD_LAYOUT)
+# Map channels per field: money, points, ruby, then own and opponent: colour flags, value, order.
+MAP_COLOURS = 8  # colour flags per chip in the map: the eight colours of the ruleset
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: 7 with a point board (v2), else 6 with cards, else 5 with more than the five colours of
-    layout 4 or a minimum buy round, else 4 with a blue hand, else 3 with the explosion choice,
-    else 2. The version name is not read."""
-    if rs.point_board is not None:
-        return BOARD_LAYOUT
-    if rs.cards:
-        return CARD_LAYOUT
-    if has_hand(rs):
-        if len(_ruleset_colours(rs)) > HAND_COLOURS or any(i.min_round > 1 for i in rs.shop):
-            return SHOP_LAYOUT
-        return HAND_LAYOUT
-    return CHOICE_LAYOUT if rs.explosion_choice else OBSERVATION_LAYOUT
+    """The layout number of a ruleset: always 7, the only layout. The version name is not read."""
+    return BOARD_LAYOUT
 
 
 def _ruleset_colours(rs: Ruleset) -> list[str]:
@@ -103,28 +59,17 @@ def _ruleset_colours(rs: Ruleset) -> list[str]:
 
 
 def map_colours(rs: Ruleset) -> int:
-    layout = observation_layout(rs)
-    return CARD_COLOURS if layout in _CARD_LAYOUTS else LAYOUT_COLOURS[layout]
-
-
-def _has_map_points(rs: Ruleset) -> bool:
-    return observation_layout(rs) == BOARD_LAYOUT
+    return MAP_COLOURS
 
 
 def map_channels(rs: Ruleset) -> int:
-    """Map channels per field: money, (layout 7: points,) ruby, then own and opponent: colour
-    flags, value, order."""
-    return 2 + _has_map_points(rs) + 2 * (map_colours(rs) + 2)
+    """Map channels per field: money, points, ruby, then own and opponent: colour flags, value,
+    order."""
+    return 3 + 2 * (map_colours(rs) + 2)
 
 
 def phases(rs: Ruleset) -> list[str]:
-    if observation_layout(rs) in _CARD_LAYOUTS:
-        return PHASES_CARDS
-    return PHASES_CHOICE if rs.explosion_choice else PHASES
-
-
-def _has_card_block(rs: Ruleset) -> bool:
-    return observation_layout(rs) in _CARD_LAYOUTS
+    return PHASES
 
 
 def _card_kinds(rs: Ruleset) -> list[str]:
@@ -213,28 +158,25 @@ def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
         "opponent": opponent,
         "derived": derived(state, rs, seat),
     }
-    if _has_card_block(rs):
-        # the card and the deck are open; the drop of card 5 at round end is open once the
-        # choice has resolved (the choice phase is over); a pending choice is not stored
-        own["round_end_halves"] = state.players[seat].round_end_halves
-        opponent["round_end_halves"] = state.players[other_seat(seat)].round_end_halves
-        obs["card"] = card_effect(state, rs)
-        obs["deck"] = _deck_counts(state, rs)
-        obs["restart_available"] = _restart_available(state, rs, seat)
-    if _has_board_block(rs):
-        # the point board is open information: both markers, both flags, both bonuses
-        board = rs.point_board
-        assert board is not None
-        obs["board"] = {
-            "own": _board_view(state.players[seat], rs),
-            "opponent": _board_view(state.players[other_seat(seat)], rs),
-            "tails": [int(f in board.rat_tails) for f in range(board.fields)],
-        }
+    # the card and the deck are open; the drop of card 5 at round end is open once the
+    # choice has resolved (the choice phase is over); a pending choice is not stored
+    own["round_end_halves"] = state.players[seat].round_end_halves
+    opponent["round_end_halves"] = state.players[other_seat(seat)].round_end_halves
+    obs["card"] = card_effect(state, rs)
+    obs["deck"] = _deck_counts(state, rs)
+    obs["restart_available"] = _restart_available(state, rs, seat)
+    # the point board is open information: both markers, both flags, both bonuses
+    board = rs.point_board
+    obs["board"] = {
+        "own": _board_view(state.players[seat], rs),
+        "opponent": _board_view(state.players[other_seat(seat)], rs),
+        "tails": [int(f in board.rat_tails) for f in range(board.fields)],
+    }
     return obs
 
 
 def _hand_names(rs: Ruleset) -> list[str]:
-    """Layout 4: per hand slot a presence flag, the value and the colour flags; then the size."""
+    """Per hand slot a presence flag, the value and the colour flags; then the size."""
     if not has_hand(rs):
         return []
     names = []
@@ -259,20 +201,12 @@ def _hand_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     return [*values, len(hand)]
 
 
-def _has_shop_block(rs: Ruleset) -> bool:
-    return observation_layout(rs) in (SHOP_LAYOUT, *_CARD_LAYOUTS)
-
-
 def _shop_names(rs: Ruleset) -> list[str]:
-    """Layout 5: per shop item its minimum round and whether the round has reached it."""
-    if not _has_shop_block(rs):
-        return []
+    """Per shop item its minimum round and whether the round has reached it."""
     return [n for i in rs.shop for n in (f"shop.{i.id}.min_round", f"shop.{i.id}.open")]
 
 
 def _shop_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
-    if not _has_shop_block(rs):
-        return []
     values: list[float] = []
     for i in rs.shop:
         values += [i.min_round, obs["round"] >= i.min_round]
@@ -280,10 +214,8 @@ def _shop_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
 
 
 def _card_names(rs: Ruleset) -> list[str]:
-    """Layout 6: the card of the round and the cards left in the deck (one entry per card
+    """The card of the round and the cards left in the deck (one entry per card
     kind), whether the restart is available to the seat, and the resolved round-end drops."""
-    if not _has_card_block(rs):
-        return []
     kinds = _card_kinds(rs)
     return [
         *(f"card.{k}" for k in kinds),
@@ -295,8 +227,6 @@ def _card_names(rs: Ruleset) -> list[str]:
 
 
 def _card_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
-    if not _has_card_block(rs):
-        return []
     kinds = _card_kinds(rs)
     return [
         *(obs["card"] == k for k in kinds),
@@ -305,10 +235,6 @@ def _card_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
         obs["own"]["round_end_halves"],
         obs["opponent"]["round_end_halves"],
     ]
-
-
-def _has_board_block(rs: Ruleset) -> bool:
-    return observation_layout(rs) == BOARD_LAYOUT
 
 
 def _board_view(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
@@ -320,11 +246,8 @@ def _board_view(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
 
 
 def _board_names(rs: Ruleset) -> list[str]:
-    """Layout 7: per seat the one-hot marker field, the flag and the rat tail bonus; then the
+    """Per seat the one-hot marker field, the flag and the rat tail bonus; then the
     tail locations (a tail after field f)."""
-    if not _has_board_block(rs):
-        return []
-    assert rs.point_board is not None
     fields = rs.point_board.fields
     names: list[str] = []
     for who in ("own", "opponent"):
@@ -334,9 +257,6 @@ def _board_names(rs: Ruleset) -> list[str]:
 
 
 def _board_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
-    if not _has_board_block(rs):
-        return []
-    assert rs.point_board is not None
     values: list[float] = []
     for who in ("own", "opponent"):
         view = obs["board"][who]
@@ -350,8 +270,7 @@ def _map_names(rs: Ruleset) -> list[str]:
     names = []
     for f in range(rs.track_end + 1):
         names.append(f"map.{f}.money")
-        if _has_map_points(rs):
-            names.append(f"map.{f}.points")
+        names.append(f"map.{f}.points")
         names.append(f"map.{f}.ruby")
         for who in ("own", "opponent"):
             names += [f"map.{f}.{who}.colour.{c}" for c in colours]
@@ -378,7 +297,7 @@ def vector_names(rs: Ruleset) -> list[str]:
         *(f"phase.{p}" for p in phases(rs)),
         *_player_names("own", rs),
         *_player_names("opponent", rs),
-        *derived_names(rs),
+        *derived_names(),
         *_hand_names(rs),
         *_shop_names(rs),
         *_card_names(rs),
@@ -388,8 +307,7 @@ def vector_names(rs: Ruleset) -> list[str]:
 
 
 def map_slice(rs: Ruleset) -> slice:
-    """The map block: `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`
-    (`MAP_CHANNELS` for layouts 2 and 3)."""
+    """The map block: `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`."""
     n = (rs.track_end + 1) * map_channels(rs)
     total = len(vector_names(rs))
     return slice(total - n, total)
@@ -410,8 +328,7 @@ def _map_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     values: list[float] = []
     for f in range(rs.track_end + 1):
         values.append(rs.money[f])
-        if _has_map_points(rs):
-            values.append(rs.points[f] if rs.points is not None else 0)
+        values.append(rs.points[f])
         values.append(f in rs.rubies)
         for who in ("own", "opponent"):
             slot = obs[who]["board"].get(f)
@@ -432,7 +349,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *(obs["phase"] == p for p in phases(rs)),
         *_player_values(obs["own"], rs),
         *_player_values(obs["opponent"], rs),
-        *(obs["derived"][n] for n in derived_names(rs)),
+        *(obs["derived"][n] for n in derived_names()),
         *_hand_values(obs, rs),
         *_shop_values(obs, rs),
         *_card_values(obs, rs),
@@ -450,7 +367,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     chip_cap = float(rs.max_chip_purchases) if rs.max_chip_purchases is not None else inf
     purchase_cap = float(rs.max_purchases) if rs.max_purchases is not None else inf
     chip_cap = min(chip_cap, purchase_cap)
-    max_points = float(rs.point_board.max_points) if rs.point_board is not None else inf
+    max_points = float(rs.point_board.max_points)
     scalar_high = {
         "money": inf,
         "white_total": inf,
@@ -468,47 +385,38 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *[inf] * (2 * len(rs.chips)),
     ]
     max_value = float(max(c.value for c in rs.chips))
-    cell = [float(max(rs.money))]
-    if _has_map_points(rs):
-        cell.append(float(max(rs.points)) if rs.points is not None else 0.0)
-    cell.append(1.0)
+    cell = [float(max(rs.money)), float(max(rs.points)), 1.0]
     for _ in range(2):
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
     # A seat explodes on the draw that passes the limit, so its white total ends below
     # limit + the largest explosion weight of a chip.
     max_weight = max(get_component(rs.component_name(c)).explosion_weight(c) for c in rs.chips)
-    money_cap = float(max(rs.money) * rs.last_round_money_percent // 100)
     # Derived entries. `limit_distance` is negative after an explosion; `point_delta` has no bound.
     derived_bounds = {
         "scoring_field": (0.0, float(rs.track_end)),
         "ruby_at_scoring_field": (0.0, 1.0),
-        "money_if_stop": (0.0, max(money_cap, float(max(rs.money)))),
+        "money_if_stop": (0.0, float(max(rs.money))),
         "limit_distance": (float(-max_weight), _max_limit(rs)),
         "explosion_chance": (0.0, 1.0),
         "rolls_die": (0.0, 1.0),
         "chips_placed": (0.0, inf),
         "point_delta": (-inf, inf),
-        "field_points": (0.0, float(max(rs.points)) if rs.points is not None else 0.0),
+        "field_points": (0.0, float(max(rs.points))),
         "last_round": (0.0, 1.0),
     }
     hand_high: list[float] = []
     if has_hand(rs):
         slot = [1.0, max_value] + [1.0] * len(_colours(rs))
         hand_high = [*slot * MAX_HAND, float(MAX_HAND)]
-    shop_high = [float(rs.rounds), 1.0] * len(rs.shop) if _has_shop_block(rs) else []
-    card_high: list[float] = []
-    if _has_card_block(rs):
-        kinds = _card_kinds(rs)
-        per_kind = [sum(c.count for c in rs.cards if c.effect == k) for k in kinds]
-        card_high = [*[1.0] * len(kinds), *map(float, per_kind), 1.0, inf, inf]
-    board_high: list[float] = []
-    if _has_board_block(rs):
-        assert rs.point_board is not None
-        pb = rs.point_board
-        one_side = [*[1.0] * (pb.fields + 1), 1.0, float(pb.laps * len(pb.rat_tails))]
-        board_high = [*one_side, *one_side, *[1.0] * pb.fields]
-    derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names(rs)]
-    derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names(rs)]
+    shop_high = [float(rs.rounds), 1.0] * len(rs.shop)
+    kinds = _card_kinds(rs)
+    per_kind = [sum(c.count for c in rs.cards if c.effect == k) for k in kinds]
+    card_high = [*[1.0] * len(kinds), *map(float, per_kind), 1.0, inf, inf]
+    pb = rs.point_board
+    one_side = [*[1.0] * (pb.fields + 1), 1.0, float(pb.laps * len(pb.rat_tails))]
+    board_high = [*one_side, *one_side, *[1.0] * pb.fields]
+    derived_low = [derived_bounds[n.split(".")[-1]][0] for n in derived_names()]
+    derived_high = [derived_bounds[n.split(".")[-1]][1] for n in derived_names()]
     high = [
         float(rs.rounds),
         float(rs.rounds),

@@ -96,8 +96,6 @@ class Ruleset(_Frozen):
     max_chip_purchases: int | None = Field(default=None, ge=0)
     distinct_chip_colours: bool = False
     track_end: int = Field(ge=1)
-    # v2 has no last-round money factor. The field stays until the encoder stops reading it (#172).
-    last_round_money_percent: Literal[100]
     money: list[Annotated[int, Field(ge=0)]]
     # Points per field 0..track_end.
     points: list[Annotated[int, Field(ge=0)]]

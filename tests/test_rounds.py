@@ -120,7 +120,7 @@ def test_one_round_applies_the_multiplier_and_ends_after_its_shop(tmp_path):
         assert g.footer is not None
         assert {s.round for s in g.steps} == {1}
         assert g.steps[-1].phase == "shop"
-        # the last round pays money x last_round_money_percent: resolve events show it
+        # the last round turns money into points: resolve events show it
         resolve = [s for s in g.steps if s.phase == "resolve"]
         assert resolve
     v = runner.invoke(app, ["verify", str(next(tmp_path.glob("**/shard-0001.jsonl")))])
@@ -134,7 +134,7 @@ def test_multiplier_applies_in_the_last_round_of_a_short_game():
 
     short = with_rounds(RS, 1)
     assert short.rounds == 1
-    assert short.last_round_money_percent == RS.last_round_money_percent
+    assert short.last_round_money_divisor == RS.last_round_money_divisor
     assert RS.rounds == 9  # the loaded ruleset is not changed
 
 

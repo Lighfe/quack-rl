@@ -23,33 +23,24 @@ SEAT_FEATURES = (
     "chips_placed",
 )
 SHARED_FEATURES = ("point_delta",)
-# Layout 3 (rulesets with `explosion_choice`) appends these after the layout 2 entries.
 CHOICE_FEATURES = ("own.field_points", "last_round")
 
 
-def derived_names(rs: Ruleset | None = None) -> list[str]:
-    """Names of the derived entries, in the order of `derived`. With a ruleset that has the
-    explosion choice (layout 3) the entries of `CHOICE_FEATURES` follow; without `rs`, layout 2."""
-    names = [
+def derived_names() -> list[str]:
+    """Names of the derived entries, in the order of `derived`. They depend on no ruleset field."""
+    return [
         *(f"{who}.{k}" for who in ("own", "opponent") for k in SEAT_FEATURES),
         *SHARED_FEATURES,
+        *CHOICE_FEATURES,
     ]
-    if rs is not None and rs.explosion_choice:
-        names += CHOICE_FEATURES
-    return names
 
 
 def _money_if_stop(p: PlayerState, state: GameState, rs: Ruleset) -> int:
-    """The money table at the scoring field, halved after an explosion, times the last-round
-    multiplier. The bonus die and the round-end bonus are not included."""
-    money = rs.money[scoring_field(p.field, rs)]
-    if p.status is Status.EXPLODED and not rs.explosion_choice:
-        money //= 2
+    """The money table at the scoring field; 0 in the last round, where the money becomes
+    points at once. The bonus die and the round-end bonus are not included."""
     if state.round == rs.rounds:
-        if rs.last_round_money_divisor is not None:
-            return 0  # v1.8: the last-round money becomes points at once
-        money = money * rs.last_round_money_percent // 100
-    return money
+        return 0
+    return rs.money[scoring_field(p.field, rs)]
 
 
 def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
@@ -73,7 +64,6 @@ def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
         out[f"{who}.rolls_die"] = float(p.status is not Status.EXPLODED and fields[who] == best)
         out[f"{who}.chips_placed"] = len(p.placed)
     out["point_delta"] = players["own"].points - players["opponent"].points
-    if rs.explosion_choice:
-        out["own.field_points"] = rs.points[fields["own"]] if rs.points is not None else 0
-        out["last_round"] = float(state.round == rs.rounds)
+    out["own.field_points"] = rs.points[fields["own"]]
+    out["last_round"] = float(state.round == rs.rounds)
     return out

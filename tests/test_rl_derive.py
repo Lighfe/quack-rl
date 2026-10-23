@@ -132,7 +132,7 @@ def test_other_features():
 
 def test_names_are_generic():
     names = derived_names()
-    assert len(set(names)) == len(names) == 15
+    assert len(set(names)) == len(names) == 17
     rs = load_ruleset("v2")
     colours = {c.colour for c in rs.chips} | {c.id for c in rs.chips}
     for n in names:

@@ -11,7 +11,6 @@ explosion_limit = 7      # potion explodes when the white total is more than thi
 max_chip_purchases = 2   # shop items of kind "chip" per player per round
 distinct_chip_colours = true  # at most one chip of each colour per player per round
 track_end = 53
-last_round_money_percent = 100  # no last-round money factor in v1.8
 explosion_choice = true  # an exploded player chooses the money or the points of the scoring field
 last_round_money_divisor = 5  # last round: money // this becomes points
 

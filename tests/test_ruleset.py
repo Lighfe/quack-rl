@@ -307,18 +307,6 @@ BOUNDARY_CASES: dict[
     "die_weight_0": (_die("point_1", "weight", 0), _die("point_1", "weight", 1)),
     "die_weight_minus_1": (_die("point_1", "weight", -1), _die("point_1", "weight", 1)),
     "rounds_0": (_top("rounds", 0), _top("rounds", 1)),
-    "last_round_money_percent_99": (
-        _top("last_round_money_percent", 99),
-        _top("last_round_money_percent", 100),
-    ),
-    "last_round_money_percent_float": (
-        _top("last_round_money_percent", 100.5),
-        _top("last_round_money_percent", 100),
-    ),
-    "last_round_money_percent_string": (
-        _top("last_round_money_percent", "100"),
-        _top("last_round_money_percent", 100),
-    ),
     "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
     "track_end_0": (_track_end(0), _track_end(1)),
     "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),
@@ -353,10 +341,6 @@ def test_boundary_value_validates(case: str):
     Ruleset.model_validate(data)
 
 
-def test_v2_last_round_money_percent_is_100():
-    assert load_ruleset("v2").last_round_money_percent == 100
-
-
 @pytest.mark.parametrize(
     "field",
     ["points", "spellbook", "point_board", "cards", "explosion_choice", "last_round_money_divisor"],
@@ -377,10 +361,9 @@ def test_v2_values_of_the_required_fields():
     assert len(rs.cards) > 0
 
 
-@pytest.mark.parametrize("field", ["explosion_choice", "last_round_money_percent"])
-def test_v2_meaning_of_a_flag_is_the_only_value(field: str):
+def test_v2_meaning_of_a_flag_is_the_only_value():
     data = _v2_data()
-    data[field] = False if field == "explosion_choice" else 150
+    data["explosion_choice"] = False
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
 

@@ -40,9 +40,7 @@ def states(seed, rs=RS2):
 def test_layout_numbers():
     assert BOARD_LAYOUT == 7
     assert observation_layout(RS2) == 7
-    # the board is checked before the cards
-    assert RS2.cards
-    assert observation_layout(RS2.model_copy(update={"point_board": None})) == 6
+    assert observation_layout(load_ruleset("v2")) == 7
 
 
 def test_layout_7_uses_what_layout_6_uses():
@@ -65,15 +63,6 @@ def test_map_points_names_and_values_equal_the_table():
         assert names[i + 1] == f"map.{f}.points"
         assert names[i + 2] == f"map.{f}.ruby"
         assert v[f"map.{f}.points"] == RS2.points[f]
-
-
-def test_map_points_are_zero_without_a_points_table():
-    rs = RS2.model_copy(update={"points": None})
-    names = vector_names(rs)
-    v = dict(zip(names, vectorize(observe(new_game(rs), rs, "p1"), rs), strict=True))
-    assert all(v[f"map.{f}.points"] == 0 for f in range(rs.track_end + 1))
-    lo, hi = observation_bounds(rs)
-    assert len(lo) == len(hi) == len(names)
 
 
 def test_bounds_cover_masked_games():

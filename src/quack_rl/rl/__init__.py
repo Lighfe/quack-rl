@@ -1,8 +1,7 @@
 """RL interface of the engine: encoder, reward and envs. The engine does not import this package."""
 
 from quack_rl.rl.encode import (
-    MAP_CHANNELS,
-    OBSERVATION_LAYOUT,
+    BOARD_LAYOUT,
     action_mask,
     map_channels,
     map_slice,
@@ -18,8 +17,7 @@ from quack_rl.rl.reward import reward
 from quack_rl.rl.single_env import QuackEnv
 
 __all__ = [
-    "MAP_CHANNELS",
-    "OBSERVATION_LAYOUT",
+    "BOARD_LAYOUT",
     "QuackEnv",
     "QuackParallelEnv",
     "action_mask",

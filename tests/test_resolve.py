@@ -193,7 +193,7 @@ def test_exploded_potion_waits_for_the_choice_and_keeps_ruby():
     assert r.state.players["p1"].droplet_halves == 1
 
 
-# Issue #20: last round money x last_round_money_percent // 100
+# Issue #20: the last round
 
 
 def last_round(state, rnd=None):
