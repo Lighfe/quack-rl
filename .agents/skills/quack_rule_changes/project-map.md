@@ -4,7 +4,7 @@ How the parts of the game fit together, in the order a rule change travels, and 
 
 ## The path of a change
 
-A rule change starts in the rules (a value or a switch), may need new chip behaviour (components), is carried out by the engine, and must then be seen by everything that reads or writes game state: record, bots, CLI, RL, notebooks and docs. Two links tie the parts together:
+A rule change starts in the rules (a value or a switch), may need new chip behaviour (components), is carried out by the engine, and must then be seen by everything that reads or writes game state: record, bots, CLI, RL and docs. Two links tie the parts together:
 
 - A ruleset names a spellbook, the spellbook names a component for each colour, and the engine asks the component what a chip does. So a colour effect lives in a component, not in the engine.
 - The engine knows nothing about RL. RL code reads the state and the ruleset and turns them into a vector and an action mask. A new state field or action therefore reaches RL only when someone adds it to the encoder.
@@ -77,11 +77,11 @@ Where: `qr/rl/`.
 - `rl/dataset.py`, `rl/replay_dqn.py` and the `scripts/` that train or build data read the observation size and the action count; they follow the layout.
 - `rl/__init__.py`: the exports.
 
-## 8. Notebooks, scripts, defaults
+## 8. Scripts, defaults
 
-Where: `notebooks/`, `scripts/`, and `tests/test_rules_defaults.py`.
+Where: `scripts/` and `tests/test_rules_defaults.py`.
 
-The default of every `rules` parameter, option and field in `src` and `scripts` is `v1.11`. The notebooks name one ruleset version (once, as `RULES`) and stay on it until the owner decides otherwise. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v1.11` (it fails on a planted other default); the notebooks are checked for their pinned version. When a later version becomes the default, change all defaults and this test in one issue. Saved data (records, runs, datasets) belongs to the version it names and must still load.
+The default of every `rules` parameter, option and field in `src` and `scripts` is `v1.11`. The notebooks are archived in `archive/notebooks/`; nothing checks them. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v1.11` (it fails on a planted other default). When a later version becomes the default, change all defaults and this test in one issue. Saved data (records, runs, datasets) belongs to the version it names and must still load.
 
 ## 9. Docs and specs
 
@@ -100,5 +100,4 @@ Where: `tests/`. Tests per version are named after the version (`test_ruleset_v1
 - `simgame.py` and `tournament.py`: they run any version that loads, unless a new event changes money or points.
 - The engine, when the change is only a value in a ruleset file or a different spellbook.
 - Record, bots, CLI and RL, when the change adds no action, phase, event or state field.
-- Notebooks: they stay on their pinned version.
 - The layout and the policy entry points, when the change is not visible in the observation and adds no action.

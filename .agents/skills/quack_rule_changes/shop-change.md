@@ -30,7 +30,7 @@ Work through these steps in order. Each step needs the one before it.
 ### 1. Think about old versions first
 
 - Think about: old versions keep their shop. A removed item stays in every version that has recorded games, so its buy action is still a valid action there, its kind of item is still handled by the engine, and the code that buys it must not be deleted. A shop change is a new ruleset file, never an edit of an old one. Games that were recorded under an old version must replay to the same final state.
-- Goes wrong: the engine branch for a removed kind of item is deleted, and old records fail to replay; a ruleset file with recorded games is edited in place; a default or a notebook moves to the new version by accident.
+- Goes wrong: the engine branch for a removed kind of item is deleted, and old records fail to replay; a ruleset file with recorded games is edited in place; a default moves to the new version by accident.
 - Check: the tests of the older versions pass unchanged, and a recorded game of an older version still verifies.
 
 ### 2. The shop table of the new ruleset
@@ -71,7 +71,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`), and the notebooks stay on their pinned version.
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`).
 - Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 

@@ -80,11 +80,11 @@ The engine knows nothing about RL. A new state field or action reaches RL only w
 - Goes wrong: a loop that was not extended, so the new version is never run through a generic test; a test written for the new version that reaches into hidden state instead of using the view of the other seat.
 - Check: run the full test command. It also has a fast subset for the inner loop, which is not the finish line.
 
-## 9. Defaults and notebooks
+## 9. Defaults
 
-- Think about: the default `rules` value is `v1.11` (the default version). A new version is used only when someone passes it, until an issue makes it the default. Notebooks name their version once and keep it. A version that becomes the default changes all defaults in one issue (grep `rules[^=]*=\s*"v1` in `src` and `scripts`); every test that relied on the old default, a policy entry point or old-rules data must then name its version.
-- Goes wrong: a new function with a default that is not the default version; a notebook cell that names the new version; a script that follows the newest version; a test that silently relied on the old default.
-- Check: the defaults test scans the source and the scripts and checks that every default is the default version (it fails on a planted default, as the existing cases do), and the notebooks keep their pinned version. Add the new version to the loops. Saved data of the older versions must still load.
+- Think about: the default `rules` value is `v1.11` (the default version). A new version is used only when someone passes it, until an issue makes it the default. The notebooks are archived and not checked. A version that becomes the default changes all defaults in one issue (grep `rules[^=]*=\s*"v1` in `src` and `scripts`); every test that relied on the old default, a policy entry point or old-rules data must then name its version.
+- Goes wrong: a new function with a default that is not the default version; a script that follows the newest version; a test that silently relied on the old default.
+- Check: the defaults test scans the source and the scripts and checks that every default is the default version (it fails on a planted default, as the existing cases do). Add the new version to the loops. Saved data of the older versions must still load.
 - Does not apply: never skip the extension of the defaults test, even when nothing else here applies.
 
 ## 10. Docs

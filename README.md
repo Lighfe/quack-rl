@@ -12,7 +12,7 @@ A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v1.m
 | `v1.11` | `docs/rules/rules-v1.11.md` | a card at the start of every round (12 cards), the card choice and the restart question, a per-round explosion limit. **The default**: every `--rules` option and `rules` parameter defaults to `v1.11` |
 | `v2` | `docs/rules/rules-v2.md` | a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new die. **Not the default**: name it with `--rules v2`; the policy paths refuse it |
 
-Name another version with `--rules v1.1` (CLI and scripts) or `rules="v1.1"` (code). Saved games, runs and datasets name their version and still load. A trained policy exists only for the older observation layouts, so `PolicyBot`, `train`, `finetune`, `selfplay`, offline training and `evaluate` with a policy refuse the default: name an older version for them. The environments and the baseline bots work on `v1.11` and on `v2`. The notebooks keep the version they name.
+Name another version with `--rules v1.1` (CLI and scripts) or `rules="v1.1"` (code). Saved games, runs and datasets name their version and still load. A trained policy exists only for the older observation layouts, so `PolicyBot`, `train`, `finetune`, `selfplay`, offline training and `evaluate` with a policy refuse the default: name an older version for them. The environments and the baseline bots work on `v1.11` and on `v2`.
 
 ## Set-up
 
@@ -61,7 +61,6 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
   - Layout 7 (rulesets with a point board, v2; `docs/specs/2026-10-22-ruleset-v2.md`): chosen by `rs.point_board`, not by the version name. It is layout 6 plus a `points` channel in every map cell (the points for scoring on that field; `map_channels(rs)` gives the channel count) and a board block: per seat `<who>.board.marker.<k>` (one-hot, `k` in 0..50), `<who>.board.has_50pts` and `<who>.rat_tail`, then `board.tail.<f>` (1 when a rat tail lies after field `f`). All of it is open information. The points entries are bounded 0 to 100. No policy is trained on layout 7; policy entry points refuse it.
   - `observation_bounds(rs)` gives `(low, high)`: finite for flags, fields and ruleset constants, `inf` where there is no real bound (points, money, bag counts); both envs use it in their observation space.
 - Actions: `Discrete(n)`, the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
-- Training notebook: `uv sync --group train` installs torch, stable-baselines3 and sb3-contrib (the engine does not need them), then `uv run marimo edit notebooks/rl_env.py` (or `uv run python notebooks/rl_env.py` as a script). Sections 1 and 2 explore `QuackEnv`. Section 3 picks the training opponent (`random`, `draw20-pts4-blue` or a typed bot name), trains `MaskablePPO` (one training step is one decision of the agent, about 42 per game) and shows wins, draws and losses of the uniform-random agent, the untrained policy and the trained policy (sampled and greedy) against the training opponent and `RandomBot` (default 500 games per row), plus altair plots of the rolling win rate, points, explosions and the losses. Nothing is written to disk unless you press "Save this run", which writes `data/runs/<name>` through `save_run` (an existing, empty or path-like name is refused). Section 4 loads a saved run and shows its curves. Without the `train` group the training cells show the install command.
 
 ## Train from a script
 
@@ -125,13 +124,6 @@ Load it:
     seats = pl.read_parquet("data/tournaments/<run folder>/seats.parquet")
     # or: import pandas as pd; seats = pd.read_parquet(".../seats.parquet")
 
-### Notebook
+### Notebooks
 
-`notebooks/tournament_run.py` is a [marimo](https://marimo.io) notebook for one run folder: the ranking with average end points, the end bag per bot, and line charts of the average money and average points total per round, with a bot filter. marimo, altair and polars are in the `dev` dependency group (`uv sync` installs them).
-
-    uv run marimo edit notebooks/tournament_run.py
-
-A drop-down lists the subfolders of `data/tournaments/` that hold `config.json`, `results.csv` and `seats.parquet`; the newest one is the default. Run folders without `seats.parquet` (written before it existed, issue #43) do not show up. To pass a run folder:
-
-    uv run marimo edit notebooks/tournament_run.py -- --run-folder data/tournaments/<run folder>
-    uv run marimo export html notebooks/tournament_run.py -o run.html -- --run-folder data/tournaments/<run folder>
+The marimo notebooks are in `archive/notebooks/`. They are not maintained. New notebooks come with ruleset v2.1.

@@ -1,4 +1,4 @@
-"""The default `rules` is v1.11 everywhere in the code; the notebooks keep their own pinned version."""
+"""The default `rules` is v1.11 everywhere in the code; the notebooks are archived."""
 
 import ast
 import re
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SCANNED = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "notebooks").glob("*.py"))
+SCANNED = sorted((ROOT / "src" / "quack_rl").rglob("*.py"))
 
 
 def _const(node: ast.AST | None):
@@ -98,27 +98,6 @@ def test_grep_of_the_issue_shows_only_v1_11():
     ).stdout
     lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
     assert lines and all('"v1.11"' in ln for ln in lines), lines
-
-
-def test_no_notebook_names_v1_9():
-    for path in sorted((ROOT / "notebooks").glob("*.py")):
-        assert "v1.9" not in path.read_text(encoding="utf-8"), path.name
-
-
-def test_tournament_notebook_has_no_version_string():
-    text = (ROOT / "notebooks" / "tournament_run.py").read_text(encoding="utf-8")
-    for version in ("v1", "v1.1", "v1.8", "v1.9"):
-        assert f'"{version}"' not in text and f"'{version}'" not in text
-
-
-@pytest.mark.parametrize("name", ["rl_env.py", "offline_rl.py"])
-def test_rl_notebooks_set_the_version_once(name):
-    lines = [
-        line
-        for line in (ROOT / "notebooks" / name).read_text(encoding="utf-8").splitlines()
-        if '"v1' in line
-    ]
-    assert [line.strip() for line in lines] == ['RULES = "v1.1"']
 
 
 def test_saved_v1_1_data_still_loads_and_plays():
