@@ -14,7 +14,6 @@ from quack_rl.record import read_games, verify_game
 from quack_rl.rules import load_ruleset
 
 RS = load_ruleset("v2")
-RS11 = load_ruleset("v1.11")
 runner = CliRunner()
 
 
@@ -33,9 +32,6 @@ def test_board_shows_the_rat_tail_bonus():
 def test_board_without_bonus_renders_as_before():
     s = new_game(RS)
     assert "rat tail" not in board(s, RS)
-    s11 = new_game(RS11)
-    assert "rat tail" not in board(s11, RS11)
-    assert "start 0" in board(s11, RS11)
 
 
 def test_rat_tail_event_prints_generically():

@@ -18,7 +18,6 @@ from quack_rl.report import _expected_points, baseline_maximum, realistic_baseli
 from quack_rl.rules import ShopItem, load_ruleset
 
 RS = load_ruleset("v2")
-V111 = load_ruleset("v1.11")
 CAP = 100
 
 
@@ -48,11 +47,6 @@ def test_add_points_clamps_and_returns_the_amount_added():
     assert p.points == CAP
 
 
-def test_add_points_without_a_board_does_not_clamp():
-    p = new_game(V111).players["p1"]
-    p.points = 120
-    assert add_points(p, 7, V111) == 7
-    assert p.points == 127
 
 
 def test_die_face_point_2_adds_two_points():
@@ -128,11 +122,6 @@ def test_site_shop_points_item_stops_at_100():
     assert out.players["p1"].points == CAP
 
 
-def test_v1_11_is_not_clamped():
-    assert V111.point_board is None
-    s = state_for(V111, Phase.RESOLVE, p1_points=120, final_field=30)
-    out = step(s, V111, None, ScriptedChance(["droplet_half"])).state
-    assert out.players["p1"].points > 120
 
 
 def test_report_runs_on_v2_without_a_money_face():

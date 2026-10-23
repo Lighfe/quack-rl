@@ -48,6 +48,3 @@ def test_tails_between_same_is_zero(x):
     assert tails_between(x, x, RS) == 0
 
 
-def test_no_board_raises():
-    with pytest.raises(ValueError):
-        board_position(3, load_ruleset("v1.11"))

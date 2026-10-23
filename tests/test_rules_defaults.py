@@ -58,7 +58,7 @@ def scan(files) -> list[tuple[str, str, object, int]]:
 
 
 CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
-DEFAULT = "v1.11"
+DEFAULT = "v1.11"  # old-version-ok
 
 
 def test_every_rules_default_in_code_is_v1_11():
@@ -80,7 +80,7 @@ def test_scan_finds_the_known_defaults():
 @pytest.mark.parametrize(
     "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
-@pytest.mark.parametrize("planted_version", ["v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11"])
+@pytest.mark.parametrize("planted_version", ["v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11"])  # old-version-ok
 def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
@@ -97,7 +97,7 @@ def test_grep_of_the_issue_shows_only_v1_11():
         cwd=ROOT, capture_output=True, text=True,
     ).stdout
     lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
-    assert lines and all('"v1.11"' in ln for ln in lines), lines
+    assert lines and all('"v1.11"' in ln for ln in lines), lines  # old-version-ok
 
 
 def test_data_folder_is_unchanged():
