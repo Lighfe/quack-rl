@@ -21,7 +21,7 @@ from quack_rl.engine import (
 
 def test_new_game_setup():
     s = new_game(RS)
-    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v2", 1, Phase.BREW, 0, None)
+    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v2", 1, Phase.CARD, 0, None)
     assert set(s.players) == {"p1", "p2"}
     for p in s.players.values():
         assert p.bag == RS.start_bag
@@ -42,45 +42,79 @@ def test_start_bags_are_separate_copies():
     assert RS.start_bag == start
 
 
-def test_action_names_v1_has_16_actions():
+def test_action_names_v2():
     names = action_names(RS)
-    assert names[:4] == [WAIT, DRAW, STOP, DONE]
-    assert names[4:] == [buy(i.id) for i in RS.shop]
+    assert names[:6] == [WAIT, DRAW, STOP, DONE, "take_money", "take_points"]
+    assert names[6:8] == [buy("orange_1"), buy("orange_6")]
     assert names == [
         "wait",
         "draw",
         "stop",
         "done",
+        "take_money",
+        "take_points",
         "buy:orange_1",
-        "buy:blue_1",
-        "buy:blue_2",
-        "buy:blue_4",
+        "buy:orange_6",
         "buy:green_1",
         "buy:green_2",
         "buy:green_4",
-        "buy:remove_white_1",
-        "buy:droplet_1",
-        "buy:points_2",
-        "buy:points_5",
-        "buy:points_10",
+        "buy:blue_1",
+        "buy:blue_2",
+        "buy:blue_4",
+        "buy:red_1",
+        "buy:red_2",
+        "buy:red_4",
+        "play:0",
+        "play:1",
+        "play:2",
+        "play:3",
+        "put_back_draw",
+        "put_back_stop",
+        "buy:black_1",
+        "buy:yellow_1",
+        "buy:yellow_2",
+        "buy:yellow_4",
+        "buy:purple_1",
+        "continue",
+        "restart",
+        "card_drop_2",
+        "card_purple",
+        "card_black",
+        "card_chip:white_2",
+        "card_chip:green_2",
+        "card_chip:blue_2",
+        "card_chip:red_2",
+        "card_chip:yellow_2",
+        "card_drop_end",
     ]
-    assert len(names) == 16
+    assert len(names) == 39
     assert buy("blue_2") == "buy:blue_2"
+    assert {buy(i.id) for i in RS.shop} <= set(names)
+
+
+def brewing():
+    s = new_game(RS)
+    s.phase = Phase.BREW
+    return s
+
+
+def test_new_game_waits_for_the_first_card():
+    assert legal_actions(new_game(RS), RS, "p1") == []
 
 
 def test_first_brew_action_must_be_draw():
-    s = new_game(RS)
+    s = brewing()
     assert legal_actions(s, RS, "p1") == [DRAW]
 
 
 def test_brewing_player_after_first_chip_may_draw_or_stop():
-    s = new_game(RS)
+    s = brewing()
     s.players["p1"].placed = ["white_1"]
     assert legal_actions(s, RS, "p1") == [DRAW, STOP]
 
 
 def test_stopped_or_exploded_player_waits():
-    s = new_game(RS)
+    s = brewing()
     s.players["p1"].status = Status.STOPPED
     s.players["p2"].status = Status.EXPLODED
     assert legal_actions(s, RS, "p1") == [WAIT]
@@ -91,7 +125,7 @@ def test_shop_legal_actions_follow_money():
     s = new_game(RS)
     s.phase = Phase.SHOP
     s.players["p1"].money = 5
-    assert legal_actions(s, RS, "p1") == [DONE, buy("orange_1"), buy("blue_1"), buy("green_1")]
+    assert legal_actions(s, RS, "p1") == [DONE, buy("orange_1"), buy("green_1"), buy("blue_1")]
 
 
 def test_shop_item_priced_at_money_left_is_legal():
@@ -122,27 +156,6 @@ def test_shop_done_waits_even_with_money():
     p = s.players["p1"]
     p.money, p.purchases, p.shop_done = 30, 0, True
     assert legal_actions(s, RS, "p1") == [WAIT]
-
-
-def test_remove_white_1_needs_an_owned_white_1_in_bag_or_placed():
-    s = new_game(RS)
-    s.phase = Phase.SHOP
-    p = s.players["p1"]
-    p.money = 15
-    p.bag.pop("white_1")
-    assert buy("remove_white_1") not in legal_actions(s, RS, "p1")
-    p.placed = ["white_1"]
-    assert buy("remove_white_1") in legal_actions(s, RS, "p1")
-
-
-def test_remove_white_1_legal_when_white_1_only_in_bag():
-    s = new_game(RS)
-    s.phase = Phase.SHOP
-    p = s.players["p1"]
-    p.money = 15
-    assert p.bag.get("white_1", 0) > 0
-    assert p.placed == []
-    assert buy("remove_white_1") in legal_actions(s, RS, "p1")
 
 
 def test_no_actions_in_resolve_or_after_game_over():
