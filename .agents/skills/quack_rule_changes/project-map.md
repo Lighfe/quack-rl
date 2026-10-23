@@ -13,7 +13,7 @@ A rule change starts in the rules (a value or a switch), may need new chip behav
 
 Where: `qr/rules/` and `docs/rules/`.
 
-- Ruleset files `qr/rules/<version>.toml`: the values (rounds, track, money, points, chips, shop, die, start bag) and the switches. One file per version; a recorded version is never edited.
+- Ruleset files `qr/rules/<version>.toml`: the values (rounds, the field table `[[fields]]` with money, points and ruby per pot field, chips, shop, die, start bag) and the switches. One file per version; a recorded version is never edited.
 - Model `qr/rules/model.py`: the pydantic types `Ruleset`, `ChipSpec`, `ShopItem`, `DieFace`, `CardSpec`, and the validation that ties them (unknown ids, the table lengths, the chip-to-component rule). A new switch is a new field here with a default that keeps older versions playing as before. Types must match the TOML (an integer in the file against a `str` field fails).
 - Loader `qr/rules/load.py`: `SUPPORTED_RULES_VERSIONS` (a version missing here cannot be loaded), `load_ruleset`, `with_rounds`, and `apply_overrides`, which sets single values by dotted path and parses by the type of the current value.
 - Spellbook `qr/rules/spellbook.py`: a registry from a spellbook name to a colour-to-component map. White and orange are fixed in every spellbook. A ruleset with a `spellbook` field leaves `component` out of its chips; a ruleset without one names a component on each chip.

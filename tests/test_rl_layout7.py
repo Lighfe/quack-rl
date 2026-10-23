@@ -62,7 +62,7 @@ def test_map_points_names_and_values_equal_the_table():
         i = names.index(f"map.{f}.money")
         assert names[i + 1] == f"map.{f}.points"
         assert names[i + 2] == f"map.{f}.ruby"
-        assert v[f"map.{f}.points"] == RS2.points[f]
+        assert v[f"map.{f}.points"] == RS2.fields[f].points
 
 
 def test_bounds_cover_masked_games():
@@ -70,7 +70,7 @@ def test_bounds_cover_masked_games():
     lo, hi = observation_bounds(RS2)
     assert len(lo) == len(hi) == len(names)
     i = names.index("map.3.points")
-    assert hi[i] == max(RS2.points)
+    assert hi[i] == max(f.points for f in RS2.fields)
     for seed in range(4):
         for state in states(seed):
             for seat in SEATS:

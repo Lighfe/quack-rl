@@ -230,7 +230,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                 for (advance, exploded, green, pot_points), p_brew in brews[bag, limit].items():
                     p = p_state * p_brew * float(p_limit)
                     scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
-                    base_halves = halves + green + (1 if scoring in rs.rubies else 0)
+                    base_halves = halves + green + (1 if rs.fields[scoring].ruby else 0)
                     faces = [None] if exploded else rs.die  # an exploded potion never rolls
                     for face in faces:
                         chance = p if face is None else p * face.weight / die_total

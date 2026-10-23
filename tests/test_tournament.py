@@ -559,6 +559,8 @@ def test_end_bag_matches_the_game_record(tmp_path, rules):
                 face = faces[event["face"]]
                 if face.kind == "chip":
                     expected[event["seat"]][face.chip] += 1
+            elif event["kind"] == "card_chip":  # card 7: the seat with the fewest points
+                expected[event["seat"]][event["chip"]] += 1
     seats = _seat_rows_of(run, game.header.seed)
     for seat in ("p1", "p2"):
         got = {c.id: seats[seat][f"bag_{c.id}"] for c in rs.chips}

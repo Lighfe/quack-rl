@@ -50,14 +50,14 @@ def test_money_if_stop_normal_exploded_and_last_round():
     rs = load_ruleset("v2.1")
     state = _state(rs, 9, 9)
     f = scoring_field(9, rs)
-    assert derived(state, rs, "p1")["own.money_if_stop"] == rs.money[f]
-    assert derived(state, rs, "p1")["opponent.money_if_stop"] == rs.money[f]
+    assert derived(state, rs, "p1")["own.money_if_stop"] == rs.fields[f].money
+    assert derived(state, rs, "p1")["opponent.money_if_stop"] == rs.fields[f].money
 
     state = _state(rs, 9, 9, s1=Status.EXPLODED)
     d = derived(state, rs, "p1")
     # v2.1 has the explosion choice: an exploded seat takes the full table money, not half of it
-    assert d["own.money_if_stop"] == rs.money[f]
-    assert d["opponent.money_if_stop"] == rs.money[f]
+    assert d["own.money_if_stop"] == rs.fields[f].money
+    assert d["opponent.money_if_stop"] == rs.fields[f].money
 
     state = _state(rs, 9, 9, s1=Status.EXPLODED)
     state.round = rs.rounds
@@ -127,7 +127,7 @@ def test_other_features():
     assert d["own.limit_distance"] == rs.explosion_limit - 4
     assert d["own.chips_placed"] == 2 and d["opponent.chips_placed"] == 0
     assert d["own.scoring_field"] == 13
-    assert d["own.ruby_at_scoring_field"] == float(13 in rs.rubies)
+    assert d["own.ruby_at_scoring_field"] == float(rs.fields[13].ruby)
 
 
 def test_names_are_generic():

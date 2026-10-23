@@ -64,16 +64,49 @@ def test_core_numbers():
 
 def test_money_track_matches_rules_doc():
     rs = load_ruleset("v2.1")
-    assert len(rs.money) == 54
-    assert rs.money == [doc_money(f) for f in range(54)]
-    assert rs.money[53] == 35
+    assert len(rs.fields) == 54
+    assert [f.money for f in rs.fields] == [doc_money(f) for f in range(54)]
+    assert rs.fields[53].money == 35
 
 
 def test_rubies_match_rules_doc():
     rs = load_ruleset("v2.1")
-    assert rs.rubies == [5, 9, 13, 16, 20, 24, 28, 30, 34, 36, 40, 42, 46, 50, 52]
-    line = "Ruby fields: " + ", ".join(str(f) for f in rs.rubies) + "."
+    rubies = [n for n, f in enumerate(rs.fields) if f.ruby]
+    assert rubies == [5, 9, 13, 16, 20, 24, 28, 30, 34, 36, 40, 42, 46, 50, 52]
+    line = "Ruby fields: " + ", ".join(str(f) for f in rubies) + "."
     assert line in RULES_DOC.read_text(encoding="utf-8")
+
+
+POINT_RANGES = [
+    (0, 5, 0), (6, 9, 1), (10, 13, 2), (14, 17, 3), (18, 21, 4), (22, 25, 5), (26, 28, 6),
+    (29, 31, 7), (32, 34, 8), (35, 37, 9), (38, 40, 10), (41, 43, 11), (44, 47, 12),
+    (48, 50, 13), (51, 52, 14), (53, 53, 15),
+]  # fmt: skip
+
+
+def test_points_are_the_real_board_values():
+    rs = load_ruleset("v2.1")
+    expected = [0] * 54
+    for first, last, value in POINT_RANGES:
+        for f in range(first, last + 1):
+            expected[f] = value
+    assert [f.points for f in rs.fields] == expected
+    assert len(expected) == 54
+
+
+def test_field_table_in_rules_doc_matches_the_toml():
+    rs = load_ruleset("v2.1")
+    doc = RULES_DOC.read_text(encoding="utf-8")
+    rows = re.findall(r"^\| (\d+) \| (\d+) \| (\d+) \| (yes|no) \|$", doc, flags=re.M)
+    assert len(rows) == 54
+    table = [(int(f), int(m), int(p), r == "yes") for f, m, p, r in rows]
+    assert table == [(n, f.money, f.points, f.ruby) for n, f in enumerate(rs.fields)]
+
+
+def test_toml_has_no_old_per_field_lists():
+    data = _v2_1_data()
+    assert not {"money", "points", "rubies"} & data.keys()
+    assert len(data["fields"]) == 54
 
 
 def test_start_bag():
@@ -217,10 +250,10 @@ def _duplicate_first(key: str) -> Callable[[dict[str, Any]], None]:
 
 
 REFUSALS: dict[str, Callable[[dict[str, Any]], None]] = {
-    "money_53_entries": lambda d: d["money"].pop(),
-    "money_55_entries": lambda d: d["money"].append(35),
-    "ruby_on_54": lambda d: d["rubies"].append(54),
-    "ruby_on_minus_1": lambda d: d["rubies"].insert(0, -1),
+    "fields_53_entries": lambda d: d["fields"].pop(),
+    "fields_55_entries": lambda d: d["fields"].append(copy.deepcopy(d["fields"][-1])),
+    "field_without_ruby": lambda d: d["fields"][0].pop("ruby"),
+    "field_with_unknown_key": lambda d: d["fields"][0].update({"gems": 1}),
     "start_bag_unknown_chip": lambda d: d["start_bag"].update({"purple_9": 1}),
     "shop_chip_item_unknown_chip": _set_shop_chip("blue_1"),
     "die_chip_face_unknown_chip": _set_die_chip,
@@ -270,16 +303,14 @@ def _chip(chip_id: str, key: str, value: Any) -> Callable[[dict[str, Any]], None
 def _track_end(n: int) -> Callable[[dict[str, Any]], None]:
     def change(d: dict[str, Any]) -> None:
         d["track_end"] = n
-        d["money"] = list(range(n + 1))
-        d["points"] = [0] * (n + 1)
-        d["rubies"] = []
+        d["fields"] = [{"money": f, "points": 0, "ruby": False} for f in range(n + 1)]
 
     return change
 
 
 def _money_at(index: int, value: int) -> Callable[[dict[str, Any]], None]:
     def change(d: dict[str, Any]) -> None:
-        d["money"][index] = value
+        d["fields"][index]["money"] = value
 
     return change
 
@@ -287,13 +318,6 @@ def _money_at(index: int, value: int) -> Callable[[dict[str, Any]], None]:
 def _bag(chip_id: str, count: int) -> Callable[[dict[str, Any]], None]:
     def change(d: dict[str, Any]) -> None:
         d["start_bag"][chip_id] = count
-
-    return change
-
-
-def _append_ruby(value: int) -> Callable[[dict[str, Any]], None]:
-    def change(d: dict[str, Any]) -> None:
-        d["rubies"].append(value)
 
     return change
 
@@ -321,7 +345,6 @@ BOUNDARY_CASES: dict[
         _die("orange_1", "chip", None),
         _die("orange_1", "chip", "white_1"),
     ),
-    "ruby_field_twice": (_append_ruby(5), _append_ruby(6)),
 }
 
 
@@ -342,7 +365,7 @@ def test_boundary_value_validates(case: str):
 
 @pytest.mark.parametrize(
     "field",
-    ["points", "spellbook", "point_board", "cards", "explosion_choice", "last_round_money_divisor"],
+    ["fields", "spellbook", "point_board", "cards", "explosion_choice", "last_round_money_divisor"],
 )
 def test_field_without_old_safe_default_is_required(field: str):
     data = _v2_1_data()
@@ -355,7 +378,7 @@ def test_v2_1_values_of_the_required_fields():
     rs = load_ruleset("v2.1")
     assert rs.explosion_choice is True
     assert rs.last_round_money_divisor == 5
-    assert len(rs.points) == rs.track_end + 1
+    assert len(rs.fields) == rs.track_end + 1
     assert rs.point_board.max_points == 100
     assert len(rs.cards) > 0
 

@@ -116,9 +116,9 @@ def test_observation_content():
         "chip_colours",
     }
     assert "bag" not in obs["opponent"] and "placed" not in obs["own"] and "field" not in obs["own"]
-    assert obs["own"]["ruby_fields_ahead"] == len(rs.rubies)
+    assert obs["own"]["ruby_fields_ahead"] == sum(f.ruby for f in rs.fields)
     state.players["p1"].field = 12  # scoring field 13: rubies 13.. are ahead
-    assert observe(state, rs, "p1")["own"]["ruby_fields_ahead"] == len(rs.rubies) - 2
+    assert observe(state, rs, "p1")["own"]["ruby_fields_ahead"] == sum(f.ruby for f in rs.fields) - 2
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -205,9 +205,9 @@ def test_map_matches_place_events(version):
                         expected[who][e["to"]] = (rs.chip(e["chip"]), order)
                 for f in range(rs.track_end + 1):
                     # layout 7: money, points and ruby, then the cells of both seats
-                    assert grid[f, 0] == rs.money[f]
-                    assert grid[f, 1] == rs.points[f]
-                    assert grid[f, 2] == (f in rs.rubies)
+                    assert grid[f, 0] == rs.fields[f].money
+                    assert grid[f, 1] == rs.fields[f].points
+                    assert grid[f, 2] == rs.fields[f].ruby
                     for k, who in enumerate(("own", "opponent")):
                         cell = grid[f, 3 + k * (len(colours) + 2) :][: len(colours) + 2]
                         if f in expected[who]:

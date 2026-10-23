@@ -50,7 +50,7 @@ def apply_resolve(
     for seat in SEATS:
         p = state.players[seat]
         assert p.final_field is not None
-        if scoring_field(p.final_field, rs) in rs.rubies:
+        if rs.fields[scoring_field(p.final_field, rs)].ruby:
             halves = 2 if card_effect(state, rs) == "ruby_double" else 1
             p.droplet_halves += halves
             events.append({"seat": seat, "kind": "ruby", "halves": halves})
@@ -93,8 +93,8 @@ def apply_resolve(
         if p.status is Status.EXPLODED:
             choosing = True
             continue
-        money = rs.money[fld]
-        add_points(p, rs.points[fld], rs)
+        money = rs.fields[fld].money
+        add_points(p, rs.fields[fld].points, rs)
         if state.round == rs.rounds:
             add_points(p, money // rs.last_round_money_divisor, rs)
             money = 0

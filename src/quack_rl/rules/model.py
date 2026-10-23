@@ -1,7 +1,8 @@
 from collections import Counter
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import Field as PydField
 
 from quack_rl.rules.cards import get_card_effect
 from quack_rl.rules.spellbook import get_spellbook
@@ -14,24 +15,24 @@ class _Frozen(BaseModel):
 class ChipSpec(_Frozen):
     id: str
     colour: str
-    value: int = Field(ge=1)
+    value: int = PydField(ge=1)
 
 
 class ShopItem(_Frozen):
     id: str
-    price: int = Field(ge=0)
+    price: int = PydField(ge=0)
     kind: Literal["chip"]
     chip: str
     # `halves` and `points` are only read by the bots (removed with their last reader in #173).
     halves: int = 0
     points: int = 0
     # v1.10: the item can be bought from this round on (rounds are numbered from 1).
-    min_round: int = Field(default=1, ge=1, strict=True)
+    min_round: int = PydField(default=1, ge=1, strict=True)
 
 
 class DieFace(_Frozen):
     id: str
-    weight: int = Field(ge=1)
+    weight: int = PydField(ge=1)
     kind: Literal["droplet", "chip", "points"]
     chip: str | None = None
     halves: int = 0
@@ -42,7 +43,7 @@ class CardSpec(_Frozen):
     id: str
     # The name of a registered card effect (`quack_rl.rules.cards`).
     effect: str
-    count: int = Field(ge=1, strict=True)
+    count: int = PydField(ge=1, strict=True)
 
 
 class PointBoard(_Frozen):
@@ -51,9 +52,9 @@ class PointBoard(_Frozen):
     A rat tail after field f lies at total f and at total f + fields (on every lap).
     """
 
-    fields: int = Field(ge=1, strict=True)
-    rat_tails: list[Annotated[int, Field(strict=True)]]
-    laps: int = Field(default=2, ge=1, strict=True)
+    fields: int = PydField(ge=1, strict=True)
+    rat_tails: list[Annotated[int, PydField(strict=True)]]
+    laps: int = PydField(default=2, ge=1, strict=True)
 
     @property
     def max_points(self) -> int:
@@ -85,29 +86,35 @@ def _check_unique_ids(name: str, ids: list[str]) -> None:
         raise ValueError(f"{name}: duplicate ids {duplicates}")
 
 
+class Field(_Frozen):
+    """One pot field: the money and the points it gives, and whether it is a ruby field."""
+
+    money: int = PydField(ge=0)
+    points: int = PydField(ge=0)
+    ruby: bool
+
+
 class Ruleset(_Frozen):
     version: str
-    rounds: int = Field(ge=1)
-    explosion_limit: int = Field(ge=1)
+    rounds: int = PydField(ge=1)
+    explosion_limit: int = PydField(ge=1)
     # Shop limits per player per round; `max_chip_purchases` None means no limit.
-    max_chip_purchases: int | None = Field(default=None, ge=0)
+    max_chip_purchases: int | None = PydField(default=None, ge=0)
     distinct_chip_colours: bool = False
-    track_end: int = Field(ge=1)
-    money: list[Annotated[int, Field(ge=0)]]
-    # Points per field 0..track_end.
-    points: list[Annotated[int, Field(ge=0)]]
+    track_end: int = PydField(ge=1)
+    # One entry per pot field 0..track_end: money, points and the ruby marker.
+    fields: list[Field]
     # An exploded player chooses the money or the points of the scoring field. Always on in v2.
     explosion_choice: Literal[True]
     # In the last round, money // this becomes points.
-    last_round_money_divisor: int = Field(ge=1)
+    last_round_money_divisor: int = PydField(ge=1)
     # The name of the spellbook that gives each colour its component.
     spellbook: int | str
     # The deck of round-start cards.
-    cards: list[CardSpec] = Field(min_length=1)
+    cards: list[CardSpec] = PydField(min_length=1)
     # The points board with rat tails.
     point_board: PointBoard
-    rubies: list[int]
-    start_bag: dict[str, Annotated[int, Field(ge=1)]]
+    start_bag: dict[str, Annotated[int, PydField(ge=1)]]
     chips: list[ChipSpec]
     shop: list[ShopItem]
     die: list[DieFace]
@@ -120,18 +127,12 @@ class Ruleset(_Frozen):
         _check_unique_ids("cards", [c.id for c in self.cards])
         for card in self.cards:
             get_card_effect(card.effect)  # raises for an unregistered effect name
-        if len(set(self.rubies)) != len(self.rubies):
-            raise ValueError("rubies: duplicate field numbers")
         for entry in [*self.shop, *self.die]:
             _check_kind_fields(entry)
         self._check_components()
         chip_ids = {c.id for c in self.chips}
-        if len(self.money) != self.track_end + 1:
-            raise ValueError("money needs one entry per field 0..track_end")
-        if len(self.points) != self.track_end + 1:
-            raise ValueError("points needs one entry per field 0..track_end")
-        if any(not 0 <= f <= self.track_end for f in self.rubies):
-            raise ValueError("ruby field outside the track")
+        if len(self.fields) != self.track_end + 1:
+            raise ValueError("fields needs one entry per field 0..track_end")
         for chip_id in self.start_bag:
             if chip_id not in chip_ids:
                 raise ValueError(f"start_bag: unknown chip {chip_id}")

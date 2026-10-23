@@ -124,7 +124,9 @@ def _board(p: PlayerState) -> dict[int, dict[str, Any]]:
 
 
 def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
-    ahead = sum(1 for r in rs.rubies if r >= scoring_field(p.field, rs))
+    ahead = sum(
+        1 for f in range(scoring_field(p.field, rs), rs.track_end + 1) if rs.fields[f].ruby
+    )
     return {
         "money": p.money,
         "white_total": p.white_total,
@@ -327,9 +329,9 @@ def _map_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     colours = _colours(rs)
     values: list[float] = []
     for f in range(rs.track_end + 1):
-        values.append(rs.money[f])
-        values.append(rs.points[f])
-        values.append(f in rs.rubies)
+        values.append(rs.fields[f].money)
+        values.append(rs.fields[f].points)
+        values.append(rs.fields[f].ruby)
         for who in ("own", "opponent"):
             slot = obs[who]["board"].get(f)
             if slot is None:
@@ -369,7 +371,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     scalar_high = {
         "money": inf,
         "white_total": inf,
-        "ruby_fields_ahead": float(len(rs.rubies)),
+        "ruby_fields_ahead": float(sum(1 for f in rs.fields if f.ruby)),
         "points": max_points,
         "droplet_halves": inf,
         "purchases": inf,
@@ -383,7 +385,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *[inf] * (2 * len(rs.chips)),
     ]
     max_value = float(max(c.value for c in rs.chips))
-    cell = [float(max(rs.money)), float(max(rs.points)), 1.0]
+    cell = [float(max(f.money for f in rs.fields)), float(max(f.points for f in rs.fields)), 1.0]
     for _ in range(2):
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
     # A seat explodes on the draw that passes the limit, so its white total ends below
@@ -393,13 +395,13 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     derived_bounds = {
         "scoring_field": (0.0, float(rs.track_end)),
         "ruby_at_scoring_field": (0.0, 1.0),
-        "money_if_stop": (0.0, float(max(rs.money))),
+        "money_if_stop": (0.0, float(max(f.money for f in rs.fields))),
         "limit_distance": (float(-max_weight), _max_limit(rs)),
         "explosion_chance": (0.0, 1.0),
         "rolls_die": (0.0, 1.0),
         "chips_placed": (0.0, inf),
         "point_delta": (-inf, inf),
-        "field_points": (0.0, float(max(rs.points))),
+        "field_points": (0.0, float(max(f.points for f in rs.fields))),
         "last_round": (0.0, 1.0),
     }
     hand_high: list[float] = []

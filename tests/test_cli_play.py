@@ -96,12 +96,12 @@ def field_cell(landing: int) -> list[str]:
     [(4, 5, "yes"), (3, 4, "no"), (0, 1, "no"), (53, 53, "no")],
 )
 def test_board_field_cell_shows_scoring_field_money_and_ruby(landing, scoring, ruby):
-    expected_ruby = "yes" if scoring in RS.rubies else "no"
+    expected_ruby = "yes" if RS.fields[scoring].ruby else "no"
     assert expected_ruby == ruby or landing == 53
     lines = field_cell(landing)
     assert lines == [
         f"field {landing}",
-        f"score {scoring} ${RS.money[scoring]} +{RS.points[scoring]}pt",
+        f"score {scoring} ${RS.fields[scoring].money} +{RS.fields[scoring].points}pt",
         f"ruby: {ruby}",
     ]
 

@@ -25,7 +25,7 @@ def test_resolve_takes_no_actions_and_moves_to_shop():
 def test_money_of_final_field_and_bonus_die_for_furthest():
     r = auto(brewed(20, 12), "point_1")
     assert r.state.players["p1"].money == 18  # v2.1 has no money die face: the face gives a point
-    assert r.state.players["p1"].points == RS.points[scoring_field(20, RS)] + 1  # field + die
+    assert r.state.players["p1"].points == RS.fields[scoring_field(20, RS)].points + 1  # field + die
     assert r.state.players["p2"].money == 13
     assert r.chance == [{"seat": "p1", "kind": "die", "value": "point_1"}]
 
@@ -155,7 +155,7 @@ def test_events_kinds_and_one_money_event_per_seat():
 
 def test_landing_on_field_1_gives_money_of_field_2():
     r = auto(brewed(1, 0), "point_1")
-    assert r.state.players["p1"].money == RS.money[2] == 2
+    assert r.state.players["p1"].money == RS.fields[2].money == 2
 
 
 def test_landing_on_4_gives_the_ruby_of_field_5():

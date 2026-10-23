@@ -40,7 +40,7 @@ def _money_if_stop(p: PlayerState, state: GameState, rs: Ruleset) -> int:
     points at once. The bonus die and the round-end bonus are not included."""
     if state.round == rs.rounds:
         return 0
-    return rs.money[scoring_field(p.field, rs)]
+    return rs.fields[scoring_field(p.field, rs)].money
 
 
 def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
@@ -57,13 +57,13 @@ def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
     out: dict[str, float] = {}
     for who, p in players.items():
         out[f"{who}.scoring_field"] = fields[who]
-        out[f"{who}.ruby_at_scoring_field"] = float(fields[who] in rs.rubies)
+        out[f"{who}.ruby_at_scoring_field"] = float(rs.fields[fields[who]].ruby)
         out[f"{who}.money_if_stop"] = _money_if_stop(p, state, rs)
         out[f"{who}.limit_distance"] = limit - p.white_total
         out[f"{who}.explosion_chance"] = explosion_chance(p.bag, p.white_total, rs, limit=limit)
         out[f"{who}.rolls_die"] = float(p.status is not Status.EXPLODED and fields[who] == best)
         out[f"{who}.chips_placed"] = len(p.placed)
     out["point_delta"] = players["own"].points - players["opponent"].points
-    out["own.field_points"] = rs.points[fields["own"]]
+    out["own.field_points"] = rs.fields[fields["own"]].points
     out["last_round"] = float(state.round == rs.rounds)
     return out

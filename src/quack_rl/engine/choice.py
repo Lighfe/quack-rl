@@ -21,13 +21,13 @@ def apply_choice(
         assert p.final_field is not None
         fld = scoring_field(p.final_field, rs)
         if action == TAKE_MONEY:
-            money = rs.money[fld]
+            money = rs.fields[fld].money
             if state.round == rs.rounds:
                 add_points(p, money // rs.last_round_money_divisor, rs)
                 money = 0
             p.money = money
             events.append({"seat": seat, "kind": "take_money", "amount": p.money})
         else:
-            gained = add_points(p, rs.points[fld], rs)
+            gained = add_points(p, rs.fields[fld].points, rs)
             events.append({"seat": seat, "kind": "take_points", "amount": gained})
     state.phase = Phase.SHOP

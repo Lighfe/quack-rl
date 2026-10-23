@@ -73,7 +73,7 @@ def test_site_pot_round_end_effect_stops_at_100():
 def test_site_round_end_table_stops_at_100():
     s = state_for(RS, Phase.RESOLVE, final_field=30)
     out = step(s, RS, None, ScriptedChance(["droplet_half"])).state
-    assert RS.points[31] >= 2
+    assert RS.fields[31].points >= 2
     assert out.players["p1"].points == CAP
 
 
@@ -83,7 +83,7 @@ def test_site_last_round_conversion_stops_at_100():
     s.round = rs.rounds
     s.players["p1"].points = 80
     out = step(s, rs, None, ScriptedChance(["droplet_half"])).state
-    assert out.players["p1"].points == 80 + RS.points[31] + RS.money[31] // 5
+    assert out.players["p1"].points == 80 + RS.fields[31].points + RS.fields[31].money // 5
     s.players["p1"].points = 99
     out = step(s, rs, None, ScriptedChance(["droplet_half"])).state
     assert out.players["p1"].points == CAP
@@ -106,7 +106,7 @@ def test_site_take_points_stops_at_100_and_reports_the_amount_added():
 def test_site_take_money_last_round_stops_at_100():
     s = choice_state()
     s.round = RS.rounds
-    assert RS.money[31] // 5 >= 2
+    assert RS.fields[31].money // 5 >= 2
     out = step(s, RS, {"p1": TAKE_MONEY, "p2": TAKE_MONEY}, ScriptedChance([])).state
     assert out.players["p1"].points == CAP
 

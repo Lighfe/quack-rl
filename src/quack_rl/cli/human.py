@@ -96,8 +96,8 @@ class HumanSeat:
             p = state.players[seat]
             field = scoring_field(p.final_field if p.final_field is not None else p.field, self.rs)
             if action == TAKE_MONEY:
-                return f"{action} (${self.rs.money[field]})"
-            return f"{action} (+{self.rs.points[field]}pt)"
+                return f"{action} (${self.rs.fields[field].money})"
+            return f"{action} (+{self.rs.fields[field].points}pt)"
         if action.startswith(PLAY_PREFIX):
             slot = int(action.removeprefix(PLAY_PREFIX))
             if state is not None:
