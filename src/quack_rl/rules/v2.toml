@@ -7,7 +7,7 @@ version = "v2"
 spellbook = 1
 rounds = 9
 explosion_limit = 7      # potion explodes when the white total is more than this
-# no max_purchases: no overall cap; remove White 1 have no count limit
+# no overall purchase cap: remove White 1 has no count limit either
 max_chip_purchases = 2   # shop items of kind "chip" per player per round
 distinct_chip_colours = true  # at most one chip of each colour per player per round
 track_end = 53
