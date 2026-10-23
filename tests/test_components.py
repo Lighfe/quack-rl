@@ -8,12 +8,12 @@ rs = load_ruleset("v2")
 
 
 def comp(chip_id):
-    return get_component(rs.chip(chip_id).component)
+    return get_component(rs.component_name(rs.chip(chip_id)))
 
 
 def test_every_ruleset_component_is_registered():
     for chip in rs.chips:
-        assert isinstance(get_component(chip.component), Component)
+        assert isinstance(get_component(rs.component_name(chip)), Component)
 
 
 def test_unknown_component():
@@ -52,23 +52,6 @@ def test_duplicate_registration_raises():
 )
 def test_explosion_weight(chip_id, weight):
     assert comp(chip_id).explosion_weight(rs.chip(chip_id)) == weight
-
-
-# rules 1 "Chips": blue +1 if the previously placed chip has a value other than 1
-@pytest.mark.parametrize(
-    ("previous", "bonus"),
-    [
-        (None, 0),
-        ("white_1", 0),
-        ("orange_1", 0),
-        ("blue_1", 0),
-        ("white_2", 1),
-        ("green_4", 1),
-    ],
-)
-def test_blue_bonus(previous, bonus):
-    prev = rs.chip(previous) if previous else None
-    assert comp("blue_2").place_bonus(rs.chip("blue_2"), prev) == bonus
 
 
 @pytest.mark.parametrize("chip_id", ["white_2", "orange_1", "green_2"])

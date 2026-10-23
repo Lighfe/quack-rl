@@ -34,7 +34,7 @@ GAMES = 1000
 DRAW_LIMITS = (0, 10, 20, 30, 40, 50)
 OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 
-RS = with_rounds(load_ruleset("v2"), 9)
+RS = with_rounds(load_ruleset("v1"), 9)
 
 
 CHUNK = 125  # games per task, so the pool (at most 4 workers) keeps its workers busy
