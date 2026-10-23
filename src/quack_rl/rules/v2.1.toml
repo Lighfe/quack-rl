@@ -13,6 +13,8 @@ distinct_chip_colours = true  # at most one chip of each colour per player per r
 track_end = 53
 explosion_choice = true  # an exploded player chooses the money or the points of the scoring field
 last_round_money_divisor = 5  # last round: money // this becomes points
+start_rubies = 1         # rubies of each player at the start of the game
+ruby_cost = 2            # rubies for one droplet +1 in the shop (action ruby_drop)
 
 # One entry per field, in field order 0..track_end: money, points (the real board values) and
 # whether the field is a ruby field.
@@ -523,7 +525,7 @@ points = 2
 # of a registered card effect (quack_rl.rules.cards). The engine does not play the cards yet.
 [[cards]]
 id = "card_1"
-effect = "ruby_double"
+effect = "ruby_extra"
 count = 1
 
 [[cards]]

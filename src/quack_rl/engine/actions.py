@@ -19,6 +19,7 @@ CARD_PURPLE = "card_purple"  # card 6: a purple 1 chip
 CARD_BLACK = "card_black"  # card 5: a black 1 chip
 CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
 CARD_DROP_END = "card_drop_end"  # card 5: drop +1.5 at round end
+RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
 MAX_HAND = 4  # the largest blue chip value in a ruleset: hand slots 0..3
 
 
@@ -50,7 +51,7 @@ def action_names(rs: Ruleset) -> list[str]:
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
-    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs)]
+    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP]
 
 
 def _card_actions(rs: Ruleset) -> list[str]:
@@ -103,5 +104,6 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if p.shop_done:
             return [WAIT]
         buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p, state.round)]
-        return [DONE, *buys]
+        ruby = [RUBY_DROP] if p.rubies >= rs.ruby_cost else []
+        return [DONE, *buys, *ruby]
     return []

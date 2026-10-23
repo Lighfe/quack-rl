@@ -1,6 +1,6 @@
 from typing import Any
 
-from quack_rl.engine.actions import BUY_PREFIX, DONE
+from quack_rl.engine.actions import BUY_PREFIX, DONE, RUBY_DROP
 from quack_rl.engine.state import (
     SEATS,
     GameState,
@@ -76,6 +76,10 @@ def apply_shop(
         if action == DONE:
             p.shop_done = True
             events.append({"seat": seat, "kind": "done"})
+        elif action == RUBY_DROP:
+            p.rubies -= rs.ruby_cost
+            p.droplet_halves += 2
+            events.append({"seat": seat, "kind": "ruby_drop", "rubies": rs.ruby_cost, "halves": 2})
         elif action.startswith(BUY_PREFIX):
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price

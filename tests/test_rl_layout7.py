@@ -47,7 +47,7 @@ def test_layout_7_uses_what_layout_6_uses():
     assert map_colours(RS2) == 8
     assert map_channels(RS2) == 2 + 2 * (map_colours(RS2) + 2) + 1  # the layout 6 channels + points
     names2 = vector_names(RS2)
-    assert "phase.card" in names2 and "card.ruby_double" in names2
+    assert "phase.card" in names2 and "card.ruby_extra" in names2
     assert len(set(names2)) == len(names2)
 
 

@@ -108,6 +108,9 @@ class Ruleset(_Frozen):
     explosion_choice: Literal[True]
     # In the last round, money // this becomes points.
     last_round_money_divisor: int = PydField(ge=1)
+    # Rubies are a currency: every player starts with `start_rubies`; `ruby_cost` rubies buy a droplet +1.
+    start_rubies: int = PydField(ge=0)
+    ruby_cost: int = PydField(ge=1)
     # The name of the spellbook that gives each colour its component.
     spellbook: int | str
     # The deck of round-start cards.

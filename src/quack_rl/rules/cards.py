@@ -39,7 +39,7 @@ def registered_card_effects() -> dict[str, CardEffect]:
     return dict(_EFFECTS)
 
 
-register_card_effect("ruby_double", "ruby step +1 instead of +0.5")
+register_card_effect("ruby_extra", "a ruby field gives 1 ruby more")
 register_card_effect("restart_after_5", "restart option after 5 chips")
 register_card_effect("drop_all_1", "every drop +1")
 register_card_effect("explosion_limit_plus_2", "explosion limit +2 this round")

@@ -1,7 +1,7 @@
 """Round-start cards (v1.11): the draw and the immediate effects.
 
 The card effects that matter later in the round are read through `card_effect`: card 1 in
-`resolve.py` (the ruby step) and card 4 in every place that reads the explosion limit
+`resolve.py` (the ruby step: card 1 gives one more ruby) and card 4 in every place that reads the explosion limit
 (`explosion_limit`). Cards 5 and 6 open `Phase.CARD_CHOICE` (one joint choice, `apply_card_choice`);
 card 2 opens `Phase.RESTART` in the brew (`apply_restart`, triggered in `brew.py`).
 """

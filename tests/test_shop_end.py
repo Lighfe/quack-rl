@@ -3,11 +3,13 @@ from helpers import RS, brew_start, play
 
 from quack_rl.engine import (
     DONE,
+    RUBY_DROP,
     WAIT,
     GameOver,
     Phase,
     RngChance,
     Status,
+    action_names,
     buy,
     legal_actions,
     new_game,
@@ -154,3 +156,51 @@ def test_tie_break_compares_scoring_fields_so_52_and_53_draw():
     r = play(last_round(8, 8, 52, 53), DONE, DONE)
     assert r.state.winner == "draw"
     assert r.events[-1]["final_fields"] == {"p1": 52, "p2": 53}
+
+
+# Rubies as a currency: the action ruby_drop
+
+
+def with_rubies(p1_rubies):
+    s = shop_state(p1_money=0)
+    s.players["p1"].rubies = p1_rubies
+    return s
+
+
+@pytest.mark.parametrize(("rubies", "offered"), [(0, False), (1, False), (2, True), (3, True)])
+def test_ruby_drop_is_offered_from_ruby_cost(rubies, offered):
+    assert (RUBY_DROP in legal_actions(with_rubies(rubies), RS, "p1")) is offered
+
+
+def test_ruby_drop_is_not_offered_when_the_player_is_done():
+    s = with_rubies(4)
+    s.players["p1"].shop_done = True
+    assert legal_actions(s, RS, "p1") == [WAIT]
+
+
+def test_ruby_drop_costs_rubies_adds_a_droplet_and_stays_in_the_shop():
+    r = play(with_rubies(3), RUBY_DROP, DONE)
+    p1 = r.state.players["p1"]
+    assert (p1.rubies, p1.droplet_halves, p1.shop_done) == (1, 2, False)
+    assert {"seat": "p1", "kind": "ruby_drop", "rubies": 2, "halves": 2} in r.events
+    assert RUBY_DROP not in legal_actions(r.state, RS, "p1")  # 1 ruby left
+
+
+def test_ruby_drop_twice_with_four_rubies():
+    r = play(with_rubies(4), RUBY_DROP, DONE)
+    r = play(r.state, RUBY_DROP, WAIT)
+    p1 = r.state.players["p1"]
+    assert (p1.rubies, p1.droplet_halves) == (0, 4)
+    assert RUBY_DROP not in legal_actions(r.state, RS, "p1")
+
+
+def test_rubies_carry_over_into_the_next_round_and_the_droplet_moves_the_start():
+    r = play(with_rubies(3), RUBY_DROP, DONE)
+    r = play(r.state, DONE, WAIT)
+    assert r.state.round == 2
+    p1 = r.state.players["p1"]
+    assert (p1.rubies, p1.droplet_halves, p1.field) == (1, 2, 1)
+
+
+def test_ruby_drop_is_the_last_action_of_the_list():
+    assert action_names(RS)[-1] == RUBY_DROP

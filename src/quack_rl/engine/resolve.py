@@ -42,7 +42,7 @@ def _apply_pot_effects(
 def apply_resolve(
     state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2).
+    """Rules 4.3: ruby (scoring field: 1 ruby), green bonus, bonus die, then money (seats p1, p2).
 
     The field gives money and points. An exploded potion waits for the CHOICE phase. In the last
     round the money becomes points (money // last_round_money_divisor).
@@ -51,9 +51,9 @@ def apply_resolve(
         p = state.players[seat]
         assert p.final_field is not None
         if rs.fields[scoring_field(p.final_field, rs)].ruby:
-            halves = 2 if card_effect(state, rs) == "ruby_double" else 1
-            p.droplet_halves += halves
-            events.append({"seat": seat, "kind": "ruby", "halves": halves})
+            gained = 1 + (1 if card_effect(state, rs) == "ruby_extra" else 0)
+            p.rubies += gained
+            events.append({"seat": seat, "kind": "ruby", "rubies": gained})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
             halves = get_component(rs.component_name(chip)).round_end_droplet_halves(

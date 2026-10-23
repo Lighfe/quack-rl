@@ -46,6 +46,7 @@ class PlayerState:
     restart_offered: bool = False
     restart_pending: bool = False
     round_end_halves: int = 0
+    rubies: int = 0  # the ruby currency: earned on ruby fields, spent in the shop (ruby_drop)
     rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
 
     def owned(self, chip_id: str) -> int:
@@ -80,7 +81,9 @@ def new_game(rs: Ruleset) -> GameState:
         round=1,
         phase=Phase.CARD,
         step=0,
-        players={seat: PlayerState(bag=dict(rs.start_bag)) for seat in SEATS},
+        players={
+            seat: PlayerState(bag=dict(rs.start_bag), rubies=rs.start_rubies) for seat in SEATS
+        },
         deck=[c.id for c in rs.cards for _ in range(c.count)],
     )
 

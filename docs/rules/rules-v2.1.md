@@ -153,7 +153,7 @@ The shop has no droplet item, no victory points item and no remove item. The dro
 
 - 2 players
 - Each player's bag: White 1 ×4, White 2 ×2, White 3 ×1, Orange 1 ×1, Green 1 ×1
-- Droplet on field 0, 0 victory points
+- Droplet on field 0, 0 victory points, 1 ruby
 - The game lasts 9 rounds
 
 ## 3. Round overview
@@ -187,11 +187,15 @@ A player's final field is the field of the player's last placed chip when brewin
 
 The **scoring field** is the first free field after the last placed chip: `min(final field + 1, last field)`. Ruby, bonus die and money in Resolve, and the tie-break after round 9, use the scoring field, not the final field. Example: a last chip on field 1 scores field 2 (money 2); a last chip on field 4 scores field 5 (ruby); a last chip on field 53 scores field 53 (money 35), so players on 52 and 53 are tied. The scoring field is derived from the final field and not stored.
 
+### Rubies
+
+Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent. A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5).
+
 ### 4.3 Resolve
 
 In this order, for each player:
 
-1. **Ruby:** if the scoring field is a ruby field, the droplet advances by 0.5. This also applies after an explosion.
+1. **Ruby:** if the scoring field is a ruby field, the player gets 1 ruby. This also applies after an explosion. Rubies are a currency (see "Rubies" below); the droplet does not move for a ruby field.
 2. **Green chips:** for each green chip among the last two placed chips, the droplet advances by 0.5. Two green chips give 1. This also applies after an explosion.
 2a. **Black and purple chips:** the round-end effects of the black and purple chips in the pot (see "Black" and "Purple"), black first, then purple. They also apply after an explosion.
 3. **Bonus die:** the player with the furthest scoring field whose potion did not explode rolls the bonus die. If players are tied for furthest scoring field, each tied player rolls. A player whose potion exploded never rolls.
@@ -205,7 +209,7 @@ A step between Resolve and Shop, only when at least one potion exploded (`explos
 
 - `take_money`: the money of the scoring field, in full (no halving).
 - `take_points`: the points of the scoring field. The player gets no money this round.
-- The ruby and green droplet bonus after an explosion stays as in v1.8.
+- The ruby and the green droplet bonus after an explosion still apply.
 - In round 9, `take_money` gives `money // 5` points and `take_points` gives the points of the scoring field.
 
 Droplet changes take effect from the next round.
@@ -216,6 +220,7 @@ Shopping goes in steps, at the same time for both players. In each step, each pl
 
 - At most 2 chips per player per round, and they must be of different colours (for example Green 1 and Blue 2, but not Green 1 and Green 2). Only chips bought in the shop count; a chip from the bonus die does not
 - A player cannot buy an item that costs more than the money left
+- A player with at least 2 rubies (`ruby_cost = 2`) may also choose **Ruby drop**: it costs 2 rubies and moves the droplet by 1 (+1, two halves). The player stays in the shop and may choose it again as long as they can pay
 - Bought chips go into the bag
 - A player stops shopping only with Done
 - The chip count and the colours bought start again from zero in every round
@@ -227,6 +232,7 @@ Shopping ends when no player shops anymore.
 1. All chips placed this round go back into the player's bag. After the reset, every chip the player owns is in the bag
 2. Unspent money is lost
 3. The droplet stays where it is
+4. Unspent rubies stay: a player keeps them for later rounds
 
 ## 5. Game end
 
@@ -241,7 +247,6 @@ The game ends after the shop of round 9.
 These are candidate changes for later versions. They are also test cases for the future "add a rule or component" skill.
 
 - Alternating shop instead of a simultaneous shop
-- Rubies as a currency that a player spends on a choice
 - Random events
 - Uncertain bag contents, for example chips that appear at random
 
@@ -249,6 +254,7 @@ These are candidate changes for later versions. They are also test cases for the
 
 - **Points board:** a new optional ruleset table `point_board` (`fields`, `rat_tails`, `laps`), see "Points board" above. Rulesets without it play as before.
 - **Bonus die:** the +1 money face (weight 2) became +1 point (weight 2), the old +1 point face (weight 1) became +2 points (weight 1).
+- **Rubies:** a currency instead of the automatic droplet +0.5 of a ruby field, see "Rubies" above. Card 1 is `ruby_extra`.
 - Everything else is as in v1.11.
 
 ### Round-start cards (unchanged from v1.11)
@@ -257,7 +263,7 @@ At the start of every round, one card is drawn at random from the cards not yet 
 
 | Card id | Effect name | Effect | Count |
 |---|---|---|---|
-| card_1 | ruby_double | ruby step +1 instead of +0.5 | 1 |
+| card_1 | ruby_extra | a ruby field gives 1 ruby more (2 in total) | 1 |
 | card_2 | restart_after_5 | restart option after 5 chips | 1 |
 | card_3 | drop_all_1 | every drop +1 | 1 |
 | card_4 | explosion_limit_plus_2 | explosion limit +2 this round | 1 |

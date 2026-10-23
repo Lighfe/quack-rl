@@ -388,3 +388,15 @@ def test_archived_v2_is_refused_and_names_the_known_ruleset(tmp_path):
     assert result.exit_code != 0
     assert "v2" in result.output and "v2.1" in result.output and TRACEBACK not in result.output
     assert play_files(tmp_path) == []
+
+
+def test_ruby_drop_has_its_own_key_and_no_buy_key_is_used_twice():
+    from quack_rl.cli.human import BUY_KEYS, RUBY_DROP_KEY, key_map
+    from quack_rl.engine import RUBY_DROP
+
+    assert key_map(["done", RUBY_DROP])[RUBY_DROP_KEY] == RUBY_DROP
+    assert RUBY_DROP_KEY not in BUY_KEYS and len(set(BUY_KEYS)) == len(BUY_KEYS)
+
+
+def test_board_shows_the_ruby_count():
+    assert "rubies 1" in board(width=80)

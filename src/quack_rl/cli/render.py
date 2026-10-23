@@ -66,7 +66,7 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
             field_text,
             f"{p.white_total}/{explosion_limit(state, rs)}",
             str(p.points),
-            str(p.money),
+            f"{p.money}\nrubies {p.rubies}",
             _chips(p.placed, rs),
         )
     parts: list[RenderableType] = [table]
