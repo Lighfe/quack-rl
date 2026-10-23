@@ -81,7 +81,7 @@ Where: `qr/rl/`.
 
 Where: `scripts/` and `tests/test_rules_defaults.py`.
 
-The default of every `rules` parameter, option and field in `src` and `scripts` is `v2.1`. The notebooks and the training scripts are archived in `archive/`; nothing checks them. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v2.1` (it fails on a planted other default). When a later version becomes the default, change all defaults and this test in one issue. Saved data (records) belongs to the version it names.
+The default of every `rules` parameter, option and field in `src` and `scripts` is `v2.1`; v2.1 is the only ruleset, and v2 is archived (`--rules v2` is an error). The notebooks and the training scripts are archived in `archive/`; nothing checks them. `tests/test_rules_defaults.py` scans the source and the scripts and checks that each default is `v2.1` (it fails on a planted other default). When a later version becomes the default, change all defaults and this test in one issue. Saved data (records) belongs to the version it names.
 
 ## 9. Docs and specs
 

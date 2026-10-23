@@ -29,6 +29,8 @@ Requires [uv](https://docs.astral.sh/uv/).
     uv run quack-rl play --no-bag-assist          # hide the bag contents
     uv run quack-rl play --rounds 4               # a shorter game (default 9)
 
+The game is played with ruleset `v2.1`, the only ruleset and the default. `--rules v2` is an error: v2 is archived.
+
 Keys: `d` draw, `s` stop, `0` done shopping, `1`-`9`/`a`-`c` buy. Your key is not shown.
 
 ## RL environment

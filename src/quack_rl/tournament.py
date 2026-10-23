@@ -124,7 +124,7 @@ def game_seed(
 
 
 def parse_sweep(text: str) -> Sweep:
-    """`param=v1,v2,...` into a Sweep."""
+    """`param=a,b,...` into a Sweep."""
     param, sep, raw = text.partition("=")
     values = tuple(v.strip() for v in raw.split(",")) if sep else ()
     if not param or not values or any(not v for v in values):

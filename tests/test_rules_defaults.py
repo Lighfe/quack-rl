@@ -80,7 +80,7 @@ def test_scan_finds_the_known_defaults():
 @pytest.mark.parametrize(
     "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
-@pytest.mark.parametrize("planted_version", ["v3", "v2", "v0", "v2.1"])
+@pytest.mark.parametrize("planted_version", ["v3", "v2.0", "v0", "v2.1"])
 def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
