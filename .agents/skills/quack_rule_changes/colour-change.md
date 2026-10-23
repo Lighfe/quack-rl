@@ -15,7 +15,7 @@ The colour only needs a component that already exists, or a new component class 
 - A round-end effect that needs the whole pot or the other player's pot is a new hook, not `round_end_droplet_halves` (which sees one chip and its position). `pot_round_end(pot, other_pot)` returns points and droplet half steps; `puts_back_previous(chip, previous)` is the placement hook of yellow. Both default to "nothing", so older components stay unchanged.
 - Touches: Rules (the ruleset file with the chips, the shop and the start bag; the spellbook with one entry per colour; the exports when a name is public), Components (one class per effect, registered under a name with a version suffix), and the rules document.
 - Engine, record, bots, CLI and RL need no code when the component only uses existing hooks. They still need tests on the new colour.
-- White and orange are fixed in every spellbook. A new colour needs an entry in every spellbook that a ruleset can name, or a new spellbook. An existing spellbook may get an entry for a colour that no older ruleset uses (spellbook 1 got black, yellow and purple for v1.10; the check against the chips of v1.9 still passes because v1.9 has no chip of them). Never change an existing entry. A test that lists the colours of a spellbook (`test_spellbook_1_has_the_five_colours_of_v1_9_and_the_three_of_v1_10` in `tests/test_ruleset_v1_9.py`) is then updated on purpose.
+- White and orange are fixed in every spellbook. A new colour needs an entry in every spellbook that a ruleset can name, or a new spellbook. An existing spellbook may get an entry for a colour that no ruleset uses yet. Never change an existing entry. A test that lists the colours of a spellbook is then updated on purpose (see `tests/test_spellbook.py`).
 
 ### Case B: the chip needs more of the pot or the board (the place hook)
 
@@ -29,7 +29,7 @@ The effect depends on what the player placed this round, or on another part of t
 
 The colour draws a hand, and the player must then pick. This is the largest case; it is a new action set and new state, so it also follows the new ruleset version recipe.
 
-- Touches: Components (a hook that says how many chips go into the hand), Engine (the state field for the hand with a default, the legal actions while a hand exists, the pick handling inside the brew phase, the full action list), Record and replay (a test only), Bots (a branch for the pick step), CLI (draw the own hand, keys and prompt lines for the new actions, enough buy keys), RL (a new layout with a hand block, the mask, the refusal of trained policies on the new layout).
+- Touches: Components (a hook that says how many chips go into the hand), Engine (the state field for the hand with a default, the legal actions while a hand exists, the pick handling inside the brew phase, the full action list), Record and replay (a test only), Bots (a branch for the pick step), CLI (draw the own hand, keys and prompt lines for the new actions, enough buy keys), RL (a new layout with a hand block, the mask).
 - The new actions go at the end of the full action list, because its order is the order of the RL action mask. The new shop items of a new colour are not at the end of the shop rows: `action_names` lists the shop, then the pick actions, so items of a later colour need the rule in `_appended` (`engine/actions.py`) to land after the pick actions. The number of hand slots is the largest value of the colour's chips.
 - The hand leaves the bag, so every stop rule and every odds computation must say what happens to it (put back, played, or drawn again).
 
@@ -57,9 +57,9 @@ Work through these five steps in order. Each step needs the one before it.
 
 ### 4. How bots, the CLI and the RL layouts cope with a new colour
 
-- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the old layout from before you change the encoder, and refuse the new layout in every entry point that runs a trained policy until it is supported.
-- Goes wrong: a chip label that clashes with another colour (`chip_text` in `render.py` uses the first letter of the colour, so black would be `B` like blue; `CHIP_LETTER` holds the exceptions, black is `K`); a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw; an entry point that is forgotten and runs a policy on a layout it has no trained policy for.
-- Check: the layout tests for the new colour count (names, length, bounds, mask), the stored sample of the older layouts, the CLI tests with scripted input, and the bot and environment tests with the new version in the list they loop over.
+- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the current layout (`tests/fixtures/layout7/`) from before you change the encoder.
+- Goes wrong: a chip label that clashes with another colour (`chip_text` in `render.py` uses the first letter of the colour, so black would be `B` like blue; `CHIP_LETTER` holds the exceptions, black is `K`); a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw.
+- Check: the layout tests for the new colour count (names, length, bounds, mask), the stored sample of the current layout, the CLI tests with scripted input, and the bot and environment tests with the new version in the list they loop over.
 
 ### 5. What happens to old versions
 
@@ -81,12 +81,12 @@ Work through these five steps in order. Each step needs the one before it.
 
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape for the new colour.
 
-- Ruleset: the ruleset test of the version (`test_spellbook_1_has_the_five_colours_of_v1_9_and_the_three_of_v1_10`, `test_shop_prices_and_no_remove_item`), the spellbook tests (`test_white_and_orange_fixed_in_every_spellbook`, `test_spellbook_missing_a_colour_fails`).
+- Ruleset: the ruleset test of the version (`tests/test_ruleset_v2.py`), the spellbook tests in `tests/test_spellbook.py`.
 - Effect on the pot (case B): `test_red_extra_by_orange_chips_in_the_pot`, `test_orange_after_red_does_not_count`, `test_place_bonus_pot_is_optional`.
 - Hand and pick step (case C): `test_blue_draws_a_hand_of_its_value`, `test_hand_is_not_in_the_other_players_view`, `test_play_blue_chip_chains`, `test_put_back_and_stop`.
-- CLI: `tests/test_cli_v1_10.py` (labels and styles of a new colour, the menu by minimum round, round-end text, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`, `test_board_shows_red_and_orange_6_in_pot_and_bag`.
-- RL: `test_vector_names_order_and_bounds`, `test_other_players_hand_is_not_in_the_view`, `test_mask_equals_legal_actions_in_every_step`, and the refusal tests such as `test_train_is_refused_on_layout_4` (the same set for v1.10 is `tests/test_rl_layout5.py`).
-- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v1.11`).
+- CLI: `tests/test_cli_v2.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_every_legal_buy_has_its_own_key`, `test_pick_prompt_never_shows_other_hand`.
+- RL: `tests/test_rl_layout7.py`, `tests/test_rl_layout7_sample.py` and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
+- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2`).
 
 Edge cases to try for any new colour:
 

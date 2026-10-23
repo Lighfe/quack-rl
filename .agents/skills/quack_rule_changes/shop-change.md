@@ -65,13 +65,13 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 7. The RL layout and the action mask
 
-- Think about: the mask has one entry per action of the full list. A removed or added item changes the length of the list, so it changes the size of the observation and of the action space for that ruleset. That is a new layout, not an edit: the older layouts stay as they are, keep a stored sample of them from before you change the encoder, and trained policies of an older layout must be refused on the new one in every entry point that runs a policy. A price change does not change the size, but a price is a feature in the observation of some layouts, so check the bounds.
-- Goes wrong: the layout number is not changed although the vector changed; a policy of the older layout loads on the new one and gives wrong actions; the mask does not follow the legal actions; the bounds of a price are too narrow for the new price.
-- Check: the layout tests (names, length, bounds), the test that the mask equals the legal actions in every step of random games, the refusal tests of the entry points, and the environment tests with the new version in the list they loop over.
+- Think about: the mask has one entry per action of the full list. A removed or added item changes the length of the list, so it changes the size of the observation and of the action space for that ruleset. That is a new layout, not an edit: keep a stored sample of the current layout (`tests/fixtures/layout7/`) from before you change the encoder. A price change does not change the size, but a price is a feature in the observation, so check the bounds.
+- Goes wrong: the layout number is not changed although the vector changed; the mask does not follow the legal actions; the bounds of a price are too narrow for the new price.
+- Check: the layout tests (names, length, bounds), the test that the mask equals the legal actions in every step of random games, and the environment tests with the new version in the list they loop over.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`). The notebooks are archived and not checked.
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v2`). The notebooks are archived and not checked.
 - Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 
@@ -82,7 +82,7 @@ Work through these steps in order. Each step needs the one before it.
 - A strategy that names a removed id. It is skipped without an error, so no test fails. Read the strategies yourself.
 - A shop longer than the buy keys. The last items cannot be bought by a human.
 - An item inserted in the middle. It shifts the buy actions, the keys and the RL mask. Append, or accept a new layout on purpose.
-- A mask or a layout that is not changed for a new shop size. The policy then runs on a vector it was not trained for.
+- A mask or a layout that is not changed for a new shop size. The encoder then builds a vector of the wrong size.
 - A price change made in the file and not in the document, or the other way round.
 - A formatter run that touches files outside the change. Look at `git status` after it and restore the rest.
 
@@ -90,10 +90,10 @@ Work through these steps in order. Each step needs the one before it.
 
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape.
 
-- Ruleset: `test_shop_prices_and_no_remove_item` and `test_everything_else_is_as_v1_8` (the new file equals the file before it except for the shop), `test_rules_doc_agrees_with_the_file` (the doc test on the shop table text).
+- Ruleset: `tests/test_ruleset_v2.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
 - Action list and legal actions: `test_action_names_list_pick_actions_only_with_blue_hand`, `test_shop_legal_actions_follow_money`, `test_shop_item_priced_at_money_left_is_legal`, `test_remove_white_1_legal_when_white_1_only_in_bag` (the removal rule that old versions keep).
 - Bots: the shop tests in `test_bots` (`test_strategy_priority_before_points_round`).
 - CLI: `test_every_legal_buy_has_its_own_key`, `test_more_than_12_buy_actions_all_get_a_key`, `test_buy_prompt_lists_new_items_with_prices`.
 - RL: `test_action_list_has_pick_actions_and_new_shop`, `test_mask_equals_legal_actions_in_every_step`.
-- Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record_v1_9.py`), and the record tests of the older versions pass unchanged.
-- Defaults: `test_rules_defaults` (every default is `v1.11`).
+- Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record.py`), and the record tests of the older versions pass unchanged.
+- Defaults: `test_rules_defaults` (every default is `v2`).

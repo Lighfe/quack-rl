@@ -1,18 +1,14 @@
 # Quack RL
 
-A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v1.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`.
+A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v2.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`. What is left after the retirement before v2, and the old code, is in `archive/` (`archive/README.md`).
 
 ## Rulesets
 
 | Version | Rules document | Notes |
 |---|---|---|
-| `v1`, `v1.1` | `docs/rules/rules-v1.md`, `rules-v1.1.md` | the first rules; the RL notebooks and the trained policies use `v1.1` |
-| `v1.8`, `v1.9` | `docs/rules/rules-v1.8.md`, `rules-v1.9.md` | explosion choice, blue hand and pick step, new red and orange 6 chips |
-| `v1.10` | `docs/rules/rules-v1.10.md` | black, yellow and purple chips, shop items with a minimum round. The default before v1.11 |
-| `v1.11` | `docs/rules/rules-v1.11.md` | a card at the start of every round (12 cards), the card choice and the restart question, a per-round explosion limit. **The default**: every `--rules` option and `rules` parameter defaults to `v1.11` |
-| `v2` | `docs/rules/rules-v2.md` | a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new die. **Not the default**: name it with `--rules v2`; the policy paths refuse it |
+| `v2` | `docs/rules/rules-v2.md` | the only ruleset and **the default**: a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new die, a card at the start of every round |
 
-Name another version with `--rules v1.1` (CLI and scripts) or `rules="v1.1"` (code). Saved games, runs and datasets name their version and still load. A trained policy exists only for the older observation layouts, so `PolicyBot`, `train`, `finetune`, `selfplay`, offline training and `evaluate` with a policy refuse the default: name an older version for them. The environments and the baseline bots work on `v1.11` and on `v2`.
+Name it with `--rules v2` (CLI) or `rules="v2"` (code); it is also what you get without naming a version. The older rulesets (v1 to v1.11), their rules documents and their saved data are history under `archive/`. Ruleset v2.1 comes next.
 
 ## Set-up
 
@@ -41,11 +37,11 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
     from quack_rl.rl import QuackEnv, QuackParallelEnv
 
-    env = QuackEnv(seat="p1", opponent=None, rules="v1.1")   # Gymnasium, one seat against a bot
+    env = QuackEnv(seat="p1", opponent=None, rules="v2")   # Gymnasium, one seat against a bot
     obs, info = env.reset(seed=0)
     obs, reward, terminated, truncated, info = env.step(int(info["action_mask"].argmax()))
 
-    penv = QuackParallelEnv(rules="v1.1")                    # PettingZoo, both seats act
+    penv = QuackParallelEnv(rules="v2")                    # PettingZoo, both seats act
     obs, infos = penv.reset(seed=0)                          # obs[seat]["observation"], ["action_mask"]
 
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).
@@ -62,24 +58,16 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
   - `observation_bounds(rs)` gives `(low, high)`: finite for flags, fields and ruleset constants, `inf` where there is no real bound (points, money, bag counts); both envs use it in their observation space.
 - Actions: `Discrete(n)`, the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
 
-## Train from a script
+## Training
 
-    uv run --group train python scripts/train.py --run NAME [--steps N] [--opponent random|<bot name>]
-
-Options: `--run NAME` (required), `--steps N` (default 20000, decisions of the agent, about 42 per game), `--opponent` (`random` or `draw<percent>-pts<round>-<strategy>`, default `random`), `--rules` (default `v1.11`, which a policy run refuses: pass an older version such as `--rules v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--checkpoint-every N` (default: none), `--runs-dir PATH` (default `data/runs`), `--resume NAME` (instead of `--run`: continue an interrupted run from its newest checkpoint, see `docs/specs/2026-10-14-resume.md`; `--steps`, `--opponent`, `--rules`, `--seed` and `--eval-games` come from its `config.json` and are refused). Runs go to `data/runs/<NAME>` (not committed): `config.json`, `episodes.csv`, `metrics.csv`, `eval.json`, `model.zip` and `checkpoints/`. A name that exists is refused. At the end the script prints the run folder and a table of wins, draws and losses for the baselines and the trained policy.
-
-### Self-play
-
-    uv run --group train python scripts/train_selfplay.py --run NAME [--steps N] [--update-every N]
-
-The learner plays against snapshots of itself (spec: `docs/specs/2026-10-13-self-play.md`). Options: `--run NAME` (required), `--steps N` (default 200000, decisions of the learner), `--update-every N` (default 50000: every N steps a snapshot `checkpoints/step_<n>.zip` is saved and the learner is evaluated), `--rules` (default `v1.11`, which self-play refuses: pass an older version such as `--rules v1.1`), `--seed` (default 0), `--eval-games` (default 500), `--eval-bot NAME` (heuristic bot for the evaluations, repeatable, default `draw20-pts1-points`), `--runs-dir PATH` (default `data/runs`). The opponent of each game is the newest snapshot (0.5), an older one (0.3) or `random` (0.2). The run folder is a normal run folder plus `selfplay.csv`: one row per update with the win rates against `random`, the heuristic bots, each older snapshot and the previous newest snapshot. `PolicyBot.from_run` reads it.
+There is no training in the repo now. The training stack (trainers, self-play, offline and replay code, the dataset builder, the evaluator and `PolicyBot`) is in `archive/` with its tests and scripts, and nothing imports it. Training is rebuilt on ruleset v2.1.
 
 ## Simulate, replay, verify
 
     uv run quack-rl simulate --games 1000
     uv run quack-rl simulate --games 1000 --rounds 4   # shorter games (default 9)
-    uv run quack-rl replay data/records/v1/play/<file>.jsonl
-    uv run quack-rl verify data/records/v1/sim/<run>/shard-0001.jsonl --seed-check
+    uv run quack-rl replay <record file>.jsonl
+    uv run quack-rl verify <record file>.jsonl --seed-check
 
 Records go to `data/records/` (not committed).
 
@@ -126,4 +114,4 @@ Load it:
 
 ### Notebooks
 
-The marimo notebooks are in `archive/notebooks/`. They are not maintained. New notebooks come with ruleset v2.1.
+There are no notebooks now. The old marimo notebooks are in `archive/notebooks/` and are not maintained. New notebooks come with ruleset v2.1.
