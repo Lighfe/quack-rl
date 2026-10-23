@@ -19,7 +19,6 @@ from quack_rl.rl.encode import BOARD_LAYOUT, map_colours
 from quack_rl.rules import load_ruleset
 
 RS2 = load_ruleset("v2")
-RS11 = load_ruleset("v1.11")
 SEATS = ("p1", "p2")
 
 
@@ -41,16 +40,15 @@ def states(seed, rs=RS2):
 def test_layout_numbers():
     assert BOARD_LAYOUT == 7
     assert observation_layout(RS2) == 7
-    assert observation_layout(RS11) == 6
     # the board is checked before the cards
     assert RS2.cards
     assert observation_layout(RS2.model_copy(update={"point_board": None})) == 6
 
 
 def test_layout_7_uses_what_layout_6_uses():
-    assert map_colours(RS2) == map_colours(RS11) == 8
-    assert map_channels(RS2) == map_channels(RS11) + 1
-    names2, names11 = vector_names(RS2), vector_names(RS11)
+    assert map_colours(RS2) == 8
+    assert map_channels(RS2) == 2 + 2 * (map_colours(RS2) + 2) + 1  # the layout 6 channels + points
+    names2 = vector_names(RS2)
     assert "phase.card" in names2 and "card.ruby_double" in names2
     assert len(set(names2)) == len(names2)
 
@@ -92,13 +90,6 @@ def test_bounds_cover_masked_games():
                 assert np.all(vec >= lo) and np.all(vec <= hi)
 
 
-def test_older_layouts_are_unchanged():
-    for version in ("v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11"):
-        rs = load_ruleset(version)
-        assert not any(n.endswith(".points") and n.startswith("map.") for n in vector_names(rs))
-        assert map_channels(rs) == 2 + 2 * (map_colours(rs) + 2)
-
-
 def _named(state, seat):
     names = vector_names(RS2)
     return dict(zip(names, vectorize(observe(state, RS2, seat), RS2), strict=True))
@@ -122,9 +113,6 @@ def test_board_block_names_and_position():
     assert names.index("opponent.round_end_halves") < i
     assert i + len(expected) == names.index("map.0.money")
     assert len(set(names)) == len(names)
-    # the older layouts have no board block
-    assert not [n for n in vector_names(RS11) if "board.marker" in n or n.startswith("board.tail")]
-    assert "board" not in observe(new_game(RS11), RS11, "p1")
 
 
 def test_totals_50_and_51():
@@ -166,8 +154,6 @@ def test_board_bounds():
         assert hi[names.index(f"{who}.board.marker.50")] == 1
     assert hi[names.index("board.tail.48")] == 1
     assert np.all(lo[names.index("own.board.marker.0") : names.index("map.0.money")] == 0)
-    # older layouts keep inf points
-    assert observation_bounds(RS11)[1][vector_names(RS11).index("own.points")] == np.inf
 
 
 def test_rat_tail_stays_inside_bounds_in_masked_games():

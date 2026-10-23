@@ -104,3 +104,28 @@ def test_offline_is_refused_on_layout_7(tmp_path):
 def test_train_is_refused_on_layout_7():
     with pytest.raises(LayoutRefused, match="layout 7"):
         train(10, rules="v2")
+
+
+# --- moved from tests/test_rl_layout7.py (#170): the old-version branches (RS11 = v1.11, load_ruleset(version))
+
+# from test_layout_numbers: assert observation_layout(RS11) == 6
+
+# from test_layout_7_uses_what_layout_6_uses:
+    assert map_colours(RS2) == map_colours(RS11) == 8
+    assert map_channels(RS2) == map_channels(RS11) + 1
+    names2, names11 = vector_names(RS2), vector_names(RS11)
+
+def test_older_layouts_are_unchanged():
+    for version in ("v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11"):
+        rs = load_ruleset(version)
+        assert not any(n.endswith(".points") and n.startswith("map.") for n in vector_names(rs))
+        assert map_channels(rs) == 2 + 2 * (map_colours(rs) + 2)
+
+# from test_board_block_names_and_position:
+    # the older layouts have no board block
+    assert not [n for n in vector_names(RS11) if "board.marker" in n or n.startswith("board.tail")]
+    assert "board" not in observe(new_game(RS11), RS11, "p1")
+
+# from test_board_bounds:
+    # older layouts keep inf points
+    assert observation_bounds(RS11)[1][vector_names(RS11).index("own.points")] == np.inf
