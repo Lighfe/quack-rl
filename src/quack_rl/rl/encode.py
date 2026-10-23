@@ -365,8 +365,6 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     shops can add chips)."""
     inf = np.inf
     chip_cap = float(rs.max_chip_purchases) if rs.max_chip_purchases is not None else inf
-    purchase_cap = float(rs.max_purchases) if rs.max_purchases is not None else inf
-    chip_cap = min(chip_cap, purchase_cap)
     max_points = float(rs.point_board.max_points)
     scalar_high = {
         "money": inf,
@@ -374,7 +372,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         "ruby_fields_ahead": float(len(rs.rubies)),
         "points": max_points,
         "droplet_halves": inf,
-        "purchases": purchase_cap,
+        "purchases": inf,
         "chip_purchases": chip_cap,
         "shop_done": 1.0,
     }

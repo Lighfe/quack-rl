@@ -58,7 +58,6 @@ def test_core_numbers():
     assert rs.version == "v2"
     assert rs.rounds == 9
     assert rs.explosion_limit == 7
-    assert rs.max_purchases is None  # no overall cap; chip purchases are capped
     assert rs.max_chip_purchases == 2
     assert rs.track_end == 53
 

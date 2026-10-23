@@ -107,10 +107,10 @@ def parse_bot_name(name: str) -> tuple[int, int, str]:
 class HeuristicBot:
     """Draw or Stop by the chance to explode; buy points from a round on, then by strategy.
 
-    v1.8 (explosion choice): after an explosion take money before the points round and points
-    from it on; the shop has no points items and the bot buys nothing in the last round.
+    Explosion choice: after an explosion take money before the points round and points from it
+    on; the shop has no points items and the bot buys nothing in the last round.
 
-    v1.11 (cards): the explosion look-ahead uses the explosion limit of the round (card 4).
+    Cards: the explosion look-ahead uses the explosion limit of the round (card 4).
     Card 6 and card 5: take the drop (card 6 `card_drop_2`, card 5 `card_drop_end`), which
     risks no chip in the bag. Card 2 (restart offered at 5 chips in the pot): restart when the
     next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
@@ -215,30 +215,15 @@ class HeuristicBot:
         return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
-        p = state.players[seat]
-        if self._rs.max_purchases is not None and p.purchases >= self._rs.max_purchases:
-            return DONE
-        if self._rs.explosion_choice and state.round >= self._rs.rounds:
-            return DONE  # v1.8: money of the last round is worth nothing in the shop
+        if state.round >= self._rs.rounds:
+            return DONE  # money of the last round is worth nothing in the shop
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
-        # The v1.1 chip rule (max_chip_purchases): only points from the points round on,
-        # and a fallback before it. Without it (v1) the shop works as before.
-        chip_rule = self._rs.max_chip_purchases is not None
-        if state.round >= self.points_round and not self._rs.explosion_choice:
-            points = [self._rs.shop_item(i) for i in affordable]
-            points = [i for i in points if i.kind == "points"]
-            if points:
-                best = max(i.points for i in points)
-                return buy(self._rng.choice([i.id for i in points if i.points == best]))
-            if chip_rule:
-                return DONE
         # Items of the list that the shop lacks are never legal, so they are skipped here.
         for item_id in self._strategy.ranked():
             if item_id in affordable:
                 return buy(item_id)
-        if chip_rule:
-            # The most expensive legal non-points item; on a tie the first in shop order.
-            rest = [i for i in self._rs.shop if i.id in affordable and i.kind != "points"]
-            if rest:
-                return buy(max(rest, key=lambda i: i.price).id)
+        # The most expensive legal non-points item; on a tie the first in shop order.
+        rest = [i for i in self._rs.shop if i.id in affordable and i.kind != "points"]
+        if rest:
+            return buy(max(rest, key=lambda i: i.price).id)
         return DONE

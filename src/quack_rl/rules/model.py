@@ -89,9 +89,6 @@ class Ruleset(_Frozen):
     version: str
     rounds: int = Field(ge=1)
     explosion_limit: int = Field(ge=1)
-    # v2 has no overall purchase cap. The field stays until the bots and the encoder stop
-    # reading it (#172, #173); it can only be None.
-    max_purchases: None = None
     # Shop limits per player per round; `max_chip_purchases` None means no limit.
     max_chip_purchases: int | None = Field(default=None, ge=0)
     distinct_chip_colours: bool = False
