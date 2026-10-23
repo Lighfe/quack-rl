@@ -82,10 +82,6 @@ CARD_COLOURS = SHOP_COLOURS
 _CARD_LAYOUTS = (CARD_LAYOUT, BOARD_LAYOUT)
 
 
-class LayoutRefused(ValueError):
-    """A trained policy was asked to act on a layout it was not built for (layout 4, 5, 6 or 7)."""
-
-
 def observation_layout(rs: Ruleset) -> int:
     """The layout number of a ruleset: 7 with a point board (v2), else 6 with cards, else 5 with more than the five colours of
     layout 4 or a minimum buy round, else 4 with a blue hand, else 3 with the explosion choice,
@@ -103,17 +99,6 @@ def observation_layout(rs: Ruleset) -> int:
 
 def _ruleset_colours(rs: Ruleset) -> list[str]:
     return list(dict.fromkeys(c.colour for c in rs.chips))
-
-
-def check_policy_layout(rs: Ruleset) -> None:
-    """Raise `LayoutRefused` for a ruleset on layout 4, 5, 6 or 7: no policy is trained for it yet."""
-    layout = observation_layout(rs)
-    if layout >= HAND_LAYOUT:
-        raise LayoutRefused(
-            f"rules {rs.version!r} use observation layout {layout}; no trained policy, "
-            f"self-play, finetune, offline or evaluate run exists for layout {layout} yet "
-            "(name an older rules version to run a policy, for example --rules v1.1)"
-        )
 
 
 def map_colours(rs: Ruleset) -> int:

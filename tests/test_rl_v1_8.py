@@ -10,10 +10,8 @@ from pettingzoo.test import parallel_api_test
 from quack_rl.bots import RandomBot
 from quack_rl.engine import TAKE_MONEY, TAKE_POINTS, action_names, legal_actions
 from quack_rl.engine.state import Phase
-from quack_rl.rl import QuackEnv, QuackParallelEnv, evaluate, random_policy, reward
-from quack_rl.rl.dataset import iter_games
+from quack_rl.rl import QuackEnv, QuackParallelEnv, reward
 from quack_rl.rl.opponents import make_opponent
-from quack_rl.rl.selfplay import PoolOpponent, _selfplay_env
 
 OPPONENTS = ["random", "draw20-pts4-blue"]
 SEATS = ("p1", "p2")
@@ -142,30 +140,6 @@ def test_opponent_choice_is_made_by_the_bot_not_asked_of_the_agent(name):
     assert asked > 0
 
 
-@pytest.mark.parametrize("name", OPPONENTS)
-def test_evaluate_counts_add_up(name):
-    res = evaluate(random_policy(0), name, rules="v1.8", games=6, seed=1)
-    assert res.wins + res.losses + res.draws == res.games == 6
-
-
-def test_selfplay_env_and_pool_opponent_games_end():
-    env = _selfplay_env(PoolOpponent(lambda p: None, rules="v1.8"), "v1.8")
-    rng = np.random.default_rng(0)
-    for seed in range(3):
-        _, info = env.reset(seed=seed)
-        done = False
-        while not done:
-            _, _, done, _, info = env.step(int(rng.choice(np.flatnonzero(info["action_mask"]))))
-        assert info["episode"]["result"] in ("win", "loss", "draw")
-
-
-def test_make_opponent_and_iter_games_play_full_v1_8_games():
-    for name in OPPONENTS:
-        assert make_opponent(name, 1, "v1.8") is not None
-    games = list(iter_games(OPPONENTS, 4, seed=3, rules="v1.8"))
-    assert len(games) == 4 and all(len(g["episode"]) > 0 for g in games)
-
-
 def test_reward_win_loss_at_the_end_only():
     env = QuackEnv(opponent=RandomBot(0), rules="v1.8")
     rng = np.random.default_rng(4)
@@ -180,21 +154,3 @@ def test_reward_win_loss_at_the_end_only():
     opp = env.state.players["p2" if env.agent_seat == "p1" else "p1"].points
     assert rewards[-1] == (1.0 if own > opp else -1.0 if own < opp else 0.0)
     assert rewards[-1] == reward(env.state, env.agent_seat)
-
-
-@pytest.mark.slow
-def test_selfplay_run_folder_v1_8(tmp_path):
-    import csv
-    import json
-
-    pytest.importorskip("sb3_contrib", reason="needs the train group: uv sync --group train")
-    from quack_rl.rl.selfplay import SELFPLAY_COLUMNS, train_selfplay
-
-    train_selfplay("sp8", 100, update_every=128, rules="v1.8", seed=1, eval_games=2,
-                   runs_dir=tmp_path)
-    run = tmp_path / "sp8"
-    with (run / "selfplay.csv").open(newline="") as f:
-        rows = list(csv.DictReader(f))
-    assert tuple(rows[0]) == SELFPLAY_COLUMNS and rows
-    assert json.loads((run / "config.json").read_text())["rules"] == "v1.8"
-    assert (run / "model.zip").exists()

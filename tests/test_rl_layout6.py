@@ -1,6 +1,5 @@
 """Observation layout 6 (rules v1.11): layout choice, vector, card block, actions, envs, refusals."""
 
-import json
 import random
 
 import numpy as np
@@ -18,27 +17,19 @@ from quack_rl.engine import (
 )
 from quack_rl.engine.state import Phase
 from quack_rl.rl import (
-    PolicyBot,
     QuackEnv,
     QuackParallelEnv,
     action_mask,
-    evaluate,
     map_channels,
     map_slice,
     observation_bounds,
     observation_layout,
     observe,
-    random_policy,
     vector_names,
     vectorize,
 )
-from quack_rl.rl.encode import CARD_COLOURS, LAYOUT_COLOURS, LayoutRefused, map_colours
-from quack_rl.rl.finetune import finetune_online
-from quack_rl.rl.offline import train_offline_run
+from quack_rl.rl.encode import CARD_COLOURS, LAYOUT_COLOURS, map_colours
 from quack_rl.rl.opponents import make_opponent
-from quack_rl.rl.runs import LayoutMismatch, load_model
-from quack_rl.rl.selfplay import train_selfplay
-from quack_rl.rl.train import train
 from quack_rl.rules import load_ruleset
 
 RS11 = load_ruleset("v1.11")
@@ -280,61 +271,3 @@ def test_single_env_masked_games_run_to_the_end(seat):
             _, _, done, _, info = env.step(int(rng.choice(np.flatnonzero(info["action_mask"]))))
             assert not info["illegal_action"]
         assert env.state.phase is Phase.GAME_OVER
-
-
-def test_baseline_bots_evaluate_on_v1_11():
-    for opp in ("draw20-pts1-points", "draw40-pts4-blue"):
-        result = evaluate(random_policy(0), opp, rules="v1.11", games=6, seed=0, reads_observation=False)
-        assert result.games == 6 == result.wins + result.draws + result.losses
-
-
-def test_evaluate_with_a_policy_is_refused_on_layout_6():
-    with pytest.raises(LayoutRefused, match="layout 6") as err:
-        evaluate(random_policy(0), "random", rules="v1.11", games=1)
-    assert isinstance(err.value, ValueError)
-
-
-def test_policy_bot_is_refused_on_layout_6(tmp_path):
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        PolicyBot(lambda o, m: 0, "v1.11")
-    run = tmp_path / "r"
-    run.mkdir()
-    (run / "config.json").write_text(json.dumps({"rules": "v1.11"}))
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        PolicyBot.from_run(run, "v1.11")
-
-
-def test_selfplay_is_refused_on_layout_6(tmp_path):
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        train_selfplay("x", 100, rules="v1.11", runs_dir=tmp_path)
-    assert not list(tmp_path.iterdir())
-
-
-def test_finetune_is_refused_on_layout_6(tmp_path):
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        finetune_online(tmp_path / "src", tmp_path / "out", 10, "random", rules="v1.11")
-    assert not (tmp_path / "out").exists()
-
-
-def test_offline_is_refused_on_layout_6(tmp_path):
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        train_offline_run(tmp_path / "d.parquet", "x", runs_dir=tmp_path, rules="v1.11", steps=1)
-    assert not list(tmp_path.iterdir())
-
-
-def test_train_is_refused_on_layout_6():
-    with pytest.raises(LayoutRefused, match="layout 6"):
-        train(10, rules="v1.11")
-
-
-@pytest.mark.parametrize(("rules", "made_layout"), [("v1.11", 2), ("v1.11", 5), ("v1.10", 6)])
-def test_run_with_another_layout_is_rejected(tmp_path, rules, made_layout):
-    run = tmp_path / "r"
-    run.mkdir()
-    rs = load_ruleset(rules)
-    config = {"rules": rules, "layout": made_layout, "vector_names": vector_names(rs)}
-    (run / "config.json").write_text(json.dumps(config))
-    with pytest.raises(LayoutMismatch) as err:
-        load_model(run, rules)
-    assert f"layout {made_layout}" in str(err.value)
-    assert f"layout {observation_layout(rs)}" in str(err.value)

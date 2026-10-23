@@ -100,36 +100,6 @@ def test_grep_of_the_issue_shows_only_v1_11():
     assert lines and all('"v1.11"' in ln for ln in lines), lines
 
 
-def test_saved_v1_1_data_still_loads_and_plays():
-    runs = sorted(p.parent for p in (ROOT / "data" / "runs").glob("*/model.zip"))
-    if not runs:
-        pytest.skip("no saved runs in data/runs (data/ is not in git)")
-    pytest.importorskip("sb3_contrib")
-    from quack_rl.bots import RandomBot
-    from quack_rl.engine import Phase, RngChance
-    from quack_rl.rl import PolicyBot
-    from quack_rl.rl.runs import load_model
-    from quack_rl.rules import load_ruleset
-    from quack_rl.runner import play_game
-
-    rs = load_ruleset("v1.1")
-    for run in runs:
-        assert load_model(run, "v1.1") is not None
-        bot = PolicyBot.from_run(run, "v1.1")
-        final = play_game(rs, {"p1": bot, "p2": RandomBot(1)}, RngChance(4))
-        assert final.phase is Phase.GAME_OVER
-
-
-def test_saved_datasets_read():
-    import polars as pl
-
-    files = sorted((ROOT / "data" / "datasets").glob("*.parquet"))
-    if not files:
-        pytest.skip("no saved datasets in data/datasets (data/ is not in git)")
-    for f in files:
-        assert pl.read_parquet(f).columns
-
-
 def test_data_folder_is_unchanged():
     out = subprocess.run(
         ["git", "status", "--porcelain", "data/"], cwd=ROOT, capture_output=True, text=True, check=True

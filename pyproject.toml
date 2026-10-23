@@ -27,12 +27,6 @@ dev = [
     "pyright[nodejs]>=1.1.380",
     "polars>=2.0.0",
 ]
-# RL training smoke test in notebooks/rl_env.py; the engine and the default install do not need it
-train = [
-    "torch>=2.2",
-    "stable-baselines3>=2.3",
-    "sb3-contrib>=2.3",
-]
 
 [build-system]
 requires = ["hatchling"]

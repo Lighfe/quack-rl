@@ -135,23 +135,18 @@ def parse_sweep(text: str) -> Sweep:
 
 
 def _label(spec: str) -> str:
-    """The name of a seat in the result rows: a bot spec without `bot:`, a policy spec whole."""
-    return spec if spec.startswith("policy:") else spec.removeprefix("bot:")
+    """The name of a seat in the result rows: a bot spec without `bot:`."""
+    return spec.removeprefix("bot:")
 
 
 def _spec_of(label: str) -> str:
     """The seat spec of a name in the result rows (the inverse of `_label`)."""
-    return label if label.startswith("policy:") else "bot:" + label
+    return "bot:" + label
 
 
 def _spec_for(spec: str, sweep: Sweep | None, value: str) -> str:
     """The seat spec a bot plays with at one sweep value."""
-    if (
-        sweep is None
-        or sweep.param not in BOT_SWEEPS
-        or spec == "bot:random"
-        or spec.startswith("policy:")
-    ):
+    if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random":
         return spec
     draw_limit, points_round, strategy = parse_bot_name(spec)
     if sweep.param == "draw_limit":
@@ -206,10 +201,8 @@ def validate(config: TournamentConfig) -> None:
     if not _NAME_OK.fullmatch(config.name):
         raise TournamentError(f"run name {config.name!r} may only use letters, digits, . _ -")
     for spec in config.bots:
-        if not spec.startswith(("bot:", "policy:")):
-            raise TournamentError(
-                f"bot {spec!r} must be a seat spec (bot:random, bot:<name>, policy:<run folder>)"
-            )
+        if not spec.startswith("bot:"):
+            raise TournamentError(f"bot {spec!r} must be a seat spec (bot:random, bot:<name>)")
         try:
             check_seat(spec)
         except ValueError as e:
