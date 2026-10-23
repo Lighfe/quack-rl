@@ -9,9 +9,9 @@ from quack_rl.rules import Ruleset
 def apply_choice(
     state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
 ) -> None:
-    """v1.8: an exploded player takes the money or the points of the scoring field, in full.
+    """An exploded player takes the money or the points of the scoring field, in full.
 
-    In the last round with last_round_money_divisor the money becomes points at once.
+    In the last round the money becomes points at once (money // last_round_money_divisor).
     """
     for seat in SEATS:
         action = actions[seat]
@@ -22,15 +22,12 @@ def apply_choice(
         fld = scoring_field(p.final_field, rs)
         if action == TAKE_MONEY:
             money = rs.money[fld]
-            if state.round == rs.rounds and rs.last_round_money_divisor is not None:
+            if state.round == rs.rounds:
                 add_points(p, money // rs.last_round_money_divisor, rs)
                 money = 0
-            elif state.round == rs.rounds:
-                money = money * rs.last_round_money_percent // 100
             p.money = money
             events.append({"seat": seat, "kind": "take_money", "amount": p.money})
         else:
-            gained = rs.points[fld] if rs.points is not None else 0
-            gained = add_points(p, gained, rs)
+            gained = add_points(p, rs.points[fld], rs)
             events.append({"seat": seat, "kind": "take_points", "amount": gained})
     state.phase = Phase.SHOP

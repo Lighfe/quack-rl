@@ -5,7 +5,7 @@ import json
 import math
 from dataclasses import dataclass, field
 from fractions import Fraction
-from functools import cache, lru_cache
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -41,54 +41,12 @@ def baseline_maximum(rs: Ruleset) -> float:
     This is a loose bound that no bot can reach. The number to compare a simulation with is
     `realistic_baseline_maximum`.
 
-    Assumptions (a bound, not a number a 30% draw limit can reach):
-    - in every round the bot ends on the best money field of the track and rolls the best
-      money die face, so its money is `max(money) + max money face`; the last round is
-      multiplied by `last_round_money_percent // 100`, as the rules do;
-    - in every round it also rolls the best points die face (no money from that roll then, which
-      the bound ignores: both are added, so the bound stays an upper bound);
-    - money does not carry over (it resets every round), so each round is independent: with
-      that money and at most `max_purchases` purchases it buys the points items that give the
-      most points (a knapsack over the points items of the shop, items may repeat). A ruleset
-      without `max_purchases` has no purchase cap: the points items are limited only by money.
-    The maximum is the sum over all rounds of (best purchase points + best die points).
+    Assumption: in every round the bot rolls the best points die face. A shop with points items
+    would add the best purchase of each round; v2 has none, so the bound is the best die
+    points of every round, summed over all rounds.
     """
-    items = [(i.price, i.points) for i in rs.shop if i.kind == "points"]
-    money_faces = [f.amount for f in rs.die if f.kind == "money"]
     point_faces = [f.points for f in rs.die if f.kind == "points"]
-    base_money = max(rs.money) + max(money_faces, default=0)
-    die_points = max(point_faces, default=0)
-    total = 0
-    for round_no in range(1, rs.rounds + 1):
-        money = base_money
-        if round_no == rs.rounds:
-            money = money * rs.last_round_money_percent // 100
-        cap = _purchase_cap(rs, money)
-        # best[k][m]: most points with k purchases and at most m money
-        best = [[0] * (money + 1) for _ in range(cap + 1)]
-        for k in range(1, cap + 1):
-            for m in range(money + 1):
-                best[k][m] = best[k - 1][m]
-                for price, points in items:
-                    if price <= m:
-                        best[k][m] = max(best[k][m], best[k - 1][m - price] + points)
-        total += best[cap][money] + die_points
-    return float(total)
-
-
-def _purchase_cap(rs: Ruleset, money: int) -> int:
-    """Most purchases of points items with `money`: `max_purchases`, or without it the money.
-
-    Without `max_purchases`, the number of purchases is limited by money only. Each purchase of
-    a priced item costs at least the cheapest price; an item with price 0 would allow endless
-    purchases, so it is counted at most `money + 1` times to keep the number finite.
-    """
-    if rs.max_purchases is not None:
-        return rs.max_purchases
-    prices = [i.price for i in rs.shop if i.kind == "points"]
-    if not prices or min(prices) == 0:
-        return money + 1
-    return money // min(prices)
+    return float(rs.rounds * max(point_faces, default=0))
 
 
 # Tolerance of the confirmation by simulation: the best simulated average over the draw limits
@@ -101,14 +59,12 @@ _Bag = tuple[tuple[str, int], ...]
 
 
 def _round_limits(rs: Ruleset) -> list[tuple[int, Fraction]]:
-    """The explosion limits a round can have, with their chance (v1.11, card 4).
+    """The explosion limits a round can have, with their chance (card 4).
 
     One card is drawn per round without replacement, so each round has the same chance for a
-    card: its share of the deck. Without cards the only limit is the ruleset limit. Only the
-    limit of card 4 is part of the calculated maximum; the other card effects are not."""
+    card: its share of the deck. Only the limit of card 4 is part of the calculated maximum;
+    the other card effects are not."""
     total = sum(c.count for c in rs.cards)
-    if total == 0:
-        return [(rs.explosion_limit, Fraction(1))]
     plus = sum(c.count for c in rs.cards if c.effect == "explosion_limit_plus_2")
     limits = [(rs.explosion_limit, Fraction(total - plus, total))]
     if plus:
@@ -223,30 +179,6 @@ def _brew_outcomes(
     return go(bag, 0, ())
 
 
-def _points_for_money(rs: Ruleset, money: int) -> float:
-    """Expected points the shop rule of the `points` bot buys with `money` (points round reached).
-
-    The bot buys the affordable points item with the most points; on a tie it picks one of the
-    tied items at random, so the result is the average over the tied items.
-    """
-    items = [i for i in rs.shop if i.kind == "points"]
-
-    @cache
-    def best(money_left: int, purchases_left: int) -> float:
-        if purchases_left == 0:
-            return 0.0
-        affordable = [i for i in items if i.price <= money_left]
-        if not affordable:
-            return 0.0
-        top = max(i.points for i in affordable)
-        tied = [i for i in affordable if i.points == top]
-        return sum(i.points + best(money_left - i.price, purchases_left - 1) for i in tied) / len(
-            tied
-        )
-
-    return best(money, _purchase_cap(rs, money))
-
-
 def _bags(rs: Ruleset) -> list[_Bag]:
     """Every bag a player can start a round with: the start bag plus chips of the die faces."""
     gifts = sorted({f.chip for f in rs.die if f.kind == "chip" and f.chip is not None})
@@ -286,10 +218,9 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
     start = tuple(sorted(rs.start_bag.items()))
     die_total = sum(f.weight for f in rs.die)
     brews: dict[tuple[_Bag, int], dict[tuple[int, bool, int, int], float]] = {}
-    purchases = lru_cache(maxsize=None)(lambda money: _points_for_money(rs, money))
     states: dict[tuple[int, _Bag], float] = {(0, start): 1.0}  # (droplet halves, bag) -> chance
     expected = 0.0
-    for round_no in range(1, rs.rounds + 1):
+    for _ in range(rs.rounds):
         nxt: dict[tuple[int, _Bag], float] = {}
         for (halves, bag), p_state in states.items():
             begin = min(halves // 2, rs.track_end)
@@ -300,11 +231,10 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                     p = p_state * p_brew * float(p_limit)
                     scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
                     base_halves = halves + green + (1 if scoring in rs.rubies else 0)
-                    money = rs.money[scoring] // 2 if exploded else rs.money[scoring]
                     faces = [None] if exploded else rs.die  # an exploded potion never rolls
                     for face in faces:
                         chance = p if face is None else p * face.weight / die_total
-                        new_halves, new_bag, extra_money, die_points = base_halves, bag, 0, 0
+                        new_halves, new_bag, die_points = base_halves, bag, 0
                         if face is not None:
                             if face.kind == "droplet":
                                 new_halves += face.halves
@@ -314,12 +244,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                                 new_bag = tuple(sorted(counts.items()))
                             elif face.kind == "points":
                                 die_points = face.points
-                            elif face.kind == "money":
-                                extra_money = face.amount
-                        total_money = money + extra_money
-                        if round_no == rs.rounds:
-                            total_money = total_money * rs.last_round_money_percent // 100
-                        expected += chance * (purchases(total_money) + die_points + pot_points)
+                        expected += chance * (die_points + pot_points)
                         key = (new_halves, new_bag)
                         nxt[key] = nxt.get(key, 0.0) + chance
         states = nxt
@@ -339,15 +264,11 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - the bot plays alone: it always rolls the bonus die when its potion did not explode. In a
       game against a bot, only the player with the furthest field rolls, so this is slightly
       generous (it is the one place where the number is above the truth);
-    - purchases follow the bot rule: up to `max_purchases` times (without `max_purchases`: until
-      no points item is affordable) the points item with the most points that it can afford
-      (one of the tied items at random, as the bot does, so the average over the tied items
-      counts); money does not carry over;
-    - the last round money is multiplied by `last_round_money_percent // 100`; an exploded
-      potion halves its money (rounded down) and does not roll the die;
+    - an exploded potion does not roll the die; v2 has no points items in the shop, so money
+      adds no points to the number;
     - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips
       to the bag;
-    - v1.11: the explosion limit of a round is the ruleset limit, or +2 with card 4, weighted by
+    - the explosion limit of a round is the ruleset limit, or +2 with card 4, weighted by
       the share of card 4 in the deck. The other card effects (cards 1 to 3, 5 to 7) are not
       in the number, so with cards it is an estimate that the simulation does not confirm.
 
@@ -482,7 +403,7 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
         try:
-            buy_items = [item.id for item in load_ruleset(config.get("rules", "v1.11")).shop]
+            buy_items = [item.id for item in load_ruleset(config.get("rules", "v2")).shop]
         except (ValueError, KeyError, TypeError, OSError) as e:
             raise ReportError(f"config.json in {folder} names no usable ruleset: {e}") from None
         for item in buy_items:
@@ -676,7 +597,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         bots=(),
         games=1,
         seed=0,
-        rules=config.get("rules", "v1.11"),
+        rules=config.get("rules", "v2"),
         rounds=data.rounds,
         overrides=dict(config.get("overrides") or {}),
         sweep=Sweep(sweep["param"], tuple(sweep["values"])) if sweep else None,
@@ -701,7 +622,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         f"The maximum is confirmed by simulation in {CONFIRM_TEST}: the best simulated draw limit"
         f" is at most {100 * CONFIRM_TOLERANCE:.0f}% below it.",
         f"Calculated maximum (loose upper bound, see baseline_maximum): {loose:.1f}",
-        *(cards if any(r.cards for r in rulesets.values()) else []),
+        *cards,
     ]
 
 

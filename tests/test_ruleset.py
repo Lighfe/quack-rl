@@ -28,8 +28,13 @@ def doc_money(field: int) -> int:
     return 35
 
 
-def test_v2_is_a_supported_version():
-    assert "v2" in SUPPORTED_RULES_VERSIONS
+def test_supported_versions():
+    assert SUPPORTED_RULES_VERSIONS == ("v2",)
+
+
+def test_old_version_refused():
+    with pytest.raises(UnsupportedRulesVersion):
+        load_ruleset("v1.11")  # old-version-ok
 
 
 def test_load_v2_returns_ruleset():
@@ -79,28 +84,28 @@ def test_start_bag():
 
 def test_chips():
     rs = load_ruleset("v2")
-    # v2 names a spellbook: the chips carry no component, the spellbook gives one for each colour
+    # v2 names a spellbook: it gives the component of each colour
     assert rs.spellbook == 1
-    assert [(c.id, c.colour, c.value, c.component) for c in rs.chips] == [
-        ("white_1", "white", 1, None),
-        ("white_2", "white", 2, None),
-        ("white_3", "white", 3, None),
-        ("orange_1", "orange", 1, None),
-        ("orange_6", "orange", 6, None),
-        ("green_1", "green", 1, None),
-        ("green_2", "green", 2, None),
-        ("green_4", "green", 4, None),
-        ("blue_1", "blue", 1, None),
-        ("blue_2", "blue", 2, None),
-        ("blue_4", "blue", 4, None),
-        ("red_1", "red", 1, None),
-        ("red_2", "red", 2, None),
-        ("red_4", "red", 4, None),
-        ("black_1", "black", 1, None),
-        ("yellow_1", "yellow", 1, None),
-        ("yellow_2", "yellow", 2, None),
-        ("yellow_4", "yellow", 4, None),
-        ("purple_1", "purple", 1, None),
+    assert [(c.id, c.colour, c.value) for c in rs.chips] == [
+        ("white_1", "white", 1),
+        ("white_2", "white", 2),
+        ("white_3", "white", 3),
+        ("orange_1", "orange", 1),
+        ("orange_6", "orange", 6),
+        ("green_1", "green", 1),
+        ("green_2", "green", 2),
+        ("green_4", "green", 4),
+        ("blue_1", "blue", 1),
+        ("blue_2", "blue", 2),
+        ("blue_4", "blue", 4),
+        ("red_1", "red", 1),
+        ("red_2", "red", 2),
+        ("red_4", "red", 4),
+        ("black_1", "black", 1),
+        ("yellow_1", "yellow", 1),
+        ("yellow_2", "yellow", 2),
+        ("yellow_4", "yellow", 4),
+        ("purple_1", "purple", 1),
     ]
     assert rs.component_name(rs.chip("blue_2")) == "blue@2"
 
@@ -268,8 +273,6 @@ def _track_end(n: int) -> Callable[[dict[str, Any]], None]:
         d["track_end"] = n
         d["money"] = list(range(n + 1))
         d["points"] = [0] * (n + 1)
-        d.pop("point_board", None)  # the board and the cards depend on the track length
-        d.pop("cards", None)
         d["rubies"] = []
 
     return change
@@ -317,7 +320,6 @@ BOUNDARY_CASES: dict[
         _top("last_round_money_percent", 100),
     ),
     "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
-    "max_purchases_0": (_top("max_purchases", 0), _top("max_purchases", 1)),
     "track_end_0": (_track_end(0), _track_end(1)),
     "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),
     "chip_value_0": (_chip("white_1", "value", 0), _chip("white_1", "value", 1)),
@@ -353,3 +355,51 @@ def test_boundary_value_validates(case: str):
 
 def test_v2_last_round_money_percent_is_100():
     assert load_ruleset("v2").last_round_money_percent == 100
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["points", "spellbook", "point_board", "cards", "explosion_choice", "last_round_money_divisor"],
+)
+def test_field_without_old_safe_default_is_required(field: str):
+    data = _v2_data()
+    del data[field]
+    with pytest.raises(pydantic.ValidationError, match=field):
+        Ruleset.model_validate(data)
+
+
+def test_v2_values_of_the_required_fields():
+    rs = load_ruleset("v2")
+    assert rs.explosion_choice is True
+    assert rs.last_round_money_divisor == 5
+    assert len(rs.points) == rs.track_end + 1
+    assert rs.point_board.max_points == 100
+    assert len(rs.cards) > 0
+
+
+@pytest.mark.parametrize("field", ["explosion_choice", "last_round_money_percent"])
+def test_v2_meaning_of_a_flag_is_the_only_value(field: str):
+    data = _v2_data()
+    data[field] = False if field == "explosion_choice" else 150
+    with pytest.raises(pydantic.ValidationError):
+        Ruleset.model_validate(data)
+
+
+@pytest.mark.parametrize("kind", ["money", "remove_chip", "droplet", "points"])
+def test_kinds_no_v2_entry_uses_are_refused(kind: str):
+    shop = _v2_data()
+    shop["shop"][0]["kind"] = kind
+    with pytest.raises(pydantic.ValidationError):
+        Ruleset.model_validate(shop)
+    if kind == "money":
+        die = _v2_data()
+        die["die"][1]["kind"] = kind
+        with pytest.raises(pydantic.ValidationError):
+            Ruleset.model_validate(die)
+
+
+def test_chip_component_key_is_refused():
+    data = _v2_data()
+    data["chips"][0]["component"] = "white@1"
+    with pytest.raises(pydantic.ValidationError):
+        Ruleset.model_validate(data)

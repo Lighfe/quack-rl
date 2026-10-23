@@ -3,19 +3,17 @@
 import pytest
 
 from quack_rl.engine import (
-    DONE,
     TAKE_MONEY,
     TAKE_POINTS,
     Phase,
     ScriptedChance,
     Status,
     add_points,
-    buy,
     new_game,
     step,
 )
 from quack_rl.report import _expected_points, baseline_maximum, realistic_baseline_maximum
-from quack_rl.rules import ShopItem, load_ruleset
+from quack_rl.rules import load_ruleset
 
 RS = load_ruleset("v2")
 CAP = 100
@@ -80,7 +78,7 @@ def test_site_round_end_table_stops_at_100():
 
 
 def test_site_last_round_conversion_stops_at_100():
-    rs = RS.model_copy(update={"explosion_choice": False})
+    rs = RS
     s = state_for(rs, Phase.RESOLVE, final_field=30)
     s.round = rs.rounds
     s.players["p1"].points = 80
@@ -111,17 +109,6 @@ def test_site_take_money_last_round_stops_at_100():
     assert RS.money[31] // 5 >= 2
     out = step(s, RS, {"p1": TAKE_MONEY, "p2": TAKE_MONEY}, ScriptedChance([])).state
     assert out.players["p1"].points == CAP
-
-
-def test_site_shop_points_item_stops_at_100():
-    item = ShopItem(id="pts", price=1, kind="points", points=3)
-    rs = RS.model_copy(update={"shop": [*RS.shop, item]})
-    s = state_for(rs, Phase.SHOP)
-    s.players["p1"].money = 5
-    out = step(s, rs, {"p1": buy("pts"), "p2": DONE}, ScriptedChance([])).state
-    assert out.players["p1"].points == CAP
-
-
 
 
 def test_report_runs_on_v2_without_a_money_face():

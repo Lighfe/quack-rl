@@ -8,17 +8,14 @@ from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, 
 from quack_rl.rules import DieFace, Ruleset
 
 
-def _apply_face(p: PlayerState, face: DieFace, rs: Ruleset) -> int:
-    """Apply a bonus die face; return extra money for this round."""
+def _apply_face(p: PlayerState, face: DieFace, rs: Ruleset) -> None:
+    """Apply a bonus die face."""
     if face.kind == "droplet":
         p.droplet_halves += face.halves
     elif face.kind == "chip" and face.chip is not None:
         p.bag[face.chip] = p.bag.get(face.chip, 0) + 1
     elif face.kind == "points":
         add_points(p, face.points, rs)
-    elif face.kind == "money":
-        return face.amount
-    return 0
 
 
 def _apply_pot_effects(
@@ -47,11 +44,9 @@ def apply_resolve(
 ) -> None:
     """Rules 4.3: ruby (scoring field), green bonus, bonus die, then money (seats p1, p2).
 
-    v1 and v1.1: in the last round the money is multiplied by last_round_money_percent // 100.
-    v1.8: the field gives money and points; with explosion_choice an exploded potion waits for
-    the CHOICE phase; with last_round_money_divisor the last-round money becomes points.
+    The field gives money and points. An exploded potion waits for the CHOICE phase. In the last
+    round the money becomes points (money // last_round_money_divisor).
     """
-    extra_money = {seat: 0 for seat in SEATS}
     for seat in SEATS:
         p = state.players[seat]
         assert p.final_field is not None
@@ -83,7 +78,7 @@ def apply_resolve(
             p = state.players[seat]
             if scoring_field(p.final_field or 0, rs) == best:
                 face = chance.roll_die(seat)
-                extra_money[seat] += _apply_face(p, face, rs)
+                _apply_face(p, face, rs)
                 events.append({"seat": seat, "kind": "die", "face": face.id})
     choosing = False
     for seat in SEATS:
@@ -96,19 +91,13 @@ def apply_resolve(
         p.shop_done = False
         p.money = 0
         if p.status is Status.EXPLODED:
-            if rs.explosion_choice:
-                choosing = True
-                continue
-            money = rs.money[fld] // 2
-        else:
-            money = rs.money[fld] + extra_money[seat]
-            if rs.points is not None:
-                add_points(p, rs.points[fld], rs)
-        if state.round == rs.rounds and rs.last_round_money_divisor is not None:
+            choosing = True
+            continue
+        money = rs.money[fld]
+        add_points(p, rs.points[fld], rs)
+        if state.round == rs.rounds:
             add_points(p, money // rs.last_round_money_divisor, rs)
             money = 0
-        elif state.round == rs.rounds:
-            money = money * rs.last_round_money_percent // 100
         p.money = money
         events.append({"seat": seat, "kind": "money", "amount": p.money})
     state.phase = Phase.CHOICE if choosing else Phase.SHOP

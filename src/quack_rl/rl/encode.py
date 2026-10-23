@@ -6,13 +6,14 @@ chips, both bags (remaining and complete), the rule scalars and derived features
 generic rules.
 Observation layout 3 (rulesets with `explosion_choice`, v1.8): layout 2 plus the phase
 `choice`, the points of the own scoring field and a last-round flag
-(`docs/specs/2026-10-16-observation-layout-3.md`).
+(`archive/docs/specs/2026-10-16-observation-layout-3.md`).
 Observation layout 4 (rulesets with a blue hand, v1.9): layout 3 with five colours, the own hand
-and the pick actions (`docs/specs/2026-10-17-observation-layout-4.md`).
+and the pick actions (`archive/docs/specs/2026-10-17-observation-layout-4.md`).
 Observation layout 5 (rulesets with chip colours beyond layout 4 or a minimum buy round, v1.10):
-layout 4 with eight colours and a shop block (`docs/specs/2026-10-19-observation-layout-5.md`).
+layout 4 with eight colours and a shop block
+(`archive/docs/specs/2026-10-19-observation-layout-5.md`).
 Observation layout 6 (rulesets with cards, v1.11): layout 5 with the card phases and a card block
-(`docs/specs/2026-10-20-observation-layout-6.md`).
+(`archive/docs/specs/2026-10-20-observation-layout-6.md`).
 Observation layout 7 (rulesets with a point board, v2): layout 6 with the points of every field in
 the map (`docs/specs/2026-10-22-ruleset-v2.md`).
 """

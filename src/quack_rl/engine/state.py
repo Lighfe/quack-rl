@@ -78,7 +78,7 @@ def new_game(rs: Ruleset) -> GameState:
     return GameState(
         rules_version=rs.version,
         round=1,
-        phase=Phase.CARD if rs.cards else Phase.BREW,
+        phase=Phase.CARD,
         step=0,
         players={seat: PlayerState(bag=dict(rs.start_bag)) for seat in SEATS},
         deck=[c.id for c in rs.cards for _ in range(c.count)],

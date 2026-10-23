@@ -1,7 +1,6 @@
 from typing import Any
 
 from quack_rl.engine.actions import BUY_PREFIX, DONE
-from quack_rl.engine.board import add_points
 from quack_rl.engine.state import (
     SEATS,
     GameState,
@@ -14,23 +13,9 @@ from quack_rl.engine.state import (
 from quack_rl.rules import Ruleset, ShopItem
 
 
-def _apply_item(p: PlayerState, item: ShopItem, rs: Ruleset) -> None:
-    if item.kind == "chip" and item.chip is not None:
-        p.bag[item.chip] = p.bag.get(item.chip, 0) + 1
-    elif item.kind == "remove_chip" and item.chip is not None:
-        if item.chip in p.placed:
-            index = p.placed.index(item.chip)
-            if index < len(p.placed_fields):  # states built by hand may lack the landing fields
-                p.placed_fields.pop(index)
-            p.placed.remove(item.chip)
-        else:
-            p.bag[item.chip] -= 1
-            if p.bag[item.chip] == 0:
-                del p.bag[item.chip]
-    elif item.kind == "droplet":
-        p.droplet_halves += item.halves
-    elif item.kind == "points":
-        add_points(p, item.points, rs)
+def _apply_item(p: PlayerState, item: ShopItem) -> None:
+    """Buy a chip: it goes into the bag."""
+    p.bag[item.chip] = p.bag.get(item.chip, 0) + 1
 
 
 def decide_winner(state: GameState, rs: Ruleset) -> str:
@@ -77,7 +62,7 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.field = start_field(p, rs)
     state.round += 1
     state.card = None
-    state.phase = Phase.CARD if rs.cards else Phase.BREW
+    state.phase = Phase.CARD
     events.append({"seat": None, "kind": "round_end", "next_round": state.round})
 
 
@@ -95,12 +80,9 @@ def apply_shop(
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price
             p.purchases += 1
-            if item.kind == "chip" and item.chip is not None:
-                p.chip_purchases += 1
-                p.chip_colours.append(rs.chip(item.chip).colour)
-            _apply_item(p, item, rs)
+            p.chip_purchases += 1
+            p.chip_colours.append(rs.chip(item.chip).colour)
+            _apply_item(p, item)
             events.append({"seat": seat, "kind": "buy", "item": item.id, "price": item.price})
-            if rs.max_purchases is not None and p.purchases >= rs.max_purchases:
-                p.shop_done = True
     if all(p.shop_done for p in state.players.values()):
         _end_round(state, rs, events)

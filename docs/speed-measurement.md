@@ -53,7 +53,7 @@ From the tournament runs (mixed field, no records):
 
 ## Comparison with the spec
 
-Spec values (`docs/specs/2026-10-09-m2-1-bots-and-balance.md`, "Tournament"), random bots: 5.4 ms and 21.5 KB per game, about 0.9 KB gzipped.
+Spec values (`archive/docs/specs/2026-10-09-m2-1-bots-and-balance.md`, "Tournament"), random bots: 5.4 ms and 21.5 KB per game, about 0.9 KB gzipped.
 
 - `bot:random`: 4.92 ms (9% faster than the spec, inside the 30% threshold), 21.55 KB raw (same). Gzipped: 1.65 KB, 83% above the spec value, so this row differs by more than 30%. Likely reason: this script compresses each game on its own, so the compressor has no repeated content from earlier games; the spec's 0.9 KB was most likely taken from a shard of many games compressed together.
 - Heuristic bots: 10.17 to 12.24 ms per game, which is 1.9 to 2.3 times slower than the spec's 5.4 ms (2.1 to 2.5 times slower than the `bot:random` row here). Records are 2.0 to 2.4 times larger raw (43.1 to 52.4 KB) and 1.5 to 1.6 times larger gzipped per game.

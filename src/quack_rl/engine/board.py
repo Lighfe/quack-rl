@@ -6,21 +6,12 @@ from quack_rl.engine.state import SEATS, GameState, PlayerState, start_field
 from quack_rl.rules import Ruleset
 
 
-def _board(rs: Ruleset):
-    board = rs.point_board
-    if board is None:
-        raise ValueError("this ruleset has no point_board")
-    return board
-
-
 def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
-    """Add points; with a point board the total stops at `max_points`. Return the amount added.
+    """Add points; the total stops at `max_points` of the point board. Return the amount added.
 
-    Points over the cap are lost. A ruleset without a board does not clamp.
+    Points over the cap are lost.
     """
-    total = p.points + amount
-    if rs.point_board is not None:
-        total = min(total, rs.point_board.max_points)
+    total = min(p.points + amount, rs.point_board.max_points)
     added = total - p.points
     p.points = total
     return added
@@ -28,18 +19,18 @@ def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
 
 def board_position(points: int, rs: Ruleset) -> int:
     """The field 0..fields: a total up to `fields` is the field, a higher total wraps."""
-    fields = _board(rs).fields
+    fields = rs.point_board.fields
     return points if points <= fields else points - fields
 
 
 def has_50pts(points: int, rs: Ruleset) -> bool:
     """True when the total is past the first lap (`points > fields`)."""
-    return points > _board(rs).fields
+    return points > rs.point_board.fields
 
 
 def tails_between(low: int, high: int, rs: Ruleset) -> int:
     """Number of rat tails at a total `p` with `low <= p < high`, over all laps."""
-    board = _board(rs)
+    board = rs.point_board
     return sum(
         1
         for lap in range(board.laps)
@@ -58,11 +49,7 @@ def rat_tail_bonus(points: dict[str, int], rs: Ruleset) -> dict[str, int]:
 
 
 def set_rat_tails(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
-    """Round start: set `rat_tail` from the points and move each pot to its boosted start field.
-
-    Does nothing for a ruleset without a point board."""
-    if rs.point_board is None:
-        return
+    """Round start: set `rat_tail` from the points and move each pot to its boosted start field."""
     bonus = rat_tail_bonus({seat: state.players[seat].points for seat in SEATS}, rs)
     for seat in SEATS:
         p = state.players[seat]

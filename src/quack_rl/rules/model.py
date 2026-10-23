@@ -15,15 +15,14 @@ class ChipSpec(_Frozen):
     id: str
     colour: str
     value: int = Field(ge=1)
-    # Required unless the ruleset names a spellbook; then it must be left out.
-    component: str | None = None
 
 
 class ShopItem(_Frozen):
     id: str
     price: int = Field(ge=0)
-    kind: Literal["chip", "remove_chip", "droplet", "points"]
-    chip: str | None = None
+    kind: Literal["chip"]
+    chip: str
+    # `halves` and `points` are only read by the bots (removed with their last reader in #173).
     halves: int = 0
     points: int = 0
     # v1.10: the item can be bought from this round on (rounds are numbered from 1).
@@ -33,10 +32,9 @@ class ShopItem(_Frozen):
 class DieFace(_Frozen):
     id: str
     weight: int = Field(ge=1)
-    kind: Literal["droplet", "chip", "money", "points"]
+    kind: Literal["droplet", "chip", "points"]
     chip: str | None = None
     halves: int = 0
-    amount: int = 0
     points: int = 0
 
 
@@ -74,11 +72,10 @@ def _check_kind_fields(entry: "ShopItem | DieFace") -> None:
     needed = {
         "droplet": "halves",
         "points": "points",
-        "money": "amount",
     }.get(entry.kind)
     if needed is not None and getattr(entry, needed, 1) < 1:
         raise ValueError(f"{entry.id}: kind {entry.kind} needs {needed} of at least 1")
-    if entry.kind in ("chip", "remove_chip") and entry.chip is None:
+    if entry.kind == "chip" and entry.chip is None:
         raise ValueError(f"{entry.id}: kind {entry.kind} needs a chip")
 
 
@@ -92,27 +89,28 @@ class Ruleset(_Frozen):
     version: str
     rounds: int = Field(ge=1)
     explosion_limit: int = Field(ge=1)
-    # Shop limits per player per round. None means no limit. Only shop items of kind "chip"
-    # count for `max_chip_purchases` and `distinct_chip_colours` (one chip per colour).
-    max_purchases: int | None = Field(default=None, ge=1)
+    # v2 has no overall purchase cap. The field stays until the bots and the encoder stop
+    # reading it (#172, #173); it can only be None.
+    max_purchases: None = None
+    # Shop limits per player per round; `max_chip_purchases` None means no limit.
     max_chip_purchases: int | None = Field(default=None, ge=0)
     distinct_chip_colours: bool = False
     track_end: int = Field(ge=1)
-    last_round_money_percent: int = Field(ge=100, strict=True)
+    # v2 has no last-round money factor. The field stays until the encoder stops reading it (#172).
+    last_round_money_percent: Literal[100]
     money: list[Annotated[int, Field(ge=0)]]
-    # v1.8: points per field 0..track_end. None means the track gives no points.
-    points: list[Annotated[int, Field(ge=0)]] | None = None
-    # v1.8: an exploded player chooses the money or the points of the scoring field.
-    explosion_choice: bool = False
-    # v1.8: in the last round, money // this becomes points. None means no conversion.
-    last_round_money_divisor: int | None = Field(default=None, ge=1)
-    # v1.9: the name of the spellbook that gives each colour its component. None means each
-    # chip names its own `component` (v1, v1.1, v1.8).
-    spellbook: int | str | None = None
-    # v1.11: the deck of round-start cards. Empty means the game has no cards.
-    cards: list[CardSpec] = Field(default_factory=list)
-    # v2: the points board with rat tails. None means no board (the older versions).
-    point_board: PointBoard | None = None
+    # Points per field 0..track_end.
+    points: list[Annotated[int, Field(ge=0)]]
+    # An exploded player chooses the money or the points of the scoring field. Always on in v2.
+    explosion_choice: Literal[True]
+    # In the last round, money // this becomes points.
+    last_round_money_divisor: int = Field(ge=1)
+    # The name of the spellbook that gives each colour its component.
+    spellbook: int | str
+    # The deck of round-start cards.
+    cards: list[CardSpec] = Field(min_length=1)
+    # The points board with rat tails.
+    point_board: PointBoard
     rubies: list[int]
     start_bag: dict[str, Annotated[int, Field(ge=1)]]
     chips: list[ChipSpec]
@@ -135,7 +133,7 @@ class Ruleset(_Frozen):
         chip_ids = {c.id for c in self.chips}
         if len(self.money) != self.track_end + 1:
             raise ValueError("money needs one entry per field 0..track_end")
-        if self.points is not None and len(self.points) != self.track_end + 1:
+        if len(self.points) != self.track_end + 1:
             raise ValueError("points needs one entry per field 0..track_end")
         if any(not 0 <= f <= self.track_end for f in self.rubies):
             raise ValueError("ruby field outside the track")
@@ -143,33 +141,20 @@ class Ruleset(_Frozen):
             if chip_id not in chip_ids:
                 raise ValueError(f"start_bag: unknown chip {chip_id}")
         for entry in [*self.shop, *self.die]:
-            if entry.kind in ("chip", "remove_chip") and entry.chip not in chip_ids:
+            if entry.kind == "chip" and entry.chip not in chip_ids:
                 raise ValueError(f"{entry.id}: unknown chip {entry.chip}")
         return self
 
     def _check_components(self) -> None:
-        if self.spellbook is None:
-            for c in self.chips:
-                if c.component is None:
-                    raise ValueError(f"chip {c.id}: needs a component (the ruleset has no spellbook)")
-            return
         book = get_spellbook(self.spellbook)  # raises for an unregistered name
         for c in self.chips:
-            if c.component is not None:
-                raise ValueError(
-                    f"chip {c.id}: component {c.component!r} is set, but spellbook "
-                    f"{self.spellbook!r} gives the component of each colour"
-                )
             if c.colour not in book:
                 raise ValueError(
                     f"chip {c.id}: spellbook {self.spellbook!r} has no colour {c.colour!r}"
                 )
 
     def component_name(self, chip: ChipSpec) -> str:
-        """The component name of a chip: from the spellbook if the ruleset names one."""
-        if self.spellbook is None:
-            assert chip.component is not None
-            return chip.component
+        """The component name of a chip: the spellbook gives one for each colour."""
         return get_spellbook(self.spellbook)[chip.colour]
 
     def chip(self, chip_id: str) -> ChipSpec:

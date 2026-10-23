@@ -41,14 +41,12 @@ LEGACY_COLOURS = 5  # the first five chip colours of a ruleset (v1.9: white to r
 def _appended(item: ShopItem, rs: Ruleset) -> bool:
     """A chip of a colour beyond the first five (v1.10: black, yellow, purple) is listed after
     the pick actions, so the indices of the actions of v1.9 stay the same."""
-    if item.kind != "chip" or item.chip is None:
-        return False
     colours = list(dict.fromkeys(c.colour for c in rs.chips))
     return colours.index(rs.chip(item.chip).colour) >= LEGACY_COLOURS
 
 
 def action_names(rs: Ruleset) -> list[str]:
-    choice = [TAKE_MONEY, TAKE_POINTS] if rs.explosion_choice else []
+    choice = [TAKE_MONEY, TAKE_POINTS]
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
@@ -56,7 +54,7 @@ def action_names(rs: Ruleset) -> list[str]:
 
 
 def _card_actions(rs: Ruleset) -> list[str]:
-    """v1.11: the card actions, appended at the end of the list (the order of the RL mask)."""
+    """The card actions, appended at the end of the list (the order of the RL mask)."""
     effects = {rs.card(c.id).effect for c in rs.cards}
     names: list[str] = []
     if "restart_after_5" in effects:
@@ -77,13 +75,10 @@ def value_two_chips(rs: Ruleset) -> list[ChipSpec]:
 def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState, round_: int) -> bool:
     if item.price > p.money or item.min_round > round_:
         return False
-    if item.kind == "remove_chip":
-        return item.chip is not None and p.owned(item.chip) > 0
-    if item.kind == "chip" and item.chip is not None:
-        if rs.max_chip_purchases is not None and p.chip_purchases >= rs.max_chip_purchases:
-            return False
-        if rs.distinct_chip_colours and rs.chip(item.chip).colour in p.chip_colours:
-            return False
+    if rs.max_chip_purchases is not None and p.chip_purchases >= rs.max_chip_purchases:
+        return False
+    if rs.distinct_chip_colours and rs.chip(item.chip).colour in p.chip_colours:
+        return False
     return True
 
 

@@ -38,7 +38,7 @@ def _chips(chip_ids: list[str], rs: Ruleset) -> Text:
 
 
 def card_line(state: GameState, rs: Ruleset) -> str:
-    """v1.11: the card of the round and the cards still in the deck (empty without cards)."""
+    """The card of the round and the cards still in the deck."""
     if state.card is None:
         card = "-"
     else:
@@ -56,7 +56,7 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
         p = state.players[seat]
         scoring = scoring_field(p.field, rs)
         ruby = "yes" if scoring in rs.rubies else "no"
-        gain = f" +{rs.points[scoring]}pt" if rs.points is not None else ""
+        gain = f" +{rs.points[scoring]}pt"
         field_text = f"field {p.field}\nscore {scoring} ${rs.money[scoring]}{gain}\nruby: {ruby}"
         tail = f" (rat tail +{p.rat_tail})" if p.rat_tail > 0 else ""
         table.add_row(
@@ -70,9 +70,8 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
             _chips(p.placed, rs),
         )
     parts: list[RenderableType] = [table]
-    if rs.cards:
-        parts.append(Text(card_line(state, rs)))
-    if rs.last_round_money_divisor is not None and state.round == rs.rounds:
+    parts.append(Text(card_line(state, rs)))
+    if state.round == rs.rounds:
         parts.append(
             Text(
                 f"Round {rs.rounds}: money becomes points (money // {rs.last_round_money_divisor})"
@@ -95,8 +94,6 @@ def _fields(event: dict, skip: tuple[str, ...] = ("seat",)) -> str:
 def _die_effect(face_id: str, rs: Ruleset) -> str:
     face = next(f for f in rs.die if f.id == face_id)
     match face.kind:
-        case "money":
-            return f"+{face.amount} money"
         case "points":
             return f"+{face.points} point" + ("s" if face.points != 1 else "")
         case "droplet":

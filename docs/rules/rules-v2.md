@@ -6,7 +6,7 @@ Rules version: `v2`. Every game record stores the rules version it was played wi
 
 Status: working version, not final. The ruleset file exists; the engine does not play the points board, the rat tails and the new die faces yet (later issues of the same stage).
 
-Changes from v1.11 (`docs/rules/rules-v1.11.md`): see "Changes from v1.11" at the end of this document. Everything not named there is the same as in v1.11.
+Changes from v1.11 (`archive/docs/rules/rules-v1.11.md`): see "Changes from v1.11" at the end of this document. Everything not named there is the same as in v1.11.
 
 - **Settled:** the mechanics (simultaneous brewing per chip draw, explosion, resolve order, shop without victory points, game end)
 - **Default:** every number (chip values, explosion limit, track money, ruby fields, die odds, shop prices, purchase limits, starting bag, number of rounds). These are tuning values. A change makes a new ruleset version (for example `v3`)
@@ -268,7 +268,7 @@ At the start of every round, one card is drawn at random from the cards not yet 
 
 The deck has 12 cards, 5 of them without an effect.
 
-**Status of the engine:** the ruleset file and the card effect names exist, but the engine does not draw or play the cards yet (later issues of the same stage). Until then a v2 game plays as v1.10. This document states the intended rules; the full card text is in `docs/specs/2026-10-19-ruleset-v1-11.md`.
+**Status of the engine:** the ruleset file and the card effect names exist, but the engine does not draw or play the cards yet (later issues of the same stage). Until then a v2 game plays as v1.10. This document states the intended rules; the full card text is in `archive/docs/specs/2026-10-19-ruleset-v1-11.md`.
 
 Points per field (unchanged from v1.8 to v1.11):
 

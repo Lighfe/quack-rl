@@ -18,7 +18,7 @@ The look of the game is not important. The data is as well as the RL environment
 
 ### Current goals (this spec, milestones M1-M4)
 
-- The game: rules v1 (`docs/rules/rules-v1.md`), 1v1
+- The game: rules v1 (`archive/docs/rules/rules-v1.md`), 1v1
 - One rules engine in Python, the only place the rules live
 - Game modes, all recorded:
   - bot vs bot (watch live or replay)
@@ -238,7 +238,7 @@ Design hook now: components declare descriptive features (4.2), and the structur
 ## 8. Testing and code quality (Settled, details Default)
 
 - pytest; test command `uv run --with pytest pytest`
-- Rule-clause tests: one or more tests per clause of `docs/rules/rules-v1.md`, named after the clause, with scripted chance
+- Rule-clause tests: one or more tests per clause of `archive/docs/rules/rules-v1.md`, named after the clause, with scripted chance
 - Invariant tests with Hypothesis on random games: chip accounting per chip type holds at every step (owned = starting bag + bought + received from the bonus die - removed, and owned = in bag + placed this round), after each reset all owned chips are in the bag, money is never negative, the field is never above 53, only legal actions are applied, every generated record passes `verify`
 - Golden replays: a few small records per supported rules version in `tests/fixtures/` that must replay to the same result
 - Corrupted-record fixtures (impossible chip draw, missing or extra chance outcome) that `verify` must reject
@@ -262,10 +262,10 @@ Milestones are the big steps of this spec. They are not the same as the stages o
 |---|---|---|
 | M1 | Play the game in the terminal, recorded | Python project set-up, ruleset data, engine, random bot, raw log + replay + verify, terminal play and simulate |
 | M2 | Standard RL environment and datasets | Minari research, PettingZoo and Gymnasium envs with API tests, Minari export, tiny marimo smoke-test notebook, bot design session, tournament and balance report |
-| M2.9 | Ruleset v1.8 (issue #96) | New rules version with observation layout 3 and action mask; content in `docs/specs/2026-10-16-ruleset-v1-8.md` |
+| M2.9 | Ruleset v1.8 (issue #96) | New rules version with observation layout 3 and action mask; content in `archive/docs/specs/2026-10-16-ruleset-v1-8.md` |
 | M2.10 | Ruleset v1.9 (spellbook 1) | New rules version: blue draws a hand and has a pick step, new red and orange 6 chips, observation layout 4 and environments; no default or notebook uses it (v1.10, then v1.11 became the default later) |
-| M2.11 | Ruleset v1.10 (issue #131) | Black, yellow and purple chips and shop items with a minimum round, observation layout 5; v1.10 was the default ruleset until v1.11; policy entry points refused it (no trained policy for layout 5); content in `docs/specs/2026-10-18-ruleset-v1-10.md` |
-| M2.13 | Ruleset v1.11 (issue #140) | Round-start cards (12 cards), card choice and restart, per-round explosion limit, observation layout 6; **v1.11 is the default ruleset** of the code (CLI, tournament, RL modules, scripts); notebooks keep their pinned version; policy entry points refuse it (no trained policy for layout 6); content in `docs/specs/2026-10-19-ruleset-v1-11.md`. The points board and rat tails come with v2 (M2.15) |
+| M2.11 | Ruleset v1.10 (issue #131) | Black, yellow and purple chips and shop items with a minimum round, observation layout 5; v1.10 was the default ruleset until v1.11; policy entry points refused it (no trained policy for layout 5); content in `archive/docs/specs/2026-10-18-ruleset-v1-10.md` |
+| M2.13 | Ruleset v1.11 (issue #140) | Round-start cards (12 cards), card choice and restart, per-round explosion limit, observation layout 6; **v1.11 is the default ruleset** of the code (CLI, tournament, RL modules, scripts); notebooks keep their pinned version; policy entry points refuse it (no trained policy for layout 6); content in `archive/docs/specs/2026-10-19-ruleset-v1-11.md`. The points board and rat tails come with v2 (M2.15) |
 | M2.15 | Ruleset v2 (stage #162) | Point board (fields 0 to 50, two laps, at most 100 points, the `has_50pts` flag), rat tails with the catch-up bonus at round start (`rat_tail` on the player, added to the start field), a new die, observation layout 7 (layout 6 plus the points of every map field and a board block); v2 is not the default (the default stays v1.11, notebooks stay pinned); policy entry points refuse it (no trained policy for layout 7); content in `docs/specs/2026-10-22-ruleset-v2.md` and `docs/rules/rules-v2.md` |
 | Spellbook and colour stages | More colours and spellbooks follow (issue #71) | Further colours and spellbooks after v1.9; named here only, planned at their own intake |
 | Rules v2 | Rules v2 (issue #79) | Larger rules change after v1.8; planned at its own intake |

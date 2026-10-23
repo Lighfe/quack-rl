@@ -19,16 +19,6 @@ class Orange(Component):
 
 
 @register
-class Blue(Component):
-    name = "blue@1"
-
-    def place_bonus(
-        self, chip: ChipSpec, previous: ChipSpec | None, pot: Sequence[ChipSpec] = ()
-    ) -> int:
-        return 1 if previous is not None and previous.value != 1 else 0
-
-
-@register
 class Green(Component):
     name = "green@1"
 

@@ -18,13 +18,11 @@ BOOK = "test_book"
 COMPONENTS = {**get_spellbook(V2.spellbook), "blue": "orange@1"}
 
 
-def _legacy_data(blue="blue@1"):
-    """v2 without a spellbook: each chip names its component (blue as in the first rules)."""
+def _data(spellbook=None):
+    """The v2 data with another spellbook; the default is the spellbook of v2 itself."""
     data = V2.model_dump()
-    data["spellbook"] = None
-    for chip in data["chips"]:
-        name = V2.component_name(V2.chip(chip["id"]))
-        chip["component"] = blue if chip["colour"] == "blue" else name
+    if spellbook is not None:
+        data["spellbook"] = spellbook
     return data
 
 
@@ -42,39 +40,21 @@ def book():
         unregister_spellbook(BOOK)
 
 
-def _data(spellbook=None, keep_component=False):
-    data = _legacy_data()
-    if spellbook is not None:
-        data["spellbook"] = spellbook
-    if spellbook is not None and not keep_component:
-        for chip in data["chips"]:
-            del chip["component"]  # the key is absent, not None
-    return data
-
-
-def test_v2_names_a_spellbook_and_a_ruleset_without_one_names_each_component():
+def test_v2_names_a_spellbook_that_gives_each_colour_its_component():
     assert V2.spellbook == 1
-    assert all(c.component is None for c in V2.chips)
     assert all(V2.component_name(c) == get_spellbook(1)[c.colour] for c in V2.chips)
-    legacy = Ruleset.model_validate(_legacy_data())
-    assert legacy.spellbook is None
-    assert all(legacy.component_name(c) == c.component for c in legacy.chips)
 
 
-def test_spellbook_without_chip_components_loads(book):
-    data = _data(book)
-    assert all("component" not in chip for chip in data["chips"])
-    rs = Ruleset.model_validate(data)
-    assert all(c.component is None for c in rs.chips)
+def test_spellbook_gives_the_component_of_a_colour(book):
+    rs = Ruleset.model_validate(_data(book))
     assert {c.id: rs.component_name(c) for c in rs.chips}["blue_1"] == "orange@1"
 
 
-def test_spellbook_and_chip_component_together_fail(book):
-    with pytest.raises(ValidationError) as e:
-        Ruleset.model_validate(_data(book, keep_component=True) | {"spellbook": book})
-    message = str(e.value)
-    assert book in message
-    assert "white_1" in message or "chip" in message
+def test_ruleset_without_a_spellbook_fails():
+    data = _data()
+    del data["spellbook"]
+    with pytest.raises(ValidationError, match="spellbook"):
+        Ruleset.model_validate(data)
 
 
 def test_error_names_spellbook_and_chip():
@@ -101,13 +81,6 @@ def test_spellbook_missing_a_colour_fails():
             Ruleset.model_validate(_data("test_short"))
     finally:
         unregister_spellbook("test_short")
-
-
-def test_chip_without_component_and_without_spellbook_fails():
-    data = _legacy_data()
-    data["chips"][0]["component"] = None
-    with pytest.raises(ValidationError, match="component"):
-        Ruleset.model_validate(data)
 
 
 def test_white_and_orange_fixed_in_every_spellbook(book):
@@ -142,11 +115,31 @@ def _fields_after_two_blue_draws(rs):
     return state.players["p1"].field
 
 
-def test_engine_reads_component_through_spellbook(book):
+@pytest.fixture
+def bonus_book():
+    # blue gets a test component with a placement bonus: +1 after a chip of another value than 1
+    from quack_rl.components import Component, register, registry
+
+    @register
+    class _Bonus(Component):
+        name = "test_bonus@1"
+
+        def place_bonus(self, chip, previous, pot=()):
+            return 1 if previous is not None and previous.value != 1 else 0
+
+    register_spellbook("test_bonus", {**COMPONENTS, "blue": "test_bonus@1"})
+    try:
+        yield "test_bonus"
+    finally:
+        unregister_spellbook("test_bonus")
+        registry._REGISTRY.pop("test_bonus@1", None)
+
+
+def test_engine_reads_component_through_spellbook(book, bonus_book):
     spell = _with_blue_in_bag(_data(book))
-    legacy = _with_blue_in_bag(_legacy_data())
-    # Blue as blue@1: the second blue chip (value 2) follows a value-4 chip and gets +1.
-    assert _fields_after_two_blue_draws(legacy) == 7
+    bonus = _with_blue_in_bag(_data(bonus_book))
+    # The second blue chip (value 2) follows a value-4 chip: +1 with the bonus component only.
+    assert _fields_after_two_blue_draws(bonus) == 7
     assert _fields_after_two_blue_draws(spell) == 6
 
 
@@ -177,7 +170,7 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
         apply_resolve(state, rs, ScriptedChance([]), events)
         return [e for e in events if e["kind"] == "round_end_bonus"]
 
-    assert halves(Ruleset.model_validate(_legacy_data())) == []
+    assert halves(Ruleset.model_validate(_data())) == []
     assert len(halves(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats
 
 
@@ -188,5 +181,5 @@ def test_report_reads_component_through_spellbook(green_blue_book):
         out = _brew_outcomes(rs, (("blue_4", 1), ("blue_2", 1)), 100)
         return {key[2] for key in out}
 
-    assert green_halves(Ruleset.model_validate(_legacy_data())) == {0}
+    assert green_halves(Ruleset.model_validate(_data())) == {0}
     assert green_halves(Ruleset.model_validate(_data(green_blue_book))) == {2}
