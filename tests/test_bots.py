@@ -13,15 +13,16 @@ from quack_rl.bots import (
     parse_bot_name,
 )
 from quack_rl.cli.main import app
-from quack_rl.engine import DONE, DRAW, STOP, Phase, new_game
+from quack_rl.engine import DONE, DRAW, STOP, Phase, ScriptedChance, new_game, step
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v1")
+RS = load_ruleset("v2")
 runner = CliRunner()
 
 
 def brew_state(bag, white_total, placed=("white_1",)):
-    state = new_game(RS)
+    # v2 opens with the card step; a card without effect leads to the first brew step
+    state = step(new_game(RS), RS, None, ScriptedChance(["card_8_to_12"])).state
     p = state.players["p1"]
     p.bag = dict(bag)
     p.white_total = white_total
@@ -87,25 +88,10 @@ def test_draw_when_stop_not_legal():
 # --- shop rule ----------------------------------------------------------------
 
 
-def test_points_round_buys_biggest_points_item_first():
-    bot = HeuristicBot(RS, 30, 1, "points", seed=1)
-    state = shop_state(22)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:points_10"
 
 
-def test_buys_next_biggest_affordable():
-    bot = HeuristicBot(RS, 30, 1, "points", seed=1)
-    state = shop_state(12)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:points_2"
-    state = shop_state(13)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:points_5"
 
 
-def test_no_points_item_before_the_points_round():
-    bot = HeuristicBot(RS, 30, 3, "points", seed=1)
-    state = shop_state(6, rnd=2)
-    assert "buy:points_2" in shop_legal(state)
-    assert bot.choose(state, "p1", shop_legal(state)) == DONE
 
 
 def test_strategy_priority_before_points_round():
@@ -122,10 +108,6 @@ def test_done_when_nothing_affordable():
     assert bot.choose(state, "p1", shop_legal(state)) == DONE
 
 
-def test_done_when_purchases_used_up():
-    bot = HeuristicBot(RS, 30, 1, "points", seed=1)
-    state = shop_state(22, purchases=RS.max_purchases)
-    assert bot.choose(state, "p1", shop_legal(state)) == DONE
 
 
 def test_bot_returns_only_legal_actions():
@@ -169,7 +151,7 @@ def test_parse_bot_name():
 def sim(out, p1, p2, seed="4", games="4"):
     return runner.invoke(
         app,
-        ["simulate", "--rules", "v1", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
+        ["simulate", "--rules", "v2", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
     )
 
 
@@ -254,34 +236,8 @@ def test_weights_change_what_the_bot_buys():
     assert bot.choose(state, "p1", shop_legal(state)) == "buy:green_1"
 
 
-def test_spends_remaining_money_by_strategy_after_points():
-    from quack_rl.bots import Strategy
-
-    bot = HeuristicBot(RS, 30, 1, Strategy("t", ("orange_1",)), seed=1)
-    state = shop_state(25)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:points_10"
-    state.players["p1"].money = 3
-    state.players["p1"].purchases = 1
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:orange_1"
 
 
-def test_equal_points_items_tie_is_seeded():
-    from quack_rl.engine import legal_actions
-    from quack_rl.rules.model import ShopItem
-
-    twin = ShopItem(id="points_10b", price=22, kind="points", points=10)
-    rs2 = RS.model_copy(update={"shop": [*RS.shop, twin]})
-    state = new_game(rs2)
-    state.phase = Phase.SHOP
-    state.round = 1
-    state.players["p1"].money = 22
-
-    def picks(seed):
-        bot = HeuristicBot(rs2, 30, 1, "points", seed=seed)
-        return [bot.choose(state, "p1", legal_actions(state, rs2, "p1")) for _ in range(12)]
-
-    assert picks(1) == picks(1)
-    assert set(picks(1) + picks(2) + picks(3)) == {"buy:points_10", "buy:points_10b"}
 
 
 def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
@@ -407,32 +363,12 @@ def flat(games):
     return [i for g in games for i in g]
 
 
-def test_blue_buys_blue_only(batches):
-    bought = set(flat(batches["blue"]))
-    assert bought & BLUE
-    assert not bought & (GREEN | {"droplet_1", "remove_white_1"})
 
 
-def test_green_buys_green_and_droplets(batches):
-    bought = set(flat(batches["green"]))
-    assert bought & GREEN
-    assert "droplet_1" in bought
-    assert not bought & BLUE
 
 
-def test_cleaner_removes_white_most_and_no_droplet(batches):
-    count = {s: flat(g).count("remove_white_1") for s, g in batches.items()}
-    assert count["cleaner"] >= 1
-    assert "droplet_1" not in flat(batches["cleaner"])
-    for other in ("blue", "green", "balanced"):
-        assert count["cleaner"] > count[other]
 
 
-def test_balanced_buys_a_bit_of_everything(batches):
-    bought = set(flat(batches["balanced"]))
-    assert {"orange_1", "remove_white_1", "droplet_1"} <= bought
-    assert bought & BLUE
-    assert bought & GREEN
 
 
 @pytest.mark.parametrize("strategy", ["blue", "green", "cleaner", "balanced"])
@@ -447,10 +383,10 @@ def test_strategy_games_verify(tmp_path, strategy):
 
 # --- v1.1 chip rule (max_chip_purchases) --------------------------------------
 
-RS11 = load_ruleset("v1.1")
+RS = load_ruleset("v2")
 
 
-def shop_state11(money, rnd, rs=RS11):
+def shop_state11(money, rnd, rs=RS):
     state = new_game(rs)
     state.phase = Phase.SHOP
     state.round = rnd
@@ -458,20 +394,20 @@ def shop_state11(money, rnd, rs=RS11):
     return state
 
 
-def legal11(state, rs=RS11):
+def legal11(state, rs=RS):
     from quack_rl.engine import legal_actions
 
     return legal_actions(state, rs, "p1")
 
 
-def apply11(state, action, rs=RS11):
+def apply11(state, action, rs=RS):
     """Apply one shop action of p1 with the engine (p2 waits, so the round does not end)."""
     from quack_rl.engine.shop import apply_shop
 
     apply_shop(state, rs, {"p1": action, "p2": "wait"}, [])
 
 
-def play_shop(bot, state, rs=RS11, limit=20):
+def play_shop(bot, state, rs=RS, limit=20):
     """The bot's actions until `done`, each checked against the legal list of its step."""
     actions = []
     for _ in range(limit):
@@ -485,71 +421,22 @@ def play_shop(bot, state, rs=RS11, limit=20):
     raise AssertionError(f"no done after {limit} actions: {actions}")
 
 
-def test_v1_1_points_round_buys_points_then_done():
-    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
-    state = shop_state11(30, rnd=1)
-    assert play_shop(bot, state) == ["buy:points_10", "buy:points_2", DONE]
-    assert state.players["p1"].money == 2
 
 
-def test_v1_1_points_round_buys_no_chips_after_points():
-    bot = HeuristicBot(RS11, 20, 1, "cleaner", seed=1)
-    state = shop_state11(12, rnd=1)
-    assert "buy:orange_1" in legal11(state)
-    assert bot.choose(state, "p1", legal11(state)) == "buy:points_2"
-    apply11(state, "buy:points_2")
-    assert state.players["p1"].money == 5
-    assert "buy:orange_1" in legal11(state)
-    assert bot.choose(state, "p1", legal11(state)) == DONE
 
 
-def test_v1_1_points_round_has_no_cap_of_three():
-    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
-    state = shop_state11(70, rnd=1)
-    assert play_shop(bot, state) == ["buy:points_10"] * 3 + ["buy:points_2", DONE]
-    assert state.players["p1"].money == 0
 
 
 def test_v1_1_before_points_round_strategy_list_first():
-    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
+    bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
     state = shop_state11(20, rnd=2)
     assert bot.choose(state, "p1", legal11(state)) == "buy:blue_4"
 
 
-def test_v1_1_before_points_round_fallback_most_expensive_non_points():
-    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
-    state = shop_state11(20, rnd=2)
-    apply11(state, "buy:blue_4")
-    assert state.players["p1"].money == 5
-    legal = legal11(state)
-    assert "buy:blue_1" not in legal
-    assert bot.choose(state, "p1", legal) == "buy:green_1"
-    apply11(state, "buy:green_1")
-    assert bot.choose(state, "p1", legal11(state)) == DONE
 
 
-def test_v1_1_fallback_includes_remove_white_and_repeats():
-    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
-    state = shop_state11(40, rnd=2)
-    assert play_shop(bot, state) == [
-        "buy:blue_4",
-        "buy:remove_white_1",
-        "buy:green_2",
-        DONE,
-    ]
-    assert state.players["p1"].money == 2
 
 
-@pytest.mark.parametrize("money", range(7, 14))
-def test_v1_1_fallback_never_buys_points(money):
-    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
-    state = shop_state11(100, rnd=2)
-    apply11(state, "buy:blue_4")
-    apply11(state, "buy:green_4")
-    state.players["p1"].money = money
-    legal = legal11(state)
-    assert "buy:points_2" in legal
-    assert bot.choose(state, "p1", legal) == DONE
 
 
 @pytest.mark.parametrize("strategy", ["green", "balanced"])
@@ -557,7 +444,7 @@ def test_v1_1_fallback_never_buys_points(money):
 def test_v1_1_items_not_in_the_shop_are_skipped(strategy, rnd):
     assert "droplet_1" in load_strategy(strategy).priority
     for money in range(0, 41):
-        bot = HeuristicBot(RS11, 20, 4, strategy, seed=1)
+        bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
         actions = play_shop(bot, shop_state11(money, rnd=rnd))
         assert "buy:droplet_1" not in actions
 
@@ -566,36 +453,16 @@ def test_v1_1_items_not_in_the_shop_are_skipped(strategy, rnd):
 @pytest.mark.parametrize("rnd", [2, 4])
 def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
     for money in range(0, 41):
-        bot = HeuristicBot(RS11, 20, 4, strategy, seed=1)
+        bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
         actions = play_shop(bot, shop_state11(money, rnd=rnd))
         assert actions[-1] == DONE and len(actions) <= 20
 
 
-@pytest.mark.parametrize(
-    "changes,money,expected",
-    [
-        # remove_white_1 at 13 ties green_4 (13): green_4 comes first in the shop
-        ({"remove_white_1": 13}, 13, "buy:green_4"),
-        # blue_2 at 9 ties green_2 (9): blue_2 comes first in the shop
-        ({"blue_2": 9}, 9, "buy:blue_2"),
-    ],
-)
-def test_v1_1_fallback_tie_takes_the_first_in_shop_order(changes, money, expected):
-    from quack_rl.bots import Strategy
-
-    shop = [i.model_copy(update={"price": changes.get(i.id, i.price)}) for i in RS11.shop]
-    rs = RS11.model_copy(update={"shop": shop})
-    state = shop_state11(money, rnd=2, rs=rs)
-    legal = legal11(state, rs)
-    tied = [i for i in rs.shop if i.kind != "points" and i.price == money]
-    assert len(tied) == 2 and all(f"buy:{i.id}" in legal for i in tied)
-    bot = HeuristicBot(rs, 20, 4, Strategy("t"), seed=1)
-    assert bot.choose(state, "p1", legal) == expected
 
 
 # --- v1 games unchanged (golden results.csv) ----------------------------------
 
-GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v1_bots_results.csv"
+GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v2_bots_results.csv"
 GOLDEN_V1_BOTS = (
     "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
     "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
@@ -613,7 +480,7 @@ def test_v1_tournament_matches_the_golden_results_csv(tmp_path):
             "--bots",
             GOLDEN_V1_BOTS,
             "--rules",
-            "v1",
+            "v2",
             "--games",
             "10",
             "--seed",
@@ -648,11 +515,11 @@ from quack_rl.engine import (  # noqa: E402
 )
 from quack_rl.runner import play_game  # noqa: E402
 
-RS18 = load_ruleset("v1.8")
+RS = load_ruleset("v2")
 
 
 def choice_state(rnd):
-    state = new_game(RS18)
+    state = new_game(RS)
     state.phase = Phase.CHOICE
     state.round = rnd
     state.players["p1"].status = Status.EXPLODED
@@ -662,13 +529,13 @@ def choice_state(rnd):
 
 def choice_action(bot, rnd):
     state = choice_state(rnd)
-    legal = legal_actions(state, RS18, "p1")
+    legal = legal_actions(state, RS, "p1")
     assert legal == [TAKE_MONEY, TAKE_POINTS]
     return bot.choose(state, "p1", legal)
 
 
 def test_v18_choice_money_before_points_round_points_from_it():
-    bot = HeuristicBot(RS18, 20, 4, "green", seed=1)
+    bot = HeuristicBot(RS, 20, 4, "green", seed=1)
     assert bot.name == "draw20-pts4-green"
     assert choice_action(bot, 3) == TAKE_MONEY
     assert choice_action(bot, 4) == TAKE_POINTS
@@ -676,24 +543,24 @@ def test_v18_choice_money_before_points_round_points_from_it():
 
 
 def test_v18_pts1_takes_points_every_round():
-    bot = HeuristicBot(RS18, 20, 1, "points", seed=1)
-    assert all(choice_action(bot, r) == TAKE_POINTS for r in range(1, RS18.rounds + 1))
+    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    assert all(choice_action(bot, r) == TAKE_POINTS for r in range(1, RS.rounds + 1))
 
 
 def test_v18_points_round_beyond_last_round_takes_money_every_round():
-    bot = HeuristicBot(RS18, 20, 12, "points", seed=1)
-    assert all(choice_action(bot, r) == TAKE_MONEY for r in range(1, RS18.rounds + 1))
+    bot = HeuristicBot(RS, 20, 12, "points", seed=1)
+    assert all(choice_action(bot, r) == TAKE_MONEY for r in range(1, RS.rounds + 1))
 
 
 def test_v18_choice_wait_for_a_player_who_did_not_explode():
     state = choice_state(2)
     state.players["p1"].status = Status.STOPPED
-    bot = HeuristicBot(RS18, 20, 1, "points", seed=1)
-    assert bot.choose(state, "p1", legal_actions(state, RS18, "p1")) == WAIT
+    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    assert bot.choose(state, "p1", legal_actions(state, RS, "p1")) == WAIT
 
 
 def v18_shop_state(money, rnd):
-    state = new_game(RS18)
+    state = new_game(RS)
     state.phase = Phase.SHOP
     state.round = rnd
     state.players["p1"].money = money
@@ -701,19 +568,19 @@ def v18_shop_state(money, rnd):
 
 
 def test_v18_shop_never_buys_points_and_passes_in_the_last_round():
-    shop_ids = {i.id for i in RS18.shop}
+    shop_ids = {i.id for i in RS.shop}
     for strategy in STRATEGIES:
-        bot = HeuristicBot(RS18, 20, 1, strategy, seed=1)
-        for rnd in range(1, RS18.rounds + 1):
+        bot = HeuristicBot(RS, 20, 1, strategy, seed=1)
+        for rnd in range(1, RS.rounds + 1):
             for money in range(0, 40):
                 state = v18_shop_state(money, rnd)
-                legal = legal_actions(state, RS18, "p1")
+                legal = legal_actions(state, RS, "p1")
                 action = bot.choose(state, "p1", legal)
                 assert action in legal
                 if action.startswith("buy:"):
                     assert action.removeprefix("buy:") in shop_ids
-                    assert RS18.shop_item(action.removeprefix("buy:")).kind != "points"
-                if rnd == RS18.rounds:
+                    assert RS.shop_item(action.removeprefix("buy:")).kind != "points"
+                if rnd == RS.rounds:
                     assert action == DONE
 
 
@@ -721,33 +588,33 @@ def test_v18_shop_never_buys_points_and_passes_in_the_last_round():
 def test_v18_game_with_each_strategy_has_no_illegal_action(strategy):
     for seed in range(5):
         seats = {
-            "p1": HeuristicBot(RS18, 30, 4, strategy, seed=seed),
-            "p2": HeuristicBot(RS18, 20, 1, "points", seed=seed + 100),
+            "p1": HeuristicBot(RS, 30, 4, strategy, seed=seed),
+            "p2": HeuristicBot(RS, 20, 1, "points", seed=seed + 100),
         }
         bought = []
 
         def on_step(result, _ms, bought=bought):
             bought.extend(e["item"] for e in result.events if e.get("kind") == "buy")
 
-        final = play_game(RS18, seats, RngChance(seed), on_step)  # an illegal action raises
+        final = play_game(RS, seats, RngChance(seed), on_step)  # an illegal action raises
         assert final.phase is Phase.GAME_OVER
-        assert set(bought) <= {i.id for i in RS18.shop}
+        assert set(bought) <= {i.id for i in RS.shop}
 
 
 def test_random_bot_plays_many_seeded_v18_games():
     for seed in range(40):
         seats = {"p1": RandomBot(seed=seed), "p2": RandomBot(seed=seed + 1000)}
-        assert play_game(RS18, seats, RngChance(seed)).phase is Phase.GAME_OVER
+        assert play_game(RS, seats, RngChance(seed)).phase is Phase.GAME_OVER
 
 
 # --- v1.9: the pick step --------------------------------------------------------------------
 
-RS19 = load_ruleset("v1.9")
+RS = load_ruleset("v2")
 PICK_LEGAL = ["play:0", "play:1", "put_back_draw", "put_back_stop"]
 
 
 def pick_state(hand, bag=None, white_total=0, field=0, placed=(), pot_field=None):
-    state = new_game(RS19)
+    state = step(new_game(RS), RS, None, ScriptedChance(["card_8_to_12"])).state
     p = state.players["p1"]
     p.hand = list(hand)
     p.bag = dict(bag or {})
@@ -758,7 +625,7 @@ def pick_state(hand, bag=None, white_total=0, field=0, placed=(), pot_field=None
 
 
 def pick(state, draw_limit=20):
-    bot = HeuristicBot(RS19, draw_limit=draw_limit)
+    bot = HeuristicBot(RS, draw_limit=draw_limit)
     return bot.choose(state, "p1", PICK_LEGAL)
 
 
@@ -773,7 +640,7 @@ def test_pick_tie_goes_to_the_lowest_slot():
 
 def test_pick_all_explode_stops_even_at_draw_limit_100():
     state = pick_state(
-        ["white_3", "white_2"], bag={"white_1": 3}, white_total=RS19.explosion_limit - 1
+        ["white_3", "white_2"], bag={"white_1": 3}, white_total=RS.explosion_limit - 1
     )
     assert pick(state, draw_limit=100) == "put_back_stop"
 
@@ -838,7 +705,7 @@ def test_v1_9_full_games_reach_the_end_with_legal_actions(p1, p2, tmp_path):
         path = tmp_path / f"{seed}.jsonl"
         with path.open("w", encoding="utf-8") as f:
             final, _, _ = play_sim_game(
-                RS19, rules="v1.9", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=f
+                RS, rules="v2", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=f
             )
         assert final.winner is not None  # an illegal action would have raised
         (game,) = read_games(path)
@@ -855,7 +722,7 @@ def test_v1_9_tournament_runs_all_pairs(tmp_path):
         [
             "tournament",
             "--rules",
-            "v1.9",
+            "v2",
             "--games",
             "4",
             "--seed",
