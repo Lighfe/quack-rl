@@ -189,7 +189,7 @@ The **scoring field** is the first free field after the last placed chip: `min(f
 
 ### Rubies
 
-Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent. A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5).
+Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent. A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5). The game record shows the balance: the events `ruby` and `ruby_drop` carry `total`, the ruby count after the event.
 
 ### 4.3 Resolve
 

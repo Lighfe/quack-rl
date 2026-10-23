@@ -56,7 +56,7 @@ def test_ruby_field_gives_one_ruby_also_after_explosion():
     r = auto(brewed(8, 8, exploded=("p1",)), "point_1")
     p1 = r.state.players["p1"]
     assert (p1.rubies, p1.droplet_halves) == (RS.start_rubies + 1, 0)
-    assert {"seat": "p1", "kind": "ruby", "rubies": 1} in r.events
+    assert {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1} in r.events
 
 
 def test_ruby_field_gives_one_ruby_and_no_droplet():
@@ -83,7 +83,7 @@ def test_card_ruby_extra_gives_two_rubies():
     s.card = next(c.id for c in RS.cards if c.effect == "ruby_extra")
     r = auto(s, "point_1")
     assert r.state.players["p1"].rubies == RS.start_rubies + 2
-    assert {"seat": "p1", "kind": "ruby", "rubies": 2} in r.events
+    assert {"seat": "p1", "kind": "ruby", "rubies": 2, "total": RS.start_rubies + 2} in r.events
     assert r.state.players["p2"].rubies == RS.start_rubies  # field 3 is no ruby field
 
 
@@ -169,7 +169,7 @@ def test_resolve_does_not_change_field_or_bag_except_orange_face():
 def test_events_kinds_and_one_money_event_per_seat():
     r = auto(brewed(19, 11, p1_placed=("white_1", "green_1")), "droplet_1")
     assert r.events == [
-        {"seat": "p1", "kind": "ruby", "rubies": 1},
+        {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1},
         {"seat": "p1", "kind": "round_end_bonus", "chip": "green_1", "halves": 1},
         {"seat": "p1", "kind": "die", "face": "droplet_1"},
         {"seat": "p1", "kind": "money", "amount": 17},
@@ -190,7 +190,7 @@ def test_landing_on_field_1_gives_money_of_field_2():
 def test_landing_on_4_gives_the_ruby_of_field_5():
     r = auto(brewed(4, 0), "point_1")
     assert r.state.players["p1"].rubies == RS.start_rubies + 1
-    assert {"seat": "p1", "kind": "ruby", "rubies": 1} in r.events
+    assert {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1} in r.events
 
 
 def test_landing_on_5_gives_no_ruby():

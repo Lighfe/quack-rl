@@ -79,7 +79,7 @@ def apply_shop(
         elif action == RUBY_DROP:
             p.rubies -= rs.ruby_cost
             p.droplet_halves += 2
-            events.append({"seat": seat, "kind": "ruby_drop", "rubies": rs.ruby_cost, "halves": 2})
+            events.append({"seat": seat, "kind": "ruby_drop", "rubies": rs.ruby_cost, "halves": 2, "total": p.rubies})
         elif action.startswith(BUY_PREFIX):
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price

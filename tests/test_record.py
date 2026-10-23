@@ -224,3 +224,14 @@ def test_record_package_reexports_all_produced_names():
         assert hasattr(record, name), name
         assert name in record.__all__, name
     assert record.RECORD_SCHEMA_VERSION == 1
+
+
+def test_the_record_carries_the_ruby_balance():
+    for seed in range(30):
+        buf = io.StringIO()
+        record_game(buf, seed=seed)
+        events = [e for line in buf.getvalue().splitlines() for e in json.loads(line).get("events", [])]
+        if any(e["kind"] == "ruby" for e in events):
+            assert all("total" in e for e in events if e["kind"] in ("ruby", "ruby_drop"))
+            return
+    raise AssertionError("no ruby event in 30 recorded games")

@@ -182,7 +182,7 @@ def test_ruby_drop_costs_rubies_adds_a_droplet_and_stays_in_the_shop():
     r = play(with_rubies(3), RUBY_DROP, DONE)
     p1 = r.state.players["p1"]
     assert (p1.rubies, p1.droplet_halves, p1.shop_done) == (1, 2, False)
-    assert {"seat": "p1", "kind": "ruby_drop", "rubies": 2, "halves": 2} in r.events
+    assert {"seat": "p1", "kind": "ruby_drop", "rubies": 2, "halves": 2, "total": 1} in r.events
     assert RUBY_DROP not in legal_actions(r.state, RS, "p1")  # 1 ruby left
 
 

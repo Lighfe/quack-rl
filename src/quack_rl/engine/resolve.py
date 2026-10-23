@@ -53,7 +53,7 @@ def apply_resolve(
         if rs.fields[scoring_field(p.final_field, rs)].ruby:
             gained = 1 + (1 if card_effect(state, rs) == "ruby_extra" else 0)
             p.rubies += gained
-            events.append({"seat": seat, "kind": "ruby", "rubies": gained})
+            events.append({"seat": seat, "kind": "ruby", "rubies": gained, "total": p.rubies})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
             halves = get_component(rs.component_name(chip)).round_end_droplet_halves(
