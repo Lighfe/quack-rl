@@ -399,4 +399,4 @@ def test_ruby_drop_has_its_own_key_and_no_buy_key_is_used_twice():
 
 
 def test_board_shows_the_ruby_count():
-    assert "rubies 1" in board(width=80)
+    assert board(width=120).count("rubies 1") == 2
