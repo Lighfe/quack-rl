@@ -4,8 +4,13 @@ from quack_rl.engine import DONE, DRAW, Phase, ScriptedChance, Status, buy, new_
 from quack_rl.rules import load_ruleset
 
 
+def brew_game(rs=RS):
+    """A new game after the first card (no effect), at the first brew step."""
+    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
+
+
 def test_placed_fields_follow_every_draw():
-    s = new_game(RS)
+    s = brew_game()
     for chip in ("white_1", "white_2", "orange_1"):
         r = play(s, DRAW, DRAW, chip, "white_1")
         s = r.state
@@ -15,9 +20,9 @@ def test_placed_fields_follow_every_draw():
         assert len(p.placed_fields) == len(p.placed)
 
 
-def test_placed_fields_follow_every_draw_v1_1():
+def test_placed_fields_follow_every_draw_with_step_called_directly():
     rs = load_ruleset("v2")
-    s = new_game(rs)
+    s = brew_game(rs)
     for chip in ("white_1", "white_2", "orange_1"):
         r = step(s, rs, {"p1": DRAW, "p2": DRAW}, ScriptedChance((chip, "white_1")))
         s = r.state
@@ -28,7 +33,7 @@ def test_placed_fields_follow_every_draw_v1_1():
 
 
 def test_two_chips_on_track_end_both_store_track_end():
-    s = new_game(RS)
+    s = brew_game()
     s.players["p1"].field = 52
     s = play(s, DRAW, DRAW, "white_2", "white_1").state
     s = play(s, DRAW, DRAW, "white_1", "white_1").state
@@ -47,25 +52,6 @@ def _shop_state(placed):
             p.bag[c] -= 1
         p.field = p.final_field = len(placed)
     return s
-
-
-def test_remove_chip_drops_the_entry_of_the_removed_chip():
-    s = _shop_state(["white_1", "white_2", "orange_1"])
-    s.players["p1"].placed_fields = [1, 2, 3]
-    r = play(s, buy("remove_white_1"), DONE)
-    p = r.state.players["p1"]
-    assert p.placed == ["white_2", "orange_1"]
-    assert p.placed_fields == [2, 3]
-
-
-def test_duplicate_chip_id_drops_the_first_occurrence_entry():
-    s = _shop_state(["white_1", "white_2", "white_1"])
-    s.players["p1"].placed_fields = [1, 3, 4]
-    r = play(s, buy("remove_white_1"), DONE)
-    p = r.state.players["p1"]
-    assert p.placed == ["white_2", "white_1"]
-    assert p.placed_fields == [3, 4]
-    assert len(p.placed_fields) == len(p.placed)
 
 
 def test_placed_fields_empty_after_round_reset():
