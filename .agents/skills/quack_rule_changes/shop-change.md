@@ -71,7 +71,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`).
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v1.11`). The notebooks are archived and not checked.
 - Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 

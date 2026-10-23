@@ -53,7 +53,8 @@ markers = [
 line-length = 100
 target-version = "py312"
 # docs/ holds plan and spec code snippets, not project code; Ruff >= 0.16 formats Markdown too
-extend-exclude = ["docs"]
+# archive/ is moved old code that nothing checks
+extend-exclude = ["docs", "archive"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
