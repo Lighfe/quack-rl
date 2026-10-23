@@ -329,7 +329,8 @@ BOUNDARY_CASES: dict[
     "shop_price_minus_1": (_shop("blue_1", "price", -1), _shop("blue_1", "price", 0)),
     "die_weight_0": (_die("point_1", "weight", 0), _die("point_1", "weight", 1)),
     "die_weight_minus_1": (_die("point_1", "weight", -1), _die("point_1", "weight", 1)),
-    "rounds_0": (_top("rounds", 0), _top("rounds", 1)),
+    # the round chip of round 6 must fit the rounds, so the valid case drops the table
+    "rounds_0": (_top("rounds", 0), lambda d: d.update(rounds=1, round_chips=[])),
     "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
     "track_end_0": (_track_end(0), _track_end(1)),
     "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),

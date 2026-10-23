@@ -262,7 +262,12 @@ These are candidate changes for later versions. They are also test cases for the
 - **Points board:** a new optional ruleset table `point_board` (`fields`, `rat_tails`, `laps`), see "Points board" above. Rulesets without it play as before.
 - **Bonus die:** the +1 money face (weight 2) became +1 point (weight 2), the old +1 point face (weight 1) became +2 points (weight 1).
 - **Rubies:** a currency instead of the automatic droplet +0.5 of a ruby field, see "Rubies" above. Card 1 is `ruby_extra`.
+- **Round chip:** at the start of round 6 each player gets one white 1 chip into the bag, see "Round chip" below.
 - Everything else is as in v1.11.
+
+### Round chip
+
+In round 6, at the card step and before the round card is drawn, both players get one white 1 chip (`white_1`) into the bag, first p1, then p2 (event `round_chip`). The chip stays in the bag for the rest of the game, like any chip. The rule is the ruleset table `round_chips` (entries `round` and `chip`); v2.1 has one entry, round 6 with `white_1`. A game with fewer rounds never reaches round 6 and has no round chip.
 
 ### Round-start cards (unchanged from v1.11)
 

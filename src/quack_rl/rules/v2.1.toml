@@ -16,6 +16,12 @@ last_round_money_divisor = 5  # last round: money // this becomes points
 start_rubies = 1         # rubies of each player at the start of the game
 ruby_cost = 2            # rubies for one droplet +1 in the shop (action ruby_drop)
 
+# Chips that every player gets into the bag at the start of the given round (card step, before the
+# round card), for the rest of the game.
+[[round_chips]]
+round = 6
+chip = "white_1"
+
 # One entry per field, in field order 0..track_end: money, points (the real board values) and
 # whether the field is a ruby field.
 [[fields]]

@@ -46,6 +46,13 @@ class CardSpec(_Frozen):
     count: int = PydField(ge=1, strict=True)
 
 
+class RoundChip(_Frozen):
+    """A chip that every player gets into the bag at the start of this round (rounds from 1)."""
+
+    round: int = PydField(strict=True)
+    chip: str
+
+
 class PointBoard(_Frozen):
     """The points board (v2.1): fields 0..fields, `laps` laps, rat tails between some fields.
 
@@ -117,6 +124,8 @@ class Ruleset(_Frozen):
     cards: list[CardSpec] = PydField(min_length=1)
     # The points board with rat tails.
     point_board: PointBoard
+    # Chips every player gets into the bag at the card step of a round (default: none).
+    round_chips: list[RoundChip] = PydField(default_factory=list)
     start_bag: dict[str, Annotated[int, PydField(ge=1)]]
     chips: list[ChipSpec]
     shop: list[ShopItem]
@@ -142,6 +151,11 @@ class Ruleset(_Frozen):
         for entry in [*self.shop, *self.die]:
             if entry.kind == "chip" and entry.chip not in chip_ids:
                 raise ValueError(f"{entry.id}: unknown chip {entry.chip}")
+        for rc in self.round_chips:
+            if not 1 <= rc.round <= self.rounds:
+                raise ValueError(f"round_chips: round {rc.round} is not between 1 and {self.rounds}")
+            if rc.chip not in chip_ids:
+                raise ValueError(f"round_chips: unknown chip {rc.chip}")
         return self
 
     def _check_components(self) -> None:

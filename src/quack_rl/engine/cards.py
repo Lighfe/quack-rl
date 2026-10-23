@@ -49,7 +49,14 @@ _CHOICE_EFFECTS = ("choice_drop2_or_purple", "choice_black_or_value2_or_drop")
 def apply_card(
     state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
 ) -> None:
-    """Draw one card from the cards not drawn yet, resolve its immediate effects, start the brew."""
+    """Give the round chips, draw one card from the cards not drawn yet, resolve its immediate
+    effects, start the brew."""
+    for rc in rs.round_chips:
+        if rc.round == state.round:
+            for seat in SEATS:
+                p = state.players[seat]
+                p.bag[rc.chip] = p.bag.get(rc.chip, 0) + 1
+                events.append({"seat": seat, "kind": "round_chip", "chip": rc.chip})
     card_id = chance.draw_card(state.deck)
     state.deck.remove(card_id)
     state.card = card_id
