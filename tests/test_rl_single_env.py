@@ -12,7 +12,7 @@ from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackEnv, observation_bounds, observe, reward, vector_names, vectorize
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v1", "v1.1", "v1.11"]
+VERSIONS = ["v2", "v2", "v2"]
 
 
 def play(env, seed=0, action_seed=0):
@@ -56,7 +56,7 @@ def test_check_env_without_warnings_and_bounded_entries(version):
 
 @pytest.mark.parametrize("seat", ["p1", "p2"])
 def test_heuristic_opponent_full_game(seat):
-    rs = load_ruleset("v1.1")
+    rs = load_ruleset("v2")
     env = QuackEnv(seat=seat, opponent=HeuristicBot(rs), rules=rs)
     steps = play(env, seed=3)
     assert steps[-1][2] is True

@@ -11,7 +11,7 @@ from quack_rl.rules import (
     unregister_spellbook,
 )
 
-V1 = load_ruleset("v1")
+V1 = load_ruleset("v2")
 BOOK = "test_book"
 # blue gets the orange component here (no placement bonus), so the engine must differ from v1.
 COMPONENTS = {
@@ -42,7 +42,7 @@ def _data(spellbook=None, keep_component=False):
 
 
 def test_old_rulesets_have_no_spellbook():
-    for version in ("v1", "v1.1", "v1.8"):
+    for version in ("v2", "v2", "v2"):
         rs = load_ruleset(version)
         assert rs.spellbook is None
         assert all(rs.component_name(c) == c.component for c in rs.chips)

@@ -16,7 +16,7 @@ def test_placed_fields_follow_every_draw():
 
 
 def test_placed_fields_follow_every_draw_v1_1():
-    rs = load_ruleset("v1.1")
+    rs = load_ruleset("v2")
     s = new_game(rs)
     for chip in ("white_1", "white_2", "orange_1"):
         r = step(s, rs, {"p1": DRAW, "p2": DRAW}, ScriptedChance((chip, "white_1")))

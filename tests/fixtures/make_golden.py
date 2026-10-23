@@ -1,7 +1,7 @@
 """Regenerate the golden files. Run this only on purpose: the files pin rules behavior.
 
-uv run python tests/fixtures/make_golden.py       # v1: the game record
-uv run python tests/fixtures/make_golden.py v2    # v2: the game record and the bots results.csv
+uv run python tests/fixtures/make_golden.py       # v2: the game record and the bots results.csv
+uv run python tests/fixtures/make_golden.py v2    # the same
 """
 
 import shutil
@@ -62,14 +62,12 @@ def write_v2_bots_results(out: Path) -> None:
 
 
 def main(argv: list[str]) -> None:
-    mode = argv[0] if argv else "v1"
-    if mode == "v1":
-        write_record("v1", GOLDEN / "v1_random_seed7.jsonl")
-    elif mode == "v2":
+    mode = argv[0] if argv else "v2"
+    if mode == "v2":
         write_record("v2", GOLDEN / "v2_random_seed7.jsonl")
         write_v2_bots_results(GOLDEN / "v2_bots_results.csv")
     else:
-        raise SystemExit("usage: make_golden.py [v1|v2]")
+        raise SystemExit("usage: make_golden.py [v2]")
 
 
 if __name__ == "__main__":

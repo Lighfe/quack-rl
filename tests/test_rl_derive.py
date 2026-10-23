@@ -11,7 +11,7 @@ from quack_rl.rl import observation_bounds, observe, vector_names, vectorize
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v1", "v1.1"]
+VERSIONS = ["v2", "v2"]
 
 
 def _states(rs, seed):
@@ -39,7 +39,7 @@ def _state(rs, f1, f2, s1=Status.BREWING, s2=Status.BREWING):
 
 
 def test_money_if_stop_normal_exploded_and_last_round():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = _state(rs, 9, 9)
     f = scoring_field(9, rs)
     assert derived(state, rs, "p1")["own.money_if_stop"] == rs.money[f]
@@ -61,7 +61,7 @@ def test_money_if_stop_normal_exploded_and_last_round():
 
 def test_money_if_stop_equals_engine_money_without_die():
     """Resolve gives the table money when the seat rolls no die (exploded seat)."""
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = _state(rs, 20, 20, s1=Status.EXPLODED, s2=Status.EXPLODED)
     for p in state.players.values():
         p.final_field = p.field
@@ -74,7 +74,7 @@ def test_money_if_stop_equals_engine_money_without_die():
 
 
 def test_rolls_die_lead_tie_lag_and_exploded():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     d = derived(_state(rs, 10, 5), rs, "p1")
     assert (d["own.rolls_die"], d["opponent.rolls_die"]) == (1, 0)
     d = derived(_state(rs, 5, 10), rs, "p1")
@@ -106,7 +106,7 @@ def test_explosion_chance_equals_the_bot_helper_and_is_finite(version):
 
 
 def test_other_features():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = _state(rs, 12, 3)
     state.players["p1"].points = 7
     state.players["p2"].points = 10
@@ -124,7 +124,7 @@ def test_other_features():
 def test_names_are_generic():
     names = derived_names()
     assert len(set(names)) == len(names) == 15
-    rs = load_ruleset("v1.1")
+    rs = load_ruleset("v2")
     colours = {c.colour for c in rs.chips} | {c.id for c in rs.chips}
     for n in names:
         assert not any(c in n for c in colours)

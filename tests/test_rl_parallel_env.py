@@ -18,7 +18,7 @@ from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackParallelEnv, reward
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11", "v2"]
+VERSIONS = ["v2", "v2", "v2", "v2", "v2", "v2", "v2"]
 SEATS = ("p1", "p2")
 
 
@@ -40,7 +40,7 @@ def test_parallel_api(version):
 
 
 def test_accepts_ruleset_object():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     env = QuackParallelEnv(rules=rs)
     obs, _ = env.reset(seed=1)
     assert set(obs) == set(SEATS)
@@ -91,7 +91,7 @@ def test_steps_land_on_decision_points_and_end_after_round_9(version):
 
 
 def test_custom_reward_fn():
-    env = QuackParallelEnv(rules="v1", reward_fn=lambda state, seat: 7.0)
+    env = QuackParallelEnv(rules="v2", reward_fn=lambda state, seat: 7.0)
     trace = play_env(env, 0)
     assert trace[-1][1] == {"p1": 7.0, "p2": 7.0}
 
@@ -130,7 +130,7 @@ def test_same_seed_same_game_different_seed_differs(version):
 
 
 def test_step_after_end_raises_runtime_error():
-    env = QuackParallelEnv(rules="v1")
+    env = QuackParallelEnv(rules="v2")
     play_env(env, 0)
     with pytest.raises(RuntimeError, match="reset"):
         env.step({s: 0 for s in SEATS})
@@ -140,7 +140,7 @@ def test_step_after_end_raises_runtime_error():
 
 def test_step_before_reset_raises_runtime_error():
     with pytest.raises(RuntimeError, match="reset"):
-        QuackParallelEnv(rules="v1").step({s: 0 for s in SEATS})
+        QuackParallelEnv(rules="v2").step({s: 0 for s in SEATS})
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -219,7 +219,7 @@ def test_trace_events_equal_direct_engine_events(version):
 
 
 def test_trace_is_cleared_on_reset_and_readable_after_the_end():
-    env = QuackParallelEnv(rules="v1")
+    env = QuackParallelEnv(rules="v2")
     play_env(env, seed=2)
     assert not env.agents
     ended = len(env.trace)

@@ -21,7 +21,7 @@ from quack_rl.engine import (
 
 def test_new_game_setup():
     s = new_game(RS)
-    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v1", 1, Phase.BREW, 0, None)
+    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v2", 1, Phase.BREW, 0, None)
     assert set(s.players) == {"p1", "p2"}
     for p in s.players.values():
         assert p.bag == RS.start_bag

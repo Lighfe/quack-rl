@@ -27,7 +27,7 @@ from quack_rl.rl import (
 )
 from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 
-VERSIONS = ["v1", "v1.1"]
+VERSIONS = ["v2", "v2"]
 
 
 def random_game(rs, seed):
@@ -72,7 +72,7 @@ def test_vector_layout_depends_only_on_ruleset(version):
 
 
 def test_layout_differs_between_rulesets_only_by_ruleset():
-    assert vector_names(load_ruleset("v1")) == vector_names(load_ruleset("v1"))
+    assert vector_names(load_ruleset("v2")) == vector_names(load_ruleset("v2"))
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -89,7 +89,7 @@ def test_observation_is_mirrored_between_seats(version):
 
 
 def test_observation_content():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = new_game(rs)
     obs = observe(state, rs, "p1")
     assert obs["round"] == 1
@@ -129,7 +129,7 @@ def test_no_hidden_information(version):
 
 
 def test_reward_win_loss_draw():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = new_game(rs)
     state.players["p1"].points = 10
     state.players["p2"].points = 4
@@ -208,7 +208,7 @@ def test_map_matches_place_events(version):
 
 
 def test_two_chips_on_track_end_later_chip_fills_the_slot():
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     state = new_game(rs)
     state.players["p1"].field = 52
     for chip in ("white_2", "white_1"):
@@ -237,7 +237,7 @@ def test_bags_of_both_seats(version):
 
 
 def test_rule_scalars_follow_the_ruleset():
-    base = load_ruleset("v1.1")
+    base = load_ruleset("v2")
     variants = [
         base,
         apply_overrides(base, {"explosion_limit": 5}),

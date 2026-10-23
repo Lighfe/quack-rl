@@ -43,11 +43,11 @@ def script(monkeypatch, keys):
 
 
 def play(tmp_path, *extra, seed="4"):
-    return runner.invoke(app, ["play", "--rules", "v1", "--seed", seed, "--out", str(tmp_path), *extra])
+    return runner.invoke(app, ["play", "--rules", "v2", "--seed", seed, "--out", str(tmp_path), *extra])
 
 
 def play_files(tmp_path: Path) -> list[Path]:
-    return sorted((tmp_path / "v1" / "play").glob("*.jsonl"))
+    return sorted((tmp_path / "v2" / "play").glob("*.jsonl"))
 
 
 def only_game(tmp_path: Path):
@@ -101,7 +101,7 @@ def test_board_field_cell_shows_scoring_field_money_and_ruby(landing, scoring, r
     lines = field_cell(landing)
     assert lines == [
         f"field {landing}",
-        f"score {scoring} ${RS.money[scoring]}",
+        f"score {scoring} ${RS.money[scoring]} +{RS.points[scoring]}pt",
         f"ruby: {ruby}",
     ]
 
@@ -142,11 +142,11 @@ def die_result(*events) -> StepResult:
 
 def test_render_step_bonus_die_lines_one_per_roller():
     events = [
-        {"seat": "p1", "kind": "die", "face": "money_1"},
+        {"seat": "p1", "kind": "die", "face": "point_2"},
         {"seat": "p2", "kind": "die", "face": "point_1"},
     ]
     lines = render_step(die_result(*events), RS).splitlines()
-    assert "bonus die p1: +1 money" in lines
+    assert "bonus die p1: +2 points" in lines
     assert "bonus die p2: +1 point" in lines
 
 
@@ -171,10 +171,10 @@ def test_render_step_no_die_line_without_roll():
 def test_render_step_die_not_joined_with_other_seat_events():
     events = [
         {"seat": "p1", "kind": "money", "amount": 3},
-        {"seat": "p1", "kind": "die", "face": "money_1"},
+        {"seat": "p1", "kind": "die", "face": "point_2"},
     ]
     lines = render_step(die_result(*events), RS).splitlines()
-    assert any(line == "bonus die p1: +1 money" for line in lines)
+    assert any(line == "bonus die p1: +2 points" for line in lines)
     assert not any(line.startswith("p1:") and "die" in line for line in lines)
 
 
@@ -262,7 +262,7 @@ def test_choose_prints_board_and_menu_with_buy_details():
 
 
 def test_play_human_vs_bot_records_a_verifiable_game(tmp_path, monkeypatch):
-    script(monkeypatch, "ds0")
+    script(monkeypatch, "ds0m1")
     result = play(tmp_path)
     assert result.exit_code == 0, result.output
     assert TRACEBACK not in result.output
@@ -282,7 +282,7 @@ def test_play_human_vs_bot_records_a_verifiable_game(tmp_path, monkeypatch):
 
 
 def test_decision_ms_only_for_human_seats(tmp_path, monkeypatch):
-    script(monkeypatch, "ds0")
+    script(monkeypatch, "ds0m1")
     assert play(tmp_path).exit_code == 0
     _, game = only_game(tmp_path)
     assert any("p1" in (s.decision_ms or {}) for s in game.steps)
@@ -290,7 +290,7 @@ def test_decision_ms_only_for_human_seats(tmp_path, monkeypatch):
 
 
 def test_no_bag_assist(tmp_path, monkeypatch):
-    script(monkeypatch, "ds0")
+    script(monkeypatch, "ds0m1")
     result = play(tmp_path, "--no-bag-assist")
     assert result.exit_code == 0, result.output
     _, game = only_game(tmp_path)
@@ -299,7 +299,7 @@ def test_no_bag_assist(tmp_path, monkeypatch):
 
 
 def test_hot_seat(tmp_path, monkeypatch):
-    script(monkeypatch, "ds0")
+    script(monkeypatch, "ds0m1")
     result = play(tmp_path, "--p2", "human")
     assert result.exit_code == 0, result.output
     assert "Player 1 (p1)" in result.output and "Player 2 (p2)" in result.output
@@ -313,7 +313,7 @@ def test_hot_seat(tmp_path, monkeypatch):
 def test_same_seed_and_keys_give_the_same_game(tmp_path, monkeypatch):
     games = []
     for run in ("a", "b"):
-        script(monkeypatch, "ds0")
+        script(monkeypatch, "ds0m1")
         assert play(tmp_path / run).exit_code == 0
         games.append(only_game(tmp_path / run)[1])
     a, b = games
@@ -354,8 +354,8 @@ def test_abort_at_first_key_leaves_header_only(tmp_path, monkeypatch):
     assert result.exit_code == 130, result.output
     assert "game aborted, partial record:" in result.output
     path, game = only_game(tmp_path)
-    assert len(path.read_text(encoding="utf-8").splitlines()) == 1
-    assert game.steps == [] and game.footer is None
+    # v2 opens with a card step (chance only, no decision): the header and that step are written
+    assert [s.actions for s in game.steps] == [None] and game.footer is None
     v = runner.invoke(app, ["verify", str(path)])
     assert v.exit_code == 1 and "incomplete game" in v.output
     assert TRACEBACK not in v.output

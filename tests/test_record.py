@@ -25,7 +25,7 @@ def header(game_id="g1", seed=5):
     return HeaderLine(
         game_id=game_id,
         schema_version=1,
-        rules_version="v1",
+        rules_version="v2",
         rounds=9,
         seed=seed,
         mode="sim",
@@ -96,7 +96,9 @@ def test_round_trip_one_game(tmp_path):
     assert game.footer is not None and game.footer.winner == final.winner
     assert game.steps[0].n == 1 and game.steps[-1].n == len(game.steps)
     assert [s.n for s in game.steps] == list(range(1, len(game.steps) + 1))
-    assert game.steps[0].actions == {"p1": "draw", "p2": "draw"}
+    # v2 opens with a card step (a chance event, no decision); the first decision follows
+    assert game.steps[0].actions is None
+    assert next(s.actions for s in game.steps if s.actions) == {"p1": "draw", "p2": "draw"}
 
 
 def test_a_shard_holds_several_games(tmp_path):
@@ -175,11 +177,11 @@ def test_berlin_stamp_uses_summer_and_winter_offsets():
 def test_local_store_paths(tmp_path):
     store = LocalRecordStore(tmp_path)
     now = datetime(2026, 10, 8, 19, 15, 3, tzinfo=ZoneInfo("UTC"))
-    play_path = store.new_play_path("v1", now)
-    assert play_path.parent == tmp_path / "v1" / "play"
+    play_path = store.new_play_path("v2", now)
+    assert play_path.parent == tmp_path / "v2" / "play"
     assert play_path.name.startswith("2026-10-08_21-15-03+0200_") and play_path.suffix == ".jsonl"
-    sim_dir = store.new_sim_dir("v1", now)
-    assert sim_dir.parent == tmp_path / "v1" / "sim" and sim_dir.is_dir()
+    sim_dir = store.new_sim_dir("v2", now)
+    assert sim_dir.parent == tmp_path / "v2" / "sim" and sim_dir.is_dir()
     assert sim_dir.name.startswith("2026-10-08_21-15-03+0200_")
     assert store.shard_path(sim_dir, 1).name == "shard-0001.jsonl"
 
