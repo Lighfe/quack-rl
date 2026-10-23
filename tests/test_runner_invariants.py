@@ -48,6 +48,8 @@ def test_invariants_hold_in_random_games(seed):
                     acquired[e["seat"]][item.chip] += 1
                 elif item.kind == "remove_chip":
                     acquired[e["seat"]][item.chip] -= 1
+            if e["kind"] == "card_chip":  # v2: cards 5, 6 and 7 put a chip into the bag
+                acquired[e["seat"]][e["chip"]] += 1
             if e["kind"] == "die":
                 face = next(f for f in RS.die if f.id == e["face"])
                 if face.kind == "chip":
@@ -55,7 +57,7 @@ def test_invariants_hold_in_random_games(seed):
         for seat in SEATS:
             p = r.state.players[seat]
             # chip accounting per chip type: owned = start + bought + die - removed = bag + placed
-            owned = Counter(p.bag) + Counter(p.placed)
+            owned = Counter(p.bag) + Counter(p.placed) + Counter(p.hand)
             assert +acquired[seat] == owned
             assert p.money >= 0
             assert 0 <= p.field <= RS.track_end
