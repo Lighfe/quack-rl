@@ -1,5 +1,4 @@
 import csv
-import json
 import shutil
 from pathlib import Path
 
@@ -10,13 +9,11 @@ from quack_rl.cli.main import app
 from quack_rl.report import (
     CONFIRM_TEST,
     CONFIRM_TOLERANCE,
-    _points_for_money,
     baseline_maximum,
     build_report,
-    realistic_baseline_maximum,
     wilson,
 )
-from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
+from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.tournament import TournamentConfig, csv_columns, write_run
 
 CSV_COLUMNS = csv_columns(load_ruleset("v2"))

@@ -17,7 +17,6 @@ from quack_rl.engine import (
     ScriptedChance,
     Status,
     legal_actions,
-    new_game,
     step,
 )
 

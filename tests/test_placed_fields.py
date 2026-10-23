@@ -1,6 +1,6 @@
 from helpers import RS, play
 
-from quack_rl.engine import DONE, DRAW, Phase, ScriptedChance, Status, buy, new_game, step
+from quack_rl.engine import DONE, DRAW, Phase, ScriptedChance, Status, new_game, step
 from quack_rl.rules import load_ruleset
 
 
