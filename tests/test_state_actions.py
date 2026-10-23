@@ -87,8 +87,10 @@ def test_action_names_v2_1():
         "card_chip:yellow_2",
         "card_drop_end",
         "ruby_drop",
+        "use_flask",
+        "refill_flask",
     ]
-    assert len(names) == 40
+    assert len(names) == 42
     assert buy("blue_2") == "buy:blue_2"
     assert {buy(i.id) for i in RS.shop} <= set(names)
 
@@ -111,6 +113,8 @@ def test_first_brew_action_must_be_draw():
 def test_brewing_player_after_first_chip_may_draw_or_stop():
     s = brewing()
     s.players["p1"].placed = ["white_1"]
+    assert legal_actions(s, RS, "p1") == [DRAW, STOP, "use_flask"]
+    s.players["p1"].placed = ["green_1"]
     assert legal_actions(s, RS, "p1") == [DRAW, STOP]
 
 

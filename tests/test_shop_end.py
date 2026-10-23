@@ -202,5 +202,5 @@ def test_rubies_carry_over_into_the_next_round_and_the_droplet_moves_the_start()
     assert (p1.rubies, p1.droplet_halves, p1.field) == (1, 2, 1)
 
 
-def test_ruby_drop_is_the_last_action_of_the_list():
-    assert action_names(RS)[-1] == RUBY_DROP
+def test_ruby_drop_is_followed_only_by_the_flask_actions():
+    assert action_names(RS)[-3:] == [RUBY_DROP, "use_flask", "refill_flask"]

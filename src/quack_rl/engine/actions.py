@@ -20,6 +20,8 @@ CARD_BLACK = "card_black"  # card 5: a black 1 chip
 CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
 CARD_DROP_END = "card_drop_end"  # card 5: drop +1.5 at round end
 RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
+USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
+REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
 MAX_HAND = 4  # the largest blue chip value in a ruleset: hand slots 0..3
 
 
@@ -51,7 +53,7 @@ def action_names(rs: Ruleset) -> list[str]:
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
-    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP]
+    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP, USE_FLASK, REFILL_FLASK]
 
 
 def _card_actions(rs: Ruleset) -> list[str]:
@@ -83,6 +85,11 @@ def _can_buy(item: ShopItem, rs: Ruleset, p: PlayerState, round_: int) -> bool:
     return True
 
 
+def _can_use_flask(p: PlayerState, rs: Ruleset) -> bool:
+    """A brewing player (not exploded, not stopped) with a full flask whose last chip is white."""
+    return p.flask_full and rs.chip(p.placed[-1]).colour == "white"
+
+
 def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
     p = state.players[seat]
     if state.phase is Phase.BREW:
@@ -90,7 +97,10 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
             return [WAIT]
         if p.hand:
             return [*(play(i) for i in range(len(p.hand))), PUT_BACK_DRAW, PUT_BACK_STOP]
-        return [DRAW] if not p.placed else [DRAW, STOP]
+        if not p.placed:
+            return [DRAW]
+        flask = [USE_FLASK] if _can_use_flask(p, rs) else []
+        return [DRAW, STOP, *flask]
     if state.phase is Phase.CARD_CHOICE:
         if state.card is not None and rs.card(state.card).effect == "choice_drop2_or_purple":
             return [CARD_DROP_2, CARD_PURPLE]
@@ -105,5 +115,6 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
             return [WAIT]
         buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p, state.round)]
         ruby = [RUBY_DROP] if p.rubies >= rs.ruby_cost else []
-        return [DONE, *buys, *ruby]
+        refill = [REFILL_FLASK] if not p.flask_full and p.rubies >= rs.ruby_cost else []
+        return [DONE, *buys, *ruby, *refill]
     return []

@@ -177,7 +177,7 @@ The first action of a round must be Draw: a player places at least one chip each
 
 A player on field 53 may still draw.
 
-Chips placed this round cannot go back into the bag during the round, with one exception: a yellow chip puts the white chip placed just before it back into the bag (see "Yellow"). All other placed chips go back at the reset (4.5).
+Chips placed this round cannot go back into the bag during the round, with two exceptions: a yellow chip puts the white chip placed just before it back into the bag (see "Yellow"), and the flask (see "Flask" below) puts the white chip just placed back into the bag. All other placed chips go back at the reset (4.5).
 
 Brewing ends when no player brews anymore.
 
@@ -190,6 +190,12 @@ The **scoring field** is the first free field after the last placed chip: `min(f
 ### Rubies
 
 Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent. A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5). The game record shows the balance: the events `ruby` and `ruby_drop` carry `total`, the ruby count after the event.
+
+### Flask
+
+Each player has one flask (`PlayerState.flask_full`). It is full at the start of the game and stays as it is between rounds. After a white chip is placed, a player who is still brewing (not exploded, not stopped) and has a full flask may choose **Use flask** (`use_flask`) next to Draw and Stop. The white chip leaves the pot and goes back into the bag; the field goes back to where it was before that chip (the landing field of the chip placed before it, or the start field, with the rat tail bonus, when it was the first chip) and the white total goes down by the chip's value. The flask is then empty and the player draws on. White chips have no effects, so nothing else is undone. The game record has the event `use_flask` with the chip, the new field and the new white total. The flask is not offered after an explosion, after a stop, after a chip of another colour or with an empty flask.
+
+In the shop, a player with an empty flask and at least 2 rubies (`ruby_cost = 2`) may choose **Refill flask** (`refill_flask`): it costs 2 rubies and fills the flask (event `refill_flask`, with the ruby `total`). A full flask is never refilled.
 
 ### 4.3 Resolve
 
@@ -221,6 +227,7 @@ Shopping goes in steps, at the same time for both players. In each step, each pl
 - At most 2 chips per player per round, and they must be of different colours (for example Green 1 and Blue 2, but not Green 1 and Green 2). Only chips bought in the shop count; a chip from the bonus die does not
 - A player cannot buy an item that costs more than the money left
 - A player with at least 2 rubies (`ruby_cost = 2`) may also choose **Ruby drop**: it costs 2 rubies and moves the droplet by 1 (+1, two halves). The player stays in the shop and may choose it again as long as they can pay
+- A player with an empty flask and at least 2 rubies may also choose **Refill flask** (see "Flask")
 - Bought chips go into the bag
 - A player stops shopping only with Done
 - The chip count and the colours bought start again from zero in every round

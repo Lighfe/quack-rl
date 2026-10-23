@@ -1,10 +1,10 @@
 from typing import Any
 
 from quack_rl.components import get_component
-from quack_rl.engine.actions import DRAW, PLAY_PREFIX, PUT_BACK_DRAW, PUT_BACK_STOP, STOP
+from quack_rl.engine.actions import DRAW, PLAY_PREFIX, PUT_BACK_DRAW, PUT_BACK_STOP, STOP, USE_FLASK
 from quack_rl.engine.cards import card_effect, explosion_limit
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status
+from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, start_field
 from quack_rl.rules import Ruleset
 
 
@@ -31,6 +31,29 @@ def _put_back_previous(
     p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
     events.append(
         {"seat": seat, "kind": "pot_put_back", "chip": chip_id, "white_total": p.white_total}
+    )
+
+
+def _use_flask(p: PlayerState, seat: str, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """The last (white) chip leaves the pot and goes back into the bag; the flask is empty.
+
+    The field goes back to the landing field of the chip before it (the start field when it was
+    the first chip) and the white total goes down by the chip's weight."""
+    chip_id = p.placed.pop()
+    p.placed_fields.pop()
+    chip = rs.chip(chip_id)
+    p.field = p.placed_fields[-1] if p.placed_fields else start_field(p, rs)
+    p.white_total -= get_component(rs.component_name(chip)).explosion_weight(chip)
+    p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+    p.flask_full = False
+    events.append(
+        {
+            "seat": seat,
+            "kind": "use_flask",
+            "chip": chip_id,
+            "field": p.field,
+            "white_total": p.white_total,
+        }
     )
 
 
@@ -121,6 +144,8 @@ def apply_brew(
         action = actions[seat]
         if action == DRAW:
             _draw(p, seat, rs, chance, events, limit)
+        elif action == USE_FLASK:
+            _use_flask(p, seat, rs, events)
         elif action == STOP:
             p.status = Status.STOPPED
             events.append({"seat": seat, "kind": "stop", "field": p.field})

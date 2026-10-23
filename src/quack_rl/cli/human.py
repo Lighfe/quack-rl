@@ -15,22 +15,26 @@ from quack_rl.engine import (
     PLAY_PREFIX,
     PUT_BACK_DRAW,
     PUT_BACK_STOP,
+    REFILL_FLASK,
     RESTART,
     RUBY_DROP,
     STOP,
     TAKE_MONEY,
     TAKE_POINTS,
+    USE_FLASK,
     GameState,
 )
 from quack_rl.engine.actions import CARD_BLACK, CARD_CHIP_PREFIX, CARD_PURPLE
 from quack_rl.engine.state import scoring_field
 from quack_rl.rules import Ruleset
 
-# Skips d, s, m, p, r, t, k (fixed keys of other actions) so no key is used twice.
-BUY_KEYS = "123456789abcefghijlnoquvwxyz"
+# Skips d, s, m, p, r, t, k, f, l (fixed keys of other actions) so no key is used twice.
+BUY_KEYS = "123456789abceghijnoquvwxyz"
 PUT_BACK_DRAW_KEY = "r"
 PUT_BACK_STOP_KEY = "t"
 RUBY_DROP_KEY = "k"
+USE_FLASK_KEY = "f"
+REFILL_FLASK_KEY = "l"
 CONTINUE_KEY = "c"
 RESTART_KEY = "r"
 CARD_PREFIX = "card_"  # card 5 and 6 options: black, purple, drop, `card_chip:<id>`
@@ -61,6 +65,10 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys["p"] = TAKE_POINTS
         elif action == RUBY_DROP:
             keys[RUBY_DROP_KEY] = RUBY_DROP
+        elif action == USE_FLASK:
+            keys[USE_FLASK_KEY] = USE_FLASK
+        elif action == REFILL_FLASK:
+            keys[REFILL_FLASK_KEY] = REFILL_FLASK
         elif action == CONTINUE:
             keys[CONTINUE_KEY] = CONTINUE
         elif action == RESTART:
@@ -110,6 +118,10 @@ class HumanSeat:
             return f"play {slot}"
         if action == RUBY_DROP:
             return f"ruby drop: {self.rs.ruby_cost} rubies for droplet +1"
+        if action == USE_FLASK:
+            return "use the flask: the last white chip goes back into the bag"
+        if action == REFILL_FLASK:
+            return f"refill the flask: {self.rs.ruby_cost} rubies"
         if action == CONTINUE:
             return "continue brewing"
         if action == RESTART:

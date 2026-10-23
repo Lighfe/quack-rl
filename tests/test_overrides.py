@@ -156,4 +156,4 @@ def test_edited_overrides_make_verify_fail(tmp_path):
         edited.write_text("\n".join(out_lines) + "\n")
         result = runner.invoke(app, ["verify", str(edited)])
         assert result.exit_code != 0, result.output
-        assert "differ" in result.output
+        assert "differ" in result.output or "not legal" in result.output

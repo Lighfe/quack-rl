@@ -168,6 +168,8 @@ def _place_events(rs, seed):
         for e in result.events:
             if e["kind"] == "place":
                 events[e["seat"]].append(e)
+            elif e["kind"] == "use_flask":  # the flask takes the last chip out of the pot
+                events[e["seat"]].pop()
         state = result.state
         yield state, events
 

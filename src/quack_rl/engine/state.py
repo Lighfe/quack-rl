@@ -48,6 +48,7 @@ class PlayerState:
     round_end_halves: int = 0
     rubies: int = 0  # the ruby currency: earned on ruby fields, spent in the shop (ruby_drop)
     rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
+    flask_full: bool = True  # the flask: use_flask puts a white chip back, refill_flask fills it
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)
@@ -73,6 +74,12 @@ def scoring_field(landing_field: int, rs: Ruleset) -> int:
 
 def start_field(p: PlayerState, rs: Ruleset) -> int:
     return min(p.droplet_halves // 2 + p.rat_tail, rs.track_end)
+
+
+def refill_all_flasks(state: GameState) -> None:
+    """Every player's flask is full again (for the card that refills the flasks at round end)."""
+    for p in state.players.values():
+        p.flask_full = True
 
 
 def new_game(rs: Ruleset) -> GameState:

@@ -400,3 +400,13 @@ def test_ruby_drop_has_its_own_key_and_no_buy_key_is_used_twice():
 
 def test_board_shows_the_ruby_count():
     assert board(width=120).count("rubies 1") == 2
+
+
+def test_flask_keys_are_their_own_and_the_board_shows_the_flask():
+    from quack_rl.cli.human import BUY_KEYS, REFILL_FLASK_KEY, USE_FLASK_KEY, key_map
+    from quack_rl.engine import REFILL_FLASK, USE_FLASK
+
+    assert key_map(["draw", "stop", USE_FLASK])[USE_FLASK_KEY] == USE_FLASK
+    assert key_map(["done", REFILL_FLASK])[REFILL_FLASK_KEY] == REFILL_FLASK
+    assert USE_FLASK_KEY not in BUY_KEYS and REFILL_FLASK_KEY not in BUY_KEYS
+    assert board(width=120).count("flask full") == 2
