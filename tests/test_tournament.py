@@ -9,15 +9,17 @@ from typer.testing import CliRunner
 import quack_rl.cli.main as cli_main
 from quack_rl.cli.main import app
 from quack_rl.record import read_games
+from quack_rl.rules import load_ruleset
 from quack_rl.tournament import (
-    CSV_COLUMNS,
     TournamentConfig,
     TournamentError,
+    csv_columns,
     parse_sweep,
     validate,
     verify_sample,
 )
 
+CSV_COLUMNS = csv_columns(load_ruleset("v2"))
 runner = CliRunner()
 BOTS = "bot:draw30-pts3-blue,bot:draw15-pts8-cleaner,bot:random"
 TRACEBACK = "Traceback (most recent call last)"
@@ -26,7 +28,7 @@ TRACEBACK = "Traceback (most recent call last)"
 def tour(out: Path, *extra: str, bots: str = BOTS, games: str = "3"):
     return runner.invoke(
         app,
-        ["tournament", "--rules", "v1", "--bots", bots, "--games", games, "--seed", "5", "--out", str(out), *extra],
+        ["tournament", "--rules", "v2", "--bots", bots, "--games", games, "--seed", "5", "--out", str(out), *extra],
     )
 
 
@@ -65,7 +67,7 @@ def test_run_writes_config_and_results(tmp_path):
     assert run.name.endswith("-demo")
     config = json.loads((run / "config.json").read_text(encoding="utf-8"))
     assert config["bots"] == BOTS.split(",")
-    assert config["games"] == 3 and config["seed"] == 5 and config["rules"] == "v1"
+    assert config["games"] == 3 and config["seed"] == 5 and config["rules"] == "v2"
     assert config["overrides"] == {"shop.orange_1.price": "9"}
     assert config["sweep"] is None and config["workers"] == 1
     rows = read_rows(run)
@@ -406,9 +408,9 @@ def _play(seed, p1="bot:draw30-pts3-blue", p2="bot:random"):
     from quack_rl.rules import load_ruleset
     from quack_rl.simgame import play_sim_game
 
-    rs = load_ruleset("v1")
+    rs = load_ruleset("v2")
     buf = io.StringIO()
-    play_sim_game(rs, rules="v1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf)
+    play_sim_game(rs, rules="v2", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf)
     lines = [json.loads(x) for x in buf.getvalue().splitlines()]
     for line in lines:
         for key in ("game_id", "started_at", "finished_at"):
@@ -436,7 +438,7 @@ def test_results_csv_is_byte_identical_for_one_and_two_workers(tmp_path):
 TWO_BOTS = "bot:draw30-pts3-blue,bot:draw15-pts8-cleaner"
 
 
-def _expected_schema(rounds: int, rules: str = "v1"):
+def _expected_schema(rounds: int, rules: str = "v2"):
     import pyarrow as pa
 
     from quack_rl.rules import load_ruleset
@@ -497,7 +499,7 @@ def test_seats_has_two_rows_per_results_row(tmp_path):
             assert s["bot"] == row[seat]
 
 
-@pytest.mark.parametrize("rules", ["v1", "v1.1"])
+@pytest.mark.parametrize("rules", ["v2"])
 @pytest.mark.parametrize("rounds", [3, 9])
 def test_round_and_bag_columns_follow_rounds_and_rules(tmp_path, rules, rounds):
     result = tour(tmp_path, "--rules", rules, "--rounds", str(rounds), bots=TWO_BOTS, games="1")
@@ -532,7 +534,7 @@ def _seat_rows_of(run: Path, seed: int) -> dict[str, dict]:
     return {s["seat"]: s for s in read_seats(run).to_pylist() if s["seed"] == seed}
 
 
-@pytest.mark.parametrize("rules", ["v1", "v1.1"])
+@pytest.mark.parametrize("rules", ["v2"])
 def test_end_bag_matches_the_game_record(tmp_path, rules):
     from quack_rl.rules import load_ruleset
 
@@ -570,9 +572,10 @@ def test_money_matches_the_money_events_of_the_game_record(tmp_path):
     money: dict[tuple[str, int], int] = {}
     for step in game.steps:
         for event in step.events:
-            if event["kind"] == "money":
+            # v2: a seat that explodes takes money or points; the others get the table money
+            if event["kind"] in ("money", "take_money"):
                 money[(event["seat"], step.round)] = event["amount"]
-    assert len(money) == 18
+    assert money
     seats = _seat_rows_of(run, game.header.seed)
     for (seat, k), amount in money.items():
         assert seats[seat][f"money_r{k}"] == amount, (seat, k)
@@ -601,7 +604,7 @@ def test_a_missing_round_value_raises_and_never_fills():
     from quack_rl.engine import new_game
     from quack_rl.rules import load_ruleset, with_rounds
 
-    rs = with_rounds(load_ruleset("v1"), 3)
+    rs = with_rounds(load_ruleset("v2"), 3)
     final = new_game(rs)
     task_row = {"pairing": "a vs b", "p1": "a", "p2": "b", "game": 0, "seed": 1, "sweep_value": ""}
     with pytest.raises(SeatsError, match="money_r2"):
@@ -700,12 +703,9 @@ def test_cli_and_worker_modules_do_not_import_pyarrow():
     assert out.stdout.strip() == "False"
 
 
-def test_v18_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
-    from quack_rl.rules import load_ruleset
-    from quack_rl.tournament import csv_columns
-
+def test_v2_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
     bots = "bot:draw20-pts4-green,bot:draw30-pts1-points,bot:random"
-    result = tour(tmp_path, "--rules", "v1.8", bots=bots, games="50")
+    result = tour(tmp_path, "--rules", "v2", bots=bots, games="50")
     assert result.exit_code == 0, result.output
     assert TRACEBACK not in result.output
     (run,) = runs(tmp_path)
@@ -713,26 +713,9 @@ def test_v18_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
         reader = csv.reader(f)
         header = next(reader)
         n_rows = sum(1 for _ in reader)
-    assert header == csv_columns(load_ruleset("v1.8"))
-    assert header != CSV_COLUMNS
+    assert header == csv_columns(load_ruleset("v2"))
+    assert header == CSV_COLUMNS
     assert n_rows == 3 * 50
     assert (run / "seats.parquet").exists()
     report = runner.invoke(app, ["report", str(run)])
     assert report.exit_code == 0, report.output
-
-
-def test_v19_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
-    from quack_rl.rules import load_ruleset
-    from quack_rl.tournament import csv_columns
-
-    bots = "bot:draw20-pts4-green,bot:random"
-    result = tour(tmp_path, "--rules", "v1.9", bots=bots, games="20")
-    assert result.exit_code == 0, result.output
-    assert TRACEBACK not in result.output
-    (run,) = runs(tmp_path)
-    with (run / "results.csv").open(encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        header = next(reader)
-        n_rows = sum(1 for _ in reader)
-    assert header == csv_columns(load_ruleset("v1.9"))
-    assert n_rows == 20

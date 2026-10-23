@@ -129,3 +129,22 @@ def test_sampled_policy_seat_is_reproducible_and_named_with_the_suffix(tmp_path,
         assert any(f"policy:{run}#sampled" in row.values() for row in read_rows(out))
         assert f"policy:{run}#sampled" in (out / "config.json").read_text()
     assert read_rows(outs[0]) == read_rows(outs[1])
+
+
+# --- moved from tests/test_tournament.py (#170): the v1.9 copy of the header test
+
+def test_v19_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
+    from quack_rl.rules import load_ruleset
+    from quack_rl.tournament import csv_columns
+
+    bots = "bot:draw20-pts4-green,bot:random"
+    result = tour(tmp_path, "--rules", "v1.9", bots=bots, games="20")
+    assert result.exit_code == 0, result.output
+    assert TRACEBACK not in result.output
+    (run,) = runs(tmp_path)
+    with (run / "results.csv").open(encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        n_rows = sum(1 for _ in reader)
+    assert header == csv_columns(load_ruleset("v1.9"))
+    assert n_rows == 20
