@@ -92,14 +92,14 @@ def test_balanced_buys_a_bit_of_everything(batches):
 
 
 def test_v1_1_points_round_buys_points_then_done():
-    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
     state = shop_state11(30, rnd=1)
     assert play_shop(bot, state) == ["buy:points_10", "buy:points_2", DONE]
     assert state.players["p1"].money == 2
 
 
 def test_v1_1_points_round_buys_no_chips_after_points():
-    bot = HeuristicBot(RS, 20, 1, "cleaner", seed=1)
+    bot = HeuristicBot(RS11, 20, 1, "cleaner", seed=1)
     state = shop_state11(12, rnd=1)
     assert "buy:orange_1" in legal11(state)
     assert bot.choose(state, "p1", legal11(state)) == "buy:points_2"
@@ -110,14 +110,14 @@ def test_v1_1_points_round_buys_no_chips_after_points():
 
 
 def test_v1_1_points_round_has_no_cap_of_three():
-    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    bot = HeuristicBot(RS11, 20, 1, "points", seed=1)
     state = shop_state11(70, rnd=1)
     assert play_shop(bot, state) == ["buy:points_10"] * 3 + ["buy:points_2", DONE]
     assert state.players["p1"].money == 0
 
 
 def test_v1_1_before_points_round_fallback_most_expensive_non_points():
-    bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
     state = shop_state11(20, rnd=2)
     apply11(state, "buy:blue_4")
     assert state.players["p1"].money == 5
@@ -129,7 +129,7 @@ def test_v1_1_before_points_round_fallback_most_expensive_non_points():
 
 
 def test_v1_1_fallback_includes_remove_white_and_repeats():
-    bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
     state = shop_state11(40, rnd=2)
     assert play_shop(bot, state) == [
         "buy:blue_4",
@@ -142,7 +142,7 @@ def test_v1_1_fallback_includes_remove_white_and_repeats():
 
 @pytest.mark.parametrize("money", range(7, 14))
 def test_v1_1_fallback_never_buys_points(money):
-    bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
+    bot = HeuristicBot(RS11, 20, 4, "blue", seed=1)
     state = shop_state11(100, rnd=2)
     apply11(state, "buy:blue_4")
     apply11(state, "buy:green_4")
@@ -164,8 +164,8 @@ def test_v1_1_fallback_never_buys_points(money):
 def test_v1_1_fallback_tie_takes_the_first_in_shop_order(changes, money, expected):
     from quack_rl.bots import Strategy
 
-    shop = [i.model_copy(update={"price": changes.get(i.id, i.price)}) for i in RS.shop]
-    rs = RS.model_copy(update={"shop": shop})
+    shop = [i.model_copy(update={"price": changes.get(i.id, i.price)}) for i in RS11.shop]
+    rs = RS11.model_copy(update={"shop": shop})
     state = shop_state11(money, rnd=2, rs=rs)
     legal = legal11(state, rs)
     tied = [i for i in rs.shop if i.kind != "points" and i.price == money]

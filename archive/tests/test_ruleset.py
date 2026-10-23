@@ -14,3 +14,23 @@ they ran on `_v1_data()`, the data of v1.toml.
     ),
 
 # REFUSALS: "shop_remove_item_unknown_chip": _set_shop_chip("remove_white_1"),
+
+
+# ---- Moved from tests/test_ruleset.py (#170), original text ----
+
+def test_supported_versions_is_v1_only():
+    assert SUPPORTED_RULES_VERSIONS == ("v1", "v1.1", "v1.8", "v1.9", "v1.10", "v1.11", "v2")
+
+
+def test_load_v1_returns_ruleset():
+    rs = load_ruleset("v1")
+    assert isinstance(rs, Ruleset)
+    assert rs.version == "v1"
+
+
+def test_unchanged_v1_data_validates():
+    Ruleset.model_validate(_v1_data())
+
+
+def test_v1_last_round_money_percent_is_150():
+    assert load_ruleset("v1").last_round_money_percent == 150

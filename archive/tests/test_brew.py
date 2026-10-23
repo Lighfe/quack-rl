@@ -15,7 +15,7 @@ def brew_start():
 
 
 def test_blue_bonus_after_chip_with_value_other_than_one():
-    s = brew_start()
+    s = new_game(RS)
     s.players["p1"].bag["blue_2"] = 1
     s = play(s, DRAW, DRAW, "white_2", "white_1").state
     r = play(s, DRAW, STOP, "blue_2")
@@ -24,7 +24,7 @@ def test_blue_bonus_after_chip_with_value_other_than_one():
 
 
 def test_no_blue_bonus_after_white_one():
-    s = brew_start()
+    s = new_game(RS)
     s.players["p1"].bag["blue_2"] = 1
     s = play(s, DRAW, DRAW, "white_1", "white_1").state
     r = play(s, DRAW, STOP, "blue_2")

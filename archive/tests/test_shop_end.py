@@ -58,3 +58,26 @@ def test_final_field_is_not_changed_by_removing_the_last_placed_chip():
     r = play(s, DONE, WAIT)
     assert r.state.winner == "p1"
     assert r.state.players["p1"].final_field == 20
+
+
+# ---- Moved from tests/test_shop_end.py (#170), original text ----
+
+def test_same_item_may_be_bought_again_and_third_purchase_ends_shopping():
+    s = play(shop_state(p1_money=9), buy("orange_1"), DONE).state
+    s = play(s, buy("orange_1"), WAIT).state
+    r = play(s, buy("orange_1"), WAIT)
+    # purchases is reset with the round, so count the chips: 1 at start + 3 bought
+    assert r.state.players["p1"].bag["orange_1"] == RS.start_bag["orange_1"] + 3
+    assert {"seat": "p1", "kind": "buy", "item": "orange_1", "price": 3} in r.events
+    assert r.state.phase is Phase.BREW  # both done: next round started
+    assert r.state.round == 2
+
+
+def test_third_purchase_sets_shop_done_while_other_player_shops():
+    s = shop_state(p1_money=3, p2_money=20)
+    s.players["p1"].purchases = RS.max_purchases - 1
+    r = play(s, buy("orange_1"), buy("orange_1"))
+    p1 = r.state.players["p1"]
+    assert (p1.purchases, p1.shop_done) == (3, True)
+    assert r.state.phase is Phase.SHOP  # p2 has not finished yet
+    assert legal_actions(r.state, RS, "p1") == [WAIT]

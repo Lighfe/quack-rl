@@ -40,3 +40,17 @@ def test_duplicate_chip_id_drops_the_first_occurrence_entry():
     assert p.placed == ["white_2", "white_1"]
     assert p.placed_fields == [3, 4]
     assert len(p.placed_fields) == len(p.placed)
+
+
+# ---- Moved from tests/test_placed_fields.py (#170), original text ----
+
+def test_placed_fields_follow_every_draw_v1_1():
+    rs = load_ruleset("v1.1")
+    s = new_game(rs)
+    for chip in ("white_1", "white_2", "orange_1"):
+        r = step(s, rs, {"p1": DRAW, "p2": DRAW}, ScriptedChance((chip, "white_1")))
+        s = r.state
+        place = next(e for e in r.events if e["kind"] == "place" and e["seat"] == "p1")
+        p = s.players["p1"]
+        assert p.placed_fields[-1] == place["to"]
+        assert len(p.placed_fields) == len(p.placed)

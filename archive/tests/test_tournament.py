@@ -148,3 +148,26 @@ def test_v19_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
         n_rows = sum(1 for _ in reader)
     assert header == csv_columns(load_ruleset("v1.9"))
     assert n_rows == 20
+
+
+# ---- Moved from tests/test_tournament.py (#170), original text ----
+
+def test_v18_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
+    from quack_rl.rules import load_ruleset
+    from quack_rl.tournament import csv_columns
+
+    bots = "bot:draw20-pts4-green,bot:draw30-pts1-points,bot:random"
+    result = tour(tmp_path, "--rules", "v1.8", bots=bots, games="50")
+    assert result.exit_code == 0, result.output
+    assert TRACEBACK not in result.output
+    (run,) = runs(tmp_path)
+    with (run / "results.csv").open(encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        n_rows = sum(1 for _ in reader)
+    assert header == csv_columns(load_ruleset("v1.8"))
+    assert header != CSV_COLUMNS
+    assert n_rows == 3 * 50
+    assert (run / "seats.parquet").exists()
+    report = runner.invoke(app, ["report", str(run)])
+    assert report.exit_code == 0, report.output

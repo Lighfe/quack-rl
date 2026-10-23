@@ -120,12 +120,3 @@ def test_older_layouts_are_unchanged():
         rs = load_ruleset(version)
         assert not any(n.endswith(".points") and n.startswith("map.") for n in vector_names(rs))
         assert map_channels(rs) == 2 + 2 * (map_colours(rs) + 2)
-
-# from test_board_block_names_and_position:
-    # the older layouts have no board block
-    assert not [n for n in vector_names(RS11) if "board.marker" in n or n.startswith("board.tail")]
-    assert "board" not in observe(new_game(RS11), RS11, "p1")
-
-# from test_board_bounds:
-    # older layouts keep inf points
-    assert observation_bounds(RS11)[1][vector_names(RS11).index("own.points")] == np.inf
