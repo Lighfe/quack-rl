@@ -1,5 +1,5 @@
 import pytest
-from helpers import RS, play
+from helpers import RS, brew_start, play
 
 from quack_rl.engine import (
     DONE,
@@ -16,7 +16,7 @@ from quack_rl.engine import (
 
 
 def shop_state(p1_money=20, p2_money=0):
-    s = new_game(RS)
+    s = brew_start()
     s.phase = Phase.SHOP
     for seat, money in (("p1", p1_money), ("p2", p2_money)):
         p = s.players[seat]
@@ -31,45 +31,38 @@ def shop_state(p1_money=20, p2_money=0):
 def test_buying_a_chip_puts_it_into_the_bag_and_costs_money():
     r = play(shop_state(), buy("blue_2"), DONE)
     p1 = r.state.players["p1"]
-    assert (p1.money, p1.purchases, p1.bag["blue_2"]) == (11, 1, 1)
-    assert {"seat": "p1", "kind": "buy", "item": "blue_2", "price": 9} in r.events
+    assert (p1.money, p1.purchases, p1.bag["blue_2"]) == (10, 1, 1)
+    assert {"seat": "p1", "kind": "buy", "item": "blue_2", "price": 10} in r.events
 
 
-def test_points_are_added_at_once():
-    r = play(shop_state(p1_money=22), buy("points_10"), DONE)
-    assert r.state.players["p1"].points == 10
 
 
-def test_bought_droplet_moves_the_start_field_of_the_next_round():
-    s = shop_state(p1_money=10)
-    assert s.players["p1"].droplet_halves == 0
-    s = play(s, buy("droplet_1"), DONE).state
-    assert s.players["p1"].droplet_halves == 2
-    r = play(s, DONE, WAIT)
-    p1 = r.state.players["p1"]
-    assert r.state.phase is Phase.BREW
-    assert (p1.droplet_halves, p1.field) == (2, 1)
 
 
-def test_same_item_may_be_bought_again_and_third_purchase_ends_shopping():
+def test_second_chip_purchase_ends_shopping_and_one_chip_of_each_colour_per_round():
     s = play(shop_state(p1_money=9), buy("orange_1"), DONE).state
-    s = play(s, buy("orange_1"), WAIT).state
-    r = play(s, buy("orange_1"), WAIT)
-    # purchases is reset with the round, so count the chips: 1 at start + 3 bought
-    assert r.state.players["p1"].bag["orange_1"] == RS.start_bag["orange_1"] + 3
-    assert {"seat": "p1", "kind": "buy", "item": "orange_1", "price": 3} in r.events
-    assert r.state.phase is Phase.BREW  # both done: next round started
+    # v2: one chip of each colour per round, so the second orange_1 is not legal
+    assert buy("orange_1") not in legal_actions(s, RS, "p1")
+    r = play(s, buy("green_1"), WAIT)
+    assert legal_actions(r.state, RS, "p1") == [DONE]  # no chip purchase is left
+    events = r.events
+    r = play(r.state, DONE, WAIT)
+    # the round reset puts all chips back: the start bag plus the 2 bought
+    bag = r.state.players["p1"].bag
+    assert (bag["orange_1"], bag["green_1"]) == (RS.start_bag["orange_1"] + 1, RS.start_bag["green_1"] + 1)
+    assert {"seat": "p1", "kind": "buy", "item": "green_1", "price": 4} in events
+    assert r.state.phase is Phase.CARD  # both done: the next round starts with its card
     assert r.state.round == 2
 
 
-def test_third_purchase_sets_shop_done_while_other_player_shops():
-    s = shop_state(p1_money=3, p2_money=20)
-    s.players["p1"].purchases = RS.max_purchases - 1
+def test_last_chip_purchase_leaves_only_done_while_other_player_shops():
+    s = shop_state(p1_money=7, p2_money=20)
+    s.players["p1"].chip_purchases = RS.max_chip_purchases - 1
     r = play(s, buy("orange_1"), buy("orange_1"))
     p1 = r.state.players["p1"]
-    assert (p1.purchases, p1.shop_done) == (3, True)
+    assert p1.chip_purchases == RS.max_chip_purchases
     assert r.state.phase is Phase.SHOP  # p2 has not finished yet
-    assert legal_actions(r.state, RS, "p1") == [WAIT]
+    assert legal_actions(r.state, RS, "p1") == [DONE]  # v2: the seat still says done itself
 
 
 def test_done_player_only_waits_and_nothing_of_theirs_changes():
@@ -85,25 +78,8 @@ def test_done_player_only_waits_and_nothing_of_theirs_changes():
     assert not [e for e in r.events if e["seat"] == "p1"]
 
 
-def test_remove_white_1_takes_a_placed_chip_first():
-    s = shop_state(p1_money=15)
-    s = play(s, buy("remove_white_1"), DONE).state
-    assert s.players["p1"].placed == ["white_2"]
-    r = play(s, DONE, WAIT)
-    # after the reset all chips are back in the bag: 4 white_1 at start, 1 removed
-    assert r.state.players["p1"].bag["white_1"] == 3
 
 
-def test_remove_white_1_without_a_placed_one_takes_it_from_the_bag():
-    s = shop_state(p1_money=15)
-    p1 = s.players["p1"]
-    p1.placed = ["white_2"]
-    p1.bag["white_1"] += 1
-    assert p1.bag["white_1"] == 4
-    r = play(s, buy("remove_white_1"), DONE)
-    p1 = r.state.players["p1"]
-    assert p1.bag["white_1"] == 3
-    assert p1.placed == ["white_2"]
 
 
 def test_reset_returns_chips_and_starts_next_round_at_droplet():
@@ -111,7 +87,7 @@ def test_reset_returns_chips_and_starts_next_round_at_droplet():
     s.players["p1"].droplet_halves = 3
     r = play(s, DONE, DONE)
     p1 = r.state.players["p1"]
-    assert r.state.round == 2 and r.state.phase is Phase.BREW
+    assert r.state.round == 2 and r.state.phase is Phase.CARD  # v2: the card step comes first
     assert p1.placed == [] and p1.bag == RS.start_bag
     assert (p1.field, p1.money, p1.white_total, p1.final_field) == (1, 0, 0, None)
     assert (p1.purchases, p1.shop_done) == (0, False)
@@ -166,14 +142,6 @@ def test_game_end_event_and_no_reset_after_the_last_round():
         assert r.state.players[seat].placed == ["white_1", "white_2"]
 
 
-def test_final_field_is_not_changed_by_removing_the_last_placed_chip():
-    s = last_round(5, 5, 20, 12)
-    s.players["p1"].money = 15
-    s.players["p1"].placed = ["white_2", "white_1"]
-    s = play(s, buy("remove_white_1"), DONE).state
-    r = play(s, DONE, WAIT)
-    assert r.state.winner == "p1"
-    assert r.state.players["p1"].final_field == 20
 
 
 def test_step_after_game_over_raises():
