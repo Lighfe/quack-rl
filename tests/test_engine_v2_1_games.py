@@ -1,4 +1,4 @@
-"""Ruleset v2 end to end: bots, records, tournament and environments (issue #160)."""
+"""Ruleset v2.1 end to end: bots, records, tournament and environments (issue #160)."""
 
 import csv
 import random
@@ -14,14 +14,14 @@ from quack_rl.rl import QuackEnv, QuackParallelEnv
 from quack_rl.rules import load_ruleset
 from quack_rl.simgame import play_sim_game
 
-RS = load_ruleset("v2")
+RS = load_ruleset("v2.1")
 runner = CliRunner()
 HEURISTIC = "bot:draw20-pts1-points"
 
 
 def play(p1, p2, seed, stream=None):
     return play_sim_game(
-        RS, rules="v2", rounds=RS.rounds, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=stream
+        RS, rules="v2.1", rounds=RS.rounds, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=stream
     )[0]
 
 
@@ -41,7 +41,7 @@ def test_random_vs_random_games_end_within_100_points():
 
 
 def test_masked_random_game_stays_in_the_observation_space():
-    env = QuackParallelEnv(rules="v2")
+    env = QuackParallelEnv(rules="v2.1")
     space = env.observation_space("p1")
     rng = random.Random(1)
     obs, _ = env.reset(seed=7)
@@ -69,7 +69,7 @@ def test_recorded_v2_game_reads_back_and_verifies(tmp_path):
 def test_tournament_on_v2_writes_its_result_table(tmp_path):
     result = runner.invoke(
         app,
-        ["tournament", "--rules", "v2", "--bots", f"{HEURISTIC},bot:random", "--games", "2",
+        ["tournament", "--rules", "v2.1", "--bots", f"{HEURISTIC},bot:random", "--games", "2",
          "--seed", "5", "--out", str(tmp_path)],
     )
     assert result.exit_code == 0, result.output
@@ -80,9 +80,9 @@ def test_tournament_on_v2_writes_its_result_table(tmp_path):
     assert {r["winner"] for r in rows} <= {"p1", "p2", "draw"}
 
 
-def test_parallel_api_on_v2():
-    parallel_api_test(QuackParallelEnv(rules="v2"), num_cycles=1000)
+def test_parallel_api_on_v2_1():
+    parallel_api_test(QuackParallelEnv(rules="v2.1"), num_cycles=1000)
 
 
-def test_check_env_on_v2():
-    check_env(QuackEnv(rules="v2"), skip_render_check=True)
+def test_check_env_on_v2_1():
+    check_env(QuackEnv(rules="v2.1"), skip_render_check=True)

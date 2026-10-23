@@ -46,7 +46,7 @@ class PlayerState:
     restart_offered: bool = False
     restart_pending: bool = False
     round_end_halves: int = 0
-    rat_tail: int = 0  # v2: pot fields gained at the round start (the rat tail bonus)
+    rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)

@@ -4,7 +4,7 @@ from pathlib import Path
 import quack_rl.record as record
 from quack_rl.record import read_games, verify_game, verify_seed
 
-GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_random_seed7.jsonl"
+GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_1_random_seed7.jsonl"
 
 
 def golden():

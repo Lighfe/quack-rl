@@ -1,7 +1,7 @@
 from quack_rl.engine import ScriptedChance, new_game, step
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2")
+RS = load_ruleset("v2.1")
 
 
 def play(state, p1, p2, *chance):

@@ -42,7 +42,7 @@ def baseline_maximum(rs: Ruleset) -> float:
     `realistic_baseline_maximum`.
 
     Assumption: in every round the bot rolls the best points die face. A shop with points items
-    would add the best purchase of each round; v2 has none, so the bound is the best die
+    would add the best purchase of each round; v2.1 has none, so the bound is the best die
     points of every round, summed over all rounds.
     """
     point_faces = [f.points for f in rs.die if f.kind == "points"]
@@ -264,7 +264,7 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - the bot plays alone: it always rolls the bonus die when its potion did not explode. In a
       game against a bot, only the player with the furthest field rolls, so this is slightly
       generous (it is the one place where the number is above the truth);
-    - an exploded potion does not roll the die; v2 has no points items in the shop, so money
+    - an exploded potion does not roll the die; v2.1 has no points items in the shop, so money
       adds no points to the number;
     - the droplet moves by ruby fields, green chips and die faces; the die chip faces add chips
       to the bag;
@@ -403,7 +403,7 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
         try:
-            buy_items = [item.id for item in load_ruleset(config.get("rules", "v2")).shop]
+            buy_items = [item.id for item in load_ruleset(config.get("rules", "v2.1")).shop]
         except (ValueError, KeyError, TypeError, OSError) as e:
             raise ReportError(f"config.json in {folder} names no usable ruleset: {e}") from None
         for item in buy_items:
@@ -597,7 +597,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         bots=(),
         games=1,
         seed=0,
-        rules=config.get("rules", "v2"),
+        rules=config.get("rules", "v2.1"),
         rounds=data.rounds,
         overrides=dict(config.get("overrides") or {}),
         sweep=Sweep(sweep["param"], tuple(sweep["values"])) if sweep else None,

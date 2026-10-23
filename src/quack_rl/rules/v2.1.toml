@@ -1,0 +1,315 @@
+# Quack RL ruleset v2.1. Human-readable rules: docs/rules/rules-v2.1.md
+# Differences to v1.11: the `point_board` table (the points board with rat tails) and the die
+# (the money face is gone, a +2 points face is new). Everything else is as in v1.11.
+# Every number here is a tuning default. Never edit a version that has recorded games:
+# make a new version file instead.
+version = "v2.1"
+spellbook = 1
+rounds = 9
+explosion_limit = 7      # potion explodes when the white total is more than this
+# no overall purchase cap: remove White 1 has no count limit either
+max_chip_purchases = 2   # shop items of kind "chip" per player per round
+distinct_chip_colours = true  # at most one chip of each colour per player per round
+track_end = 53
+explosion_choice = true  # an exploded player chooses the money or the points of the scoring field
+last_round_money_divisor = 5  # last round: money // this becomes points
+
+# money per field, index = field 0..53
+money = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+    15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24,
+    25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 30, 30, 31, 31, 32, 32, 33, 33,
+    35,
+]
+
+# points per field, index = field 0..53: max(0, round(0.6 * money - 6.2)); a stand-in table
+points = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2,
+    3, 3, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7,
+    7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 11, 11, 11, 11,
+    12, 12, 12, 12, 13, 13, 14, 14, 15,
+]
+
+rubies = [5, 9, 13, 16, 20, 24, 28, 30, 34, 36, 40, 42, 46, 50, 52]
+
+[start_bag]
+white_1 = 4
+white_2 = 2
+white_3 = 1
+orange_1 = 1
+green_1 = 1
+
+[[chips]]
+id = "white_1"
+colour = "white"
+value = 1
+
+[[chips]]
+id = "white_2"
+colour = "white"
+value = 2
+
+[[chips]]
+id = "white_3"
+colour = "white"
+value = 3
+
+[[chips]]
+id = "orange_1"
+colour = "orange"
+value = 1
+
+[[chips]]
+id = "orange_6"
+colour = "orange"
+value = 6
+
+[[chips]]
+id = "green_1"
+colour = "green"
+value = 1
+
+[[chips]]
+id = "green_2"
+colour = "green"
+value = 2
+
+[[chips]]
+id = "green_4"
+colour = "green"
+value = 4
+
+[[chips]]
+id = "blue_1"
+colour = "blue"
+value = 1
+
+[[chips]]
+id = "blue_2"
+colour = "blue"
+value = 2
+
+[[chips]]
+id = "blue_4"
+colour = "blue"
+value = 4
+
+[[chips]]
+id = "red_1"
+colour = "red"
+value = 1
+
+[[chips]]
+id = "red_2"
+colour = "red"
+value = 2
+
+[[chips]]
+id = "red_4"
+colour = "red"
+value = 4
+
+[[chips]]
+id = "black_1"
+colour = "black"
+value = 1
+
+[[chips]]
+id = "yellow_1"
+colour = "yellow"
+value = 1
+
+[[chips]]
+id = "yellow_2"
+colour = "yellow"
+value = 2
+
+[[chips]]
+id = "yellow_4"
+colour = "yellow"
+value = 4
+
+[[chips]]
+id = "purple_1"
+colour = "purple"
+value = 1
+
+[[shop]]
+id = "orange_1"
+price = 3
+kind = "chip"
+chip = "orange_1"
+
+[[shop]]
+id = "orange_6"
+price = 22
+kind = "chip"
+chip = "orange_6"
+
+[[shop]]
+id = "green_1"
+price = 4
+kind = "chip"
+chip = "green_1"
+
+[[shop]]
+id = "green_2"
+price = 8
+kind = "chip"
+chip = "green_2"
+
+[[shop]]
+id = "green_4"
+price = 14
+kind = "chip"
+chip = "green_4"
+
+[[shop]]
+id = "blue_1"
+price = 5
+kind = "chip"
+chip = "blue_1"
+
+[[shop]]
+id = "blue_2"
+price = 10
+kind = "chip"
+chip = "blue_2"
+
+[[shop]]
+id = "blue_4"
+price = 19
+kind = "chip"
+chip = "blue_4"
+
+[[shop]]
+id = "red_1"
+price = 6
+kind = "chip"
+chip = "red_1"
+
+[[shop]]
+id = "red_2"
+price = 10
+kind = "chip"
+chip = "red_2"
+
+[[shop]]
+id = "red_4"
+price = 16
+kind = "chip"
+chip = "red_4"
+
+[[shop]]
+id = "black_1"
+price = 10
+kind = "chip"
+chip = "black_1"
+min_round = 1
+
+[[shop]]
+id = "yellow_1"
+price = 8
+kind = "chip"
+chip = "yellow_1"
+min_round = 2
+
+[[shop]]
+id = "yellow_2"
+price = 12
+kind = "chip"
+chip = "yellow_2"
+min_round = 2
+
+[[shop]]
+id = "yellow_4"
+price = 18
+kind = "chip"
+chip = "yellow_4"
+min_round = 2
+
+[[shop]]
+id = "purple_1"
+price = 9
+kind = "chip"
+chip = "purple_1"
+min_round = 3
+
+[[die]]
+id = "orange_1"
+weight = 1
+kind = "chip"
+chip = "orange_1"
+
+[[die]]
+id = "droplet_1"
+weight = 1
+kind = "droplet"
+halves = 2
+
+[[die]]
+id = "droplet_half"
+weight = 1
+kind = "droplet"
+halves = 1
+
+[[die]]
+id = "point_1"
+weight = 2
+kind = "points"
+points = 1
+
+[[die]]
+id = "point_2"
+weight = 1
+kind = "points"
+points = 2
+
+# Deck of round-start cards: one card is drawn per round, without replacement. `effect` is the name
+# of a registered card effect (quack_rl.rules.cards). The engine does not play the cards yet.
+[[cards]]
+id = "card_1"
+effect = "ruby_double"
+count = 1
+
+[[cards]]
+id = "card_2"
+effect = "restart_after_5"
+count = 1
+
+[[cards]]
+id = "card_3"
+effect = "drop_all_1"
+count = 1
+
+[[cards]]
+id = "card_4"
+effect = "explosion_limit_plus_2"
+count = 1
+
+[[cards]]
+id = "card_5"
+effect = "choice_black_or_value2_or_drop"
+count = 1
+
+[[cards]]
+id = "card_6"
+effect = "choice_drop2_or_purple"
+count = 1
+
+[[cards]]
+id = "card_7"
+effect = "fewest_points_green"
+count = 1
+
+[[cards]]
+id = "card_8_to_12"
+effect = "no_effect"
+count = 5
+
+# The points board: fields 0..fields, two laps (at most fields * laps points). A rat tail after
+# field f lies at total f and at total f + fields. All values are integers.
+[point_board]
+fields = 50
+rat_tails = [1, 4, 7, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48]
+laps = 2

@@ -6,7 +6,7 @@
   ],
   "games": 12,
   "seed": 0,
-  "rules": "v2",
+  "rules": "v2.1",
   "rounds": 9,
   "overrides": {},
   "sweep": null,

@@ -41,7 +41,7 @@ def test_buying_a_chip_puts_it_into_the_bag_and_costs_money():
 
 def test_second_chip_purchase_ends_shopping_and_one_chip_of_each_colour_per_round():
     s = play(shop_state(p1_money=9), buy("orange_1"), DONE).state
-    # v2: one chip of each colour per round, so the second orange_1 is not legal
+    # v2.1: one chip of each colour per round, so the second orange_1 is not legal
     assert buy("orange_1") not in legal_actions(s, RS, "p1")
     r = play(s, buy("green_1"), WAIT)
     assert legal_actions(r.state, RS, "p1") == [DONE]  # no chip purchase is left
@@ -62,7 +62,7 @@ def test_last_chip_purchase_leaves_only_done_while_other_player_shops():
     p1 = r.state.players["p1"]
     assert p1.chip_purchases == RS.max_chip_purchases
     assert r.state.phase is Phase.SHOP  # p2 has not finished yet
-    assert legal_actions(r.state, RS, "p1") == [DONE]  # v2: the seat still says done itself
+    assert legal_actions(r.state, RS, "p1") == [DONE]  # v2.1: the seat still says done itself
 
 
 def test_done_player_only_waits_and_nothing_of_theirs_changes():
@@ -87,7 +87,7 @@ def test_reset_returns_chips_and_starts_next_round_at_droplet():
     s.players["p1"].droplet_halves = 3
     r = play(s, DONE, DONE)
     p1 = r.state.players["p1"]
-    assert r.state.round == 2 and r.state.phase is Phase.CARD  # v2: the card step comes first
+    assert r.state.round == 2 and r.state.phase is Phase.CARD  # v2.1: the card step comes first
     assert p1.placed == [] and p1.bag == RS.start_bag
     assert (p1.field, p1.money, p1.white_total, p1.final_field) == (1, 0, 0, None)
     assert (p1.purchases, p1.shop_done) == (0, False)

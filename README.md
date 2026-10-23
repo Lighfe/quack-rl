@@ -1,14 +1,14 @@
 # Quack RL
 
-A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v2.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`. What is left after the retirement before v2, and the old code, is in `archive/` (`archive/README.md`).
+A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v2.1.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`. What is left after the retirement before v2, the archived ruleset v2 and the old code, is in `archive/` (`archive/README.md`).
 
 ## Rulesets
 
 | Version | Rules document | Notes |
 |---|---|---|
-| `v2` | `docs/rules/rules-v2.md` | the only ruleset and **the default**: a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new die, a card at the start of every round |
+| `v2.1` | `docs/rules/rules-v2.1.md` | the only ruleset and **the default** (in progress: it has the numbers of the archived v2 and the stage changes it in place): a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new die, a card at the start of every round |
 
-Name it with `--rules v2` (CLI) or `rules="v2"` (code); it is also what you get without naming a version. The older rulesets (v1 to v1.11), their rules documents and their saved data are history under `archive/`. Ruleset v2.1 comes next.
+Name it with `--rules v2.1` (CLI) or `rules="v2.1"` (code); it is also what you get without naming a version. The older rulesets (v1 to v1.11), their rules documents and their saved data are history under `archive/`. Ruleset v2 is archived too (files listed in `archive/README.md`): `--rules v2` is an error.
 
 ## Set-up
 
@@ -37,11 +37,11 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
     from quack_rl.rl import QuackEnv, QuackParallelEnv
 
-    env = QuackEnv(seat="p1", opponent=None, rules="v2")   # Gymnasium, one seat against a bot
+    env = QuackEnv(seat="p1", opponent=None, rules="v2.1")   # Gymnasium, one seat against a bot
     obs, info = env.reset(seed=0)
     obs, reward, terminated, truncated, info = env.step(int(info["action_mask"].argmax()))
 
-    penv = QuackParallelEnv(rules="v2")                    # PettingZoo, both seats act
+    penv = QuackParallelEnv(rules="v2.1")                    # PettingZoo, both seats act
     obs, infos = penv.reset(seed=0)                          # obs[seat]["observation"], ["action_mask"]
 
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).

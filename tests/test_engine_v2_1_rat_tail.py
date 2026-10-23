@@ -1,4 +1,4 @@
-"""Ruleset v2: the rat tail bonus at the round start (issue #156)."""
+"""Ruleset v2.1: the rat tail bonus at the round start (issue #156)."""
 
 from quack_rl.engine import (
     CARD_DROP_2,
@@ -15,7 +15,7 @@ from quack_rl.engine import (
 )
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2")
+RS = load_ruleset("v2.1")
 
 
 def card_state(p1=0, p2=10, rs=RS):

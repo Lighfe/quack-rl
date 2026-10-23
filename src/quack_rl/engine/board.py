@@ -1,4 +1,4 @@
-"""The points board of ruleset v2 (pure helpers): position, flag and rat tail bonus."""
+"""The points board of ruleset v2.1 (pure helpers): position, flag and rat tail bonus."""
 
 from typing import Any
 

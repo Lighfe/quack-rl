@@ -1,4 +1,4 @@
-"""Observation layout 7 (rules v2): layout choice, points in the map, refusals."""
+"""Observation layout 7 (rules v2.1): layout choice, points in the map, refusals."""
 
 import random
 
@@ -18,7 +18,7 @@ from quack_rl.rl import (
 from quack_rl.rl.encode import BOARD_LAYOUT, map_colours
 from quack_rl.rules import load_ruleset
 
-RS2 = load_ruleset("v2")
+RS2 = load_ruleset("v2.1")
 SEATS = ("p1", "p2")
 
 
@@ -40,7 +40,7 @@ def states(seed, rs=RS2):
 def test_layout_numbers():
     assert BOARD_LAYOUT == 7
     assert observation_layout(RS2) == 7
-    assert observation_layout(load_ruleset("v2")) == 7
+    assert observation_layout(load_ruleset("v2.1")) == 7
 
 
 def test_layout_7_uses_what_layout_6_uses():

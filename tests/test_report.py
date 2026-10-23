@@ -16,7 +16,7 @@ from quack_rl.report import (
 from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.tournament import TournamentConfig, csv_columns, write_run
 
-CSV_COLUMNS = csv_columns(load_ruleset("v2"))
+CSV_COLUMNS = csv_columns(load_ruleset("v2.1"))
 FIXTURE = Path(__file__).parent / "fixtures" / "report"
 runner = CliRunner()
 
@@ -153,7 +153,7 @@ def test_baseline_labels_and_order(run):
         assert line.startswith(start), (line, start)
     assert CONFIRM_TEST in base[4] and f"{100 * CONFIRM_TOLERANCE:.0f}%" in base[4]
     assert number_after("\n".join(base), "Calculated maximum (loose") == baseline_maximum(
-        with_rounds(load_ruleset("v2"), 9)
+        with_rounds(load_ruleset("v2.1"), 9)
     )
 
 
@@ -185,7 +185,7 @@ def test_new_columns_match_the_record(tmp_path):
         bots=("bot:draw30-pts3-blue", "bot:draw15-pts1-balanced"),
         games=2,
         seed=3,
-        rules="v2",
+        rules="v2.1",
         keep_records=True,
         sample_size=0,
     )

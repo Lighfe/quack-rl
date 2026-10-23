@@ -46,7 +46,7 @@ class CardSpec(_Frozen):
 
 
 class PointBoard(_Frozen):
-    """The points board (v2): fields 0..fields, `laps` laps, rat tails between some fields.
+    """The points board (v2.1): fields 0..fields, `laps` laps, rat tails between some fields.
 
     A rat tail after field f lies at total f and at total f + fields (on every lap).
     """

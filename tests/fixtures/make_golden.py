@@ -1,7 +1,7 @@
 """Regenerate the golden files. Run this only on purpose: the files pin rules behavior.
 
-uv run python tests/fixtures/make_golden.py       # v2: the game record and the bots results.csv
-uv run python tests/fixtures/make_golden.py v2    # the same
+uv run python tests/fixtures/make_golden.py       # v2.1: the game record and the bots results.csv
+uv run python tests/fixtures/make_golden.py v2.1  # the same
 """
 
 import shutil
@@ -21,7 +21,7 @@ from quack_rl.rules import load_ruleset
 from quack_rl.runner import play_game
 
 GOLDEN = Path(__file__).parent / "golden"
-V2_BOTS = (
+V21_BOTS = (
     "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
     "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
 )
@@ -51,9 +51,9 @@ def write_record(version: str, out: Path) -> None:
         rec.close(final)
 
 
-def write_v2_bots_results(out: Path) -> None:
+def write_v2_1_bots_results(out: Path) -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        args = ["tournament", "--bots", V2_BOTS, "--rules", "v2", "--games", "10"]
+        args = ["tournament", "--bots", V21_BOTS, "--rules", "v2.1", "--games", "10"]
         args += ["--seed", "7", "--name", "v2golden", "--out", tmp]
         result = CliRunner().invoke(app, args)
         assert result.exit_code == 0, result.output
@@ -62,12 +62,12 @@ def write_v2_bots_results(out: Path) -> None:
 
 
 def main(argv: list[str]) -> None:
-    mode = argv[0] if argv else "v2"
-    if mode == "v2":
-        write_record("v2", GOLDEN / "v2_random_seed7.jsonl")
-        write_v2_bots_results(GOLDEN / "v2_bots_results.csv")
+    mode = argv[0] if argv else "v2.1"
+    if mode == "v2.1":
+        write_record("v2.1", GOLDEN / "v2_1_random_seed7.jsonl")
+        write_v2_1_bots_results(GOLDEN / "v2_1_bots_results.csv")
     else:
-        raise SystemExit("usage: make_golden.py [v2]")
+        raise SystemExit("usage: make_golden.py [v2.1]")
 
 
 if __name__ == "__main__":

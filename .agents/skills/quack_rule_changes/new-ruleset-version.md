@@ -82,7 +82,7 @@ The engine knows nothing about RL. A new state field or action reaches RL only w
 
 ## 9. Defaults
 
-- Think about: the default `rules` value is `v2` (the default version). A new version is used only when someone passes it, until an issue makes it the default. The notebooks and the training scripts are archived and not checked. A version that becomes the default changes all defaults in one issue (grep `rules[^=]*=\s*"v` in `src` and `scripts`); every test that relied on the old default must then name its version.
+- Think about: the default `rules` value is `v2.1` (the default version). A new version is used only when someone passes it, until an issue makes it the default. The notebooks and the training scripts are archived and not checked. A version that becomes the default changes all defaults in one issue (grep `rules[^=]*=\s*"v` in `src` and `scripts`); every test that relied on the old default must then name its version.
 - Goes wrong: a new function with a default that is not the default version; a script that follows the newest version; a test that silently relied on the old default.
 - Check: the defaults test scans the source and the scripts and checks that every default is the default version (it fails on a planted default, as the existing cases do). Add the new version to the loops. Saved data of the older versions must still load.
 - Does not apply: never skip the extension of the defaults test, even when nothing else here applies.

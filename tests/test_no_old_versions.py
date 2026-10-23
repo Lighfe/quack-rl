@@ -23,8 +23,8 @@ def old_version_lines(text: str) -> list[tuple[int, str]]:
     ]
 
 
-def test_check_passes_rules_v2():
-    assert old_version_lines('load_ruleset(rules="v2")') == []
+def test_check_passes_rules_v2_1():
+    assert old_version_lines('load_ruleset(rules="v2.1")') == []
 
 
 def test_check_passes_a_line_with_the_skip_comment():
@@ -37,7 +37,7 @@ def test_check_denies_an_old_rules_argument():
 
 
 def test_check_denies_a_list_of_versions():
-    assert old_version_lines('VERSIONS = ["' + V + '", "v2"]')
+    assert old_version_lines('VERSIONS = ["' + V + '", "v2.1"]')
     assert old_version_lines("VERSIONS = ['" + V + ".8']")
 
 

@@ -12,14 +12,14 @@ from quack_rl.rules import (
     unregister_spellbook,
 )
 
-V2 = load_ruleset("v2")
+V2 = load_ruleset("v2.1")
 BOOK = "test_book"
 # blue gets the orange component here (no placement bonus), so the engine must differ from v2.
 COMPONENTS = {**get_spellbook(V2.spellbook), "blue": "orange@1"}
 
 
 def _data(spellbook=None):
-    """The v2 data with another spellbook; the default is the spellbook of v2 itself."""
+    """The v2.1 data with another spellbook; the default is the spellbook of v2.1 itself."""
     data = V2.model_dump()
     if spellbook is not None:
         data["spellbook"] = spellbook
@@ -40,7 +40,7 @@ def book():
         unregister_spellbook(BOOK)
 
 
-def test_v2_names_a_spellbook_that_gives_each_colour_its_component():
+def test_v2_1_names_a_spellbook_that_gives_each_colour_its_component():
     assert V2.spellbook == 1
     assert all(V2.component_name(c) == get_spellbook(1)[c.colour] for c in V2.chips)
 

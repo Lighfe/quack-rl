@@ -24,7 +24,7 @@ def test_resolve_takes_no_actions_and_moves_to_shop():
 
 def test_money_of_final_field_and_bonus_die_for_furthest():
     r = auto(brewed(20, 12), "point_1")
-    assert r.state.players["p1"].money == 18  # v2 has no money die face: the face gives a point
+    assert r.state.players["p1"].money == 18  # v2.1 has no money die face: the face gives a point
     assert r.state.players["p1"].points == RS.points[scoring_field(20, RS)] + 1  # field + die
     assert r.state.players["p2"].money == 13
     assert r.chance == [{"seat": "p1", "kind": "die", "value": "point_1"}]
@@ -32,7 +32,7 @@ def test_money_of_final_field_and_bonus_die_for_furthest():
 
 def test_exploded_waits_for_the_choice_and_never_rolls():
     r = auto(brewed(21, 4, exploded=("p1",)), "point_1")
-    assert r.state.phase is Phase.CHOICE  # v2: the exploded seat takes money or points next
+    assert r.state.phase is Phase.CHOICE  # v2.1: the exploded seat takes money or points next
     assert r.state.players["p1"].money == 0
     assert r.chance == [{"seat": "p2", "kind": "die", "value": "point_1"}]
     assert r.state.players["p2"].points == 1

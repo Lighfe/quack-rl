@@ -1,6 +1,6 @@
-"""Make the stored sample of observation layout 7 (rules v2): one game through the environment.
+"""Make the stored sample of observation layout 7 (rules v2.1): one game through the environment.
 
-Run only on purpose: the file pins v2 behaviour (issue #167). Do not regenerate it unless
+Run only on purpose: the file pins v2.1 behaviour (issue #167). Do not regenerate it unless
 layout 7 is changed on purpose.
 
 uv run python tests/fixtures/make_layout7_sample.py
@@ -19,8 +19,8 @@ OUT = Path(__file__).parent / "layout7" / "sample.npz"
 
 def play_sample() -> dict[str, np.ndarray]:
     """Play one game: reset(seed=7), each seat draws its action from its mask with Random(7)."""
-    rs = load_ruleset("v2")
-    env = QuackParallelEnv(rules="v2")
+    rs = load_ruleset("v2.1")
+    env = QuackParallelEnv(rules="v2.1")
     rng = random.Random(7)
     obs, _ = env.reset(seed=7)
     vecs, masks = [], []

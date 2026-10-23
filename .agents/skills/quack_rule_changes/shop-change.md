@@ -71,7 +71,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 8. The tests that loop over versions
 
-- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v2`). The notebooks are archived and not checked.
+- Think about: add the new version to every test that loops over versions. No default points at the new version unless an issue makes it the default (the default is `v2.1`). The notebooks are archived and not checked.
 - Goes wrong: a loop is not extended, so the new shop is never run through a generic test; a default points at the new version by accident.
 - Check: the full test command.
 
@@ -90,10 +90,10 @@ Work through these steps in order. Each step needs the one before it.
 
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape.
 
-- Ruleset: `tests/test_ruleset_v2.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
+- Ruleset: `tests/test_ruleset_v2_1.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
 - Action list and legal actions: `tests/test_state_actions.py`, `test_shop_legal_actions_follow_money`, `test_shop_item_priced_at_money_left_is_legal`, `tests/test_state_actions.py` (the removal rule that old versions keep).
 - Bots: the shop tests in `test_bots` (`test_strategy_priority_before_points_round`).
 - CLI: `test_keys_map_to_legal_actions`, `test_buy_keys_continue_with_letters`, `test_choose_prints_board_and_menu_with_buy_details`.
 - RL: `test_action_mask_equals_legal_actions_at_every_step` in `tests/test_rl_encode.py`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record.py`), and the record tests of the older versions pass unchanged.
-- Defaults: `test_rules_defaults` (every default is `v2`).
+- Defaults: `test_rules_defaults` (every default is `v2.1`).

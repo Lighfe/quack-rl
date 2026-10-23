@@ -1,4 +1,4 @@
-"""Layout 7 (rules v2) against the stored sample game of tests/fixtures/make_layout7_sample.py."""
+"""Layout 7 (rules v2.1) against the stored sample game of tests/fixtures/make_layout7_sample.py."""
 
 import importlib.util
 from pathlib import Path

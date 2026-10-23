@@ -43,11 +43,11 @@ def script(monkeypatch, keys):
 
 
 def play(tmp_path, *extra, seed="4"):
-    return runner.invoke(app, ["play", "--rules", "v2", "--seed", seed, "--out", str(tmp_path), *extra])
+    return runner.invoke(app, ["play", "--rules", "v2.1", "--seed", seed, "--out", str(tmp_path), *extra])
 
 
 def play_files(tmp_path: Path) -> list[Path]:
-    return sorted((tmp_path / "v2" / "play").glob("*.jsonl"))
+    return sorted((tmp_path / "v2.1" / "play").glob("*.jsonl"))
 
 
 def only_game(tmp_path: Path):
@@ -354,7 +354,7 @@ def test_abort_at_first_key_leaves_header_only(tmp_path, monkeypatch):
     assert result.exit_code == 130, result.output
     assert "game aborted, partial record:" in result.output
     path, game = only_game(tmp_path)
-    # v2 opens with a card step (chance only, no decision): the header and that step are written
+    # v2.1 opens with a card step (chance only, no decision): the header and that step are written
     assert [s.actions for s in game.steps] == [None] and game.footer is None
     v = runner.invoke(app, ["verify", str(path)])
     assert v.exit_code == 1 and "incomplete game" in v.output
@@ -381,3 +381,10 @@ def test_simulate_still_refuses_human(tmp_path):
     result = runner.invoke(app, ["simulate", "--p1", "human", "--out", str(tmp_path)])
     assert result.exit_code != 0
     assert "quack-rl play" in result.output
+
+
+def test_archived_v2_is_refused_and_names_the_known_ruleset(tmp_path):
+    result = play(tmp_path, "--rules", "v2")
+    assert result.exit_code != 0
+    assert "v2" in result.output and "v2.1" in result.output and TRACEBACK not in result.output
+    assert play_files(tmp_path) == []

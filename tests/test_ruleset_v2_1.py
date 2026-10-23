@@ -1,4 +1,4 @@
-"""Ruleset v2: the point board with rat tails (ruleset data only) and the new die."""
+"""Ruleset v2.1: the point board with rat tails (ruleset data only) and the new die."""
 
 from pathlib import Path
 
@@ -7,14 +7,14 @@ from pydantic import ValidationError
 
 from quack_rl.rules import SUPPORTED_RULES_VERSIONS, PointBoard, load_ruleset
 
-RS = load_ruleset("v2")
-RULES_DOC = Path(__file__).resolve().parents[1] / "docs" / "rules" / "rules-v2.md"
+RS = load_ruleset("v2.1")
+RULES_DOC = Path(__file__).resolve().parents[1] / "docs" / "rules" / "rules-v2.1.md"
 TAILS = [1, 4, 7, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48]
 
 
 def test_v2_loads():
-    assert "v2" in SUPPORTED_RULES_VERSIONS
-    assert RS.version == "v2"
+    assert "v2.1" in SUPPORTED_RULES_VERSIONS
+    assert RS.version == "v2.1"
     assert RS.point_board is not None
     assert RS.point_board.fields == 50
     assert RS.point_board.rat_tails == TAILS
@@ -65,14 +65,14 @@ def test_point_board_values_are_strict_integers():
         PointBoard.model_validate({"fields": 50, "rat_tails": ["1"]})
     with pytest.raises(ValidationError):
         PointBoard.model_validate({"fields": 50, "rat_tails": [1], "laps": "2"})
-    assert load_ruleset("v2").point_board is not None
+    assert load_ruleset("v2.1").point_board is not None
 
 
 
 
 def test_rules_doc_agrees_with_the_file():
     text = RULES_DOC.read_text(encoding="utf-8")
-    assert "Rules version: `v2`" in text
+    assert "Rules version: `v2.1`" in text
     assert "Changes from v1.11" in text
     for face in RS.die:
         chance = f"{face.weight}/6"
