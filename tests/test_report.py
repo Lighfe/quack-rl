@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 from quack_rl.cli.main import app
 from quack_rl.report import (
     CONFIRM_TEST,
-    CONFIRM_TOLERANCE,
     baseline_maximum,
     build_report,
     wilson,
@@ -115,7 +114,8 @@ def test_baseline_lines(run):
     text = build_report(run)
     base = text.split("== Baseline ==")[1]
     assert "Simulated average final points: 38.4" in base  # 922 points in 24 games
-    assert "Calculated maximum" in base and "Difference" in base
+    assert "Calculated points of the field table, without chip purchases and cards:" in base
+    assert "Difference" not in base and "confirmed" not in base
     assert "is not in this run" not in base
     assert "Baseline draw20-pts1-points: 24 games" in base
     rows = [
@@ -142,16 +142,16 @@ def test_baseline_labels_and_order(run):
     starts = [
         "Baseline draw20-pts1-points: 24 games",
         "Simulated average final points:",
-        "Calculated maximum (realistic, ",
-        "Difference (maximum - simulated):",
-        "The maximum is confirmed by simulation in ",
+        "Calculated points of the field table, without chip purchases and cards:",
+        "This is not an upper bound of the baseline bot, ",
         "Calculated maximum (loose upper bound",
         "Cards: ",
     ]
     assert len(base) == len(starts)
     for line, start in zip(base, starts, strict=True):
         assert line.startswith(start), (line, start)
-    assert CONFIRM_TEST in base[4] and f"{100 * CONFIRM_TOLERANCE:.0f}%" in base[4]
+    assert CONFIRM_TEST in base[3] and "not an upper bound" in base[3]
+    assert "other card effects are not" in base[5]
     assert number_after("\n".join(base), "Calculated maximum (loose") == baseline_maximum(
         with_rounds(load_ruleset("v2.1"), 9)
     )
