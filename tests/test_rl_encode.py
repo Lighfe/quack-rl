@@ -15,11 +15,11 @@ from quack_rl.engine import (
 )
 from quack_rl.engine.state import Phase
 from quack_rl.rl import (
-    MAP_CHANNELS,
-    OBSERVATION_LAYOUT,
     action_mask,
+    map_channels,
     map_slice,
     observation_bounds,
+    observation_layout,
     observe,
     reward,
     vector_names,
@@ -27,7 +27,12 @@ from quack_rl.rl import (
 )
 from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 
-VERSIONS = ["v2", "v2"]
+VERSIONS = ["v2"]
+
+
+def brew_game(rs):
+    """A new game after the first card (a card without effect), at the first brew step."""
+    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
 
 
 def random_game(rs, seed):
@@ -84,8 +89,9 @@ def test_observation_is_mirrored_between_seats(version):
         assert observe(state, rs, "p1") == observe(swapped, rs, "p2")
         o1 = observe(state, rs, "p1")
         o2 = observe(state, rs, "p2")
-        assert o1["own"] == o2["opponent"]
-        assert o1["opponent"] == o2["own"]
+        # the hand is private: only the own view has it
+        assert {k: v for k, v in o1["own"].items() if k != "hand"} == o2["opponent"]
+        assert o1["opponent"] == {k: v for k, v in o2["own"].items() if k != "hand"}
 
 
 def test_observation_content():
@@ -93,6 +99,9 @@ def test_observation_content():
     state = new_game(rs)
     obs = observe(state, rs, "p1")
     assert obs["round"] == 1
+    assert obs["phase"] == "card"  # v2 opens with the card step
+    state = brew_game(rs)
+    obs = observe(state, rs, "p1")
     assert obs["phase"] == "brew"
     assert obs["own"]["bag_remaining"]["white_1"] == 4
     assert set(obs["own"]) >= {
@@ -167,12 +176,12 @@ def _place_events(rs, seed):
 def test_names_unique_and_layout_version(version):
     rs = load_ruleset(version)
     names = vector_names(rs)
-    assert OBSERVATION_LAYOUT == 2
+    assert observation_layout(rs) == 7
     assert len(set(names)) == len(names)
     assert names == vector_names(load_ruleset(version))
     sl = map_slice(rs)
     assert sl.stop == len(names)
-    assert (sl.stop - sl.start) == (rs.track_end + 1) * MAP_CHANNELS
+    assert (sl.stop - sl.start) == (rs.track_end + 1) * map_channels(rs)
     assert names[sl.start] == "map.0.money"
 
 
@@ -186,7 +195,7 @@ def test_map_matches_place_events(version):
                 continue
             for seat in ("p1", "p2"):
                 vec = vectorize(observe(state, rs, seat), rs)
-                grid = vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)
+                grid = vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))
                 expected = {
                     "own": {},
                     "opponent": {},
@@ -195,10 +204,12 @@ def test_map_matches_place_events(version):
                     for order, e in enumerate(events[s], start=1):
                         expected[who][e["to"]] = (rs.chip(e["chip"]), order)
                 for f in range(rs.track_end + 1):
+                    # layout 7: money, points and ruby, then the cells of both seats
                     assert grid[f, 0] == rs.money[f]
-                    assert grid[f, 1] == (f in rs.rubies)
+                    assert grid[f, 1] == rs.points[f]
+                    assert grid[f, 2] == (f in rs.rubies)
                     for k, who in enumerate(("own", "opponent")):
-                        cell = grid[f, 2 + k * (len(colours) + 2) :][: len(colours) + 2]
+                        cell = grid[f, 3 + k * (len(colours) + 2) :][: len(colours) + 2]
                         if f in expected[who]:
                             chip, order = expected[who][f]
                             flags = [float(chip.colour == c) for c in colours]
@@ -209,7 +220,7 @@ def test_map_matches_place_events(version):
 
 def test_two_chips_on_track_end_later_chip_fills_the_slot():
     rs = load_ruleset("v2")
-    state = new_game(rs)
+    state = brew_game(rs)
     state.players["p1"].field = 52
     for chip in ("white_2", "white_1"):
         state = step(
@@ -217,10 +228,10 @@ def test_two_chips_on_track_end_later_chip_fills_the_slot():
         ).state
     assert state.players["p1"].placed_fields == [rs.track_end, rs.track_end]
     vec = vectorize(observe(state, rs, "p1"), rs)
-    grid = vec[map_slice(rs)].reshape(rs.track_end + 1, MAP_CHANNELS)
+    grid = vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))
     colours = list(dict.fromkeys(c.colour for c in rs.chips))
-    cell = grid[rs.track_end, 2 : 2 + len(colours) + 2]
-    assert list(cell) == [1.0, 0.0, 0.0, 0.0, rs.chip("white_1").value, 2.0]
+    cell = grid[rs.track_end, 3 : 3 + len(colours) + 2]
+    assert list(cell) == [1.0, *[0.0] * (len(colours) - 1), rs.chip("white_1").value, 2.0]
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -270,7 +281,7 @@ def test_vector_lies_inside_the_bounds(version):
     assert low.dtype == high.dtype == np.float32
     assert low.shape == high.shape == (len(vector_names(rs)),)
     names = vector_names(rs)
-    assert np.isinf(high[names.index("own.points")])
+    assert high[names.index("own.points")] == 100  # v2 caps the points at 100
     assert high[names.index("own.status.exploded")] == 1
     assert np.isfinite(high[names.index("own.ruby_fields_ahead")])
     for seed in range(5):
@@ -300,7 +311,7 @@ def test_pending_choice_of_the_opponent_does_not_change_the_vector(version):
     state, and both choices lead from the same observation."""
     rs = load_ruleset(version)
     state = step(
-        new_game(rs), rs, {"p1": "draw", "p2": "draw"}, ScriptedChance(["white_1"] * 2)
+        brew_game(rs), rs, {"p1": "draw", "p2": "draw"}, ScriptedChance(["white_1"] * 2)
     ).state
     before = vectorize(observe(state, rs, "p1"), rs)
     outcomes = []
@@ -320,4 +331,5 @@ def test_derived_entries_come_before_the_map_block(version):
     names = vector_names(rs)
     first = names.index(derived_names()[0])
     assert names[first : first + len(derived_names())] == derived_names()
-    assert first + len(derived_names()) == map_slice(rs).start
+    # v2: the card, shop and board blocks follow the derived entries, then the map block
+    assert first + len(derived_names()) <= map_slice(rs).start
