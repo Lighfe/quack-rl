@@ -12,7 +12,7 @@ from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackEnv, observation_bounds, observe, reward, vector_names, vectorize
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v2", "v2", "v2"]
+VERSIONS = ["v2"]
 
 
 def play(env, seed=0, action_seed=0):
@@ -51,7 +51,7 @@ def test_check_env_without_warnings_and_bounded_entries(version):
     assert np.array_equal(box.low, low) and np.array_equal(box.high, high)
     assert np.isfinite(box.high[names.index("own.status.exploded")])
     assert np.isfinite(box.high[names.index("explosion_limit")])
-    assert np.isinf(box.high[names.index("own.points")])
+    assert box.high[names.index("own.points")] == 100  # v2 caps the points at 100
 
 
 @pytest.mark.parametrize("seat", ["p1", "p2"])
