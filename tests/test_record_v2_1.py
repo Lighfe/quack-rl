@@ -96,7 +96,9 @@ def test_a_game_with_each_card_replays_to_the_played_state(card, data):
     rec.close(final)
     stream.seek(0)
     lines = [json.loads(line) for line in stream.getvalue().splitlines()]
-    played = [e["card"] for line in lines for e in line.get("events", []) if e["kind"] == "card_draw"]
+    played = [
+        e["card"] for line in lines for e in line.get("events", []) if e["kind"] == "card_draw"
+    ]
     assert played[position] == card
     # replay from the record alone: every step, the events and the footer agree with the played game
     path_game = _read(stream.getvalue())
@@ -122,9 +124,7 @@ def test_seeded_games_with_all_20_cards_pass_the_seed_check(tmp_path):
         game, _final = record(RngChance(seed), seed, seed * 2 + 1, tmp_path)
         assert verify_game(game) == [], seed
         assert verify_seed(game) == [], seed
-        seen |= {
-            o["value"] for s in game.steps for o in s.chance if o["kind"] == "card"
-        }
+        seen |= {o["value"] for s in game.steps for o in s.chance if o["kind"] == "card"}
         if seen == set(CARDS):
             return
     raise AssertionError(f"cards never played: {sorted(set(CARDS) - seen)}")

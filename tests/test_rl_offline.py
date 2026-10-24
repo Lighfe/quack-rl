@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("torch")
 
-from quack_rl.rl.dataset import ARRAYS, Dataset, build_dataset  # noqa: E402
+from quack_rl.rl.dataset import ARRAYS, Dataset, build_dataset, concat_files  # noqa: E402
 from quack_rl.rl.evaluate import evaluate  # noqa: E402
 from quack_rl.rl.offline import train_bc, train_cql  # noqa: E402
 
@@ -64,3 +64,13 @@ def test_bc_and_cql_train_and_play(data):
     for policy in (bc, cql):
         result = evaluate(policy, "bot:random", games=4, seed=0)
         assert result.wins + result.draws + result.losses == 4
+
+
+def test_concat_files_equals_load_concat(data, tmp_path):
+    data.save(tmp_path / "a.npz")
+    other = build_dataset(BOT, BOT, 3, seed=50)
+    other.save(tmp_path / "b.npz")
+    concat_files([tmp_path / "a.npz", tmp_path / "b.npz"], tmp_path / "ab.npz")
+    joined, expected = Dataset.load(tmp_path / "ab.npz"), data.concat(other)
+    for name in ARRAYS:
+        assert np.array_equal(getattr(joined, name), getattr(expected, name))

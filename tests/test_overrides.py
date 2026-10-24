@@ -23,7 +23,8 @@ def games_of(out: Path):
 
 def sim(out, *extra, games="3"):
     return runner.invoke(
-        app, ["simulate", "--rules", "v2.1", "--games", games, "--seed", "3", "--out", str(out), *extra]
+        app,
+        ["simulate", "--rules", "v2.1", "--games", games, "--seed", "3", "--out", str(out), *extra],
     )
 
 
@@ -95,7 +96,18 @@ def test_play_set_stores_overrides(tmp_path, monkeypatch):
     keys = itertools.cycle("ds0m1")
     monkeypatch.setattr(human, "default_read_key", lambda: next(keys))
     result = runner.invoke(
-        app, ["play", "--rules", "v2.1", "--seed", "4", "--out", str(tmp_path), "--set", "shop.orange_1.price=4"]
+        app,
+        [
+            "play",
+            "--rules",
+            "v2.1",
+            "--seed",
+            "4",
+            "--out",
+            str(tmp_path),
+            "--set",
+            "shop.orange_1.price=4",
+        ],
     )
     assert result.exit_code == 0, result.output
     (game,) = games_of(tmp_path)

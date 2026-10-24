@@ -45,7 +45,13 @@ def test_use_after_the_first_white_chip_goes_back_to_the_start_field():
     assert p.flask_full is False and p.status is Status.BREWING
     assert p.bag["white_2"] == RS.start_bag["white_2"]
     ev = next(e for e in r.events if e["kind"] == "use_flask")
-    assert ev == {"seat": "p1", "kind": "use_flask", "chip": "white_2", "field": start, "white_total": 0}
+    assert ev == {
+        "seat": "p1",
+        "kind": "use_flask",
+        "chip": "white_2",
+        "field": start,
+        "white_total": 0,
+    }
 
 
 def test_use_after_a_later_white_chip_goes_back_to_the_previous_landing_field():

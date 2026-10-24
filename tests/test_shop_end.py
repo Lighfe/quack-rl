@@ -37,10 +37,6 @@ def test_buying_a_chip_puts_it_into_the_bag_and_costs_money():
     assert {"seat": "p1", "kind": "buy", "item": "blue_2", "price": 10} in r.events
 
 
-
-
-
-
 def test_second_chip_purchase_ends_shopping_and_one_chip_of_each_colour_per_round():
     s = play(shop_state(p1_money=9), buy("orange_1"), DONE).state
     # v2.1: one chip of each colour per round, so the second orange_1 is not legal
@@ -51,7 +47,10 @@ def test_second_chip_purchase_ends_shopping_and_one_chip_of_each_colour_per_roun
     r = play(r.state, DONE, WAIT)
     # the round reset puts all chips back: the start bag plus the 2 bought
     bag = r.state.players["p1"].bag
-    assert (bag["orange_1"], bag["green_1"]) == (RS.start_bag["orange_1"] + 1, RS.start_bag["green_1"] + 1)
+    assert (bag["orange_1"], bag["green_1"]) == (
+        RS.start_bag["orange_1"] + 1,
+        RS.start_bag["green_1"] + 1,
+    )
     assert {"seat": "p1", "kind": "buy", "item": "green_1", "price": 4} in events
     assert r.state.phase is Phase.CARD  # both done: the next round starts with its card
     assert r.state.round == 2
@@ -78,10 +77,6 @@ def test_done_player_only_waits_and_nothing_of_theirs_changes():
     assert (after.money, after.bag, after.points) == (before.money, before.bag, before.points)
     assert after.placed == before.placed
     assert not [e for e in r.events if e["seat"] == "p1"]
-
-
-
-
 
 
 def test_reset_returns_chips_and_starts_next_round_at_droplet():
@@ -142,8 +137,6 @@ def test_game_end_event_and_no_reset_after_the_last_round():
     assert r.state.round == RS.rounds
     for seat in ("p1", "p2"):
         assert r.state.players[seat].placed == ["white_1", "white_2"]
-
-
 
 
 def test_step_after_game_over_raises():

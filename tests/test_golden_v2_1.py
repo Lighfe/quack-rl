@@ -27,7 +27,9 @@ def event_kinds(game) -> set[str]:
 def test_stored_game_replays_to_the_stored_final_state():
     game = golden()
     assert game.header.rules_version == "v2.1"
-    assert verify_game(game) == []  # every event and legal set equals the replay, the footer matches
+    assert (
+        verify_game(game) == []
+    )  # every event and legal set equals the replay, the footer matches
     assert verify_seed(game) == []  # the chance outcomes equal what the seed gives
     end = [e for s in game.steps for e in s.events if e["kind"] == "game_end"]
     assert len(end) == 1

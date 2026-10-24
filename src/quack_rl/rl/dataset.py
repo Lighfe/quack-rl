@@ -9,7 +9,8 @@ Game i uses the chance seed `seed + i` and the agent at p1 for even i and p2 for
 bots built per game from their names with `seed + i` (the scheme of `evaluate`).
 """
 
-from collections.abc import Callable
+import zipfile
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,36 @@ class Dataset:
             "action_histogram": np.bincount(self.action, minlength=n_actions).tolist(),
             "mean_return": float(returns.mean()) if games else 0.0,
         }
+
+
+def concat_files(paths: Sequence[Path | str], out: Path | str) -> None:
+    """Join dataset files into the file `out`, one array at a time, so that the peak memory is
+    about twice the largest joined array and not twice the whole dataset. Same result as `load`,
+    `concat` and `save`. Raise ValueError on an empty list or a file without all arrays."""
+    if not paths:
+        raise ValueError("no dataset file to join")
+    files = [np.load(Path(p)) for p in paths]
+    try:
+        for path, data in zip(paths, files, strict=True):
+            missing = [name for name in ARRAYS if name not in data.files]
+            if missing:
+                raise ValueError(f"dataset {path} has no array {missing[0]!r}")
+        out = Path(out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+            for name in ARRAYS:
+                parts = [data[name] for data in files]
+                if name == "episode":
+                    shifts = np.cumsum([0] + [int(p.max()) + 1 if len(p) else 0 for p in parts])
+                    parts = [p + shift for p, shift in zip(parts, shifts, strict=False)]
+                joined = np.concatenate(parts)
+                del parts
+                with zf.open(f"{name}.npy", "w", force_zip64=True) as member:
+                    np.lib.format.write_array(member, joined, allow_pickle=False)
+                del joined
+    finally:
+        for data in files:
+            data.close()
 
 
 def build_dataset(

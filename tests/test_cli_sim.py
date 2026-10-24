@@ -17,7 +17,19 @@ TRACEBACK = "Traceback (most recent call last)"
 
 def sim(out: Path, *extra: str, games: str = "5", seed: str = "3"):
     return runner.invoke(
-        app, ["simulate", "--rules", "v2.1", "--games", games, "--seed", seed, "--out", str(out), *extra]
+        app,
+        [
+            "simulate",
+            "--rules",
+            "v2.1",
+            "--games",
+            games,
+            "--seed",
+            seed,
+            "--out",
+            str(out),
+            *extra,
+        ],
     )
 
 

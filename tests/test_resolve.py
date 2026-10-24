@@ -25,7 +25,9 @@ def test_resolve_takes_no_actions_and_moves_to_shop():
 def test_money_of_final_field_and_bonus_die_for_furthest():
     r = auto(brewed(20, 12), "point_1")
     assert r.state.players["p1"].money == 18  # v2.1 has no money die face: the face gives a point
-    assert r.state.players["p1"].points == RS.fields[scoring_field(20, RS)].points + 1  # field + die
+    assert (
+        r.state.players["p1"].points == RS.fields[scoring_field(20, RS)].points + 1
+    )  # field + die
     assert r.state.players["p2"].money == 13
     assert r.chance == [{"seat": "p1", "kind": "die", "value": "point_1"}]
 
@@ -232,16 +234,6 @@ def last_round(state, rnd=None):
     return state
 
 
-
-
-
-
-
-
-
-
-
-
 def test_round_1_money_is_unchanged():
     r = auto(last_round(brewed(34, 0), 1), "point_1")
     assert r.state.players["p1"].money == 25
@@ -250,5 +242,3 @@ def test_round_1_money_is_unchanged():
 def test_round_before_last_money_is_unchanged():
     r = auto(last_round(brewed(34, 0), RS.rounds - 1), "point_1")
     assert r.state.players["p1"].money == 25
-
-

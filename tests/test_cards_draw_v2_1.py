@@ -45,7 +45,9 @@ def test_card_11_draws_p1_then_p2_as_eight_draw_chip_events():
 
 def test_card_11_choose_yellow_2_gives_yellow_4():
     bag = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1, "white_3": 1}
-    out = start("card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
+    out = start(
+        "card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4
+    )
     assert out.state.phase is Phase.CARD_CHOICE
     assert legal_actions(out.state, RS, "p1") == ["card_upgrade:yellow_2", "card_upgrade:green_1"]
     assert legal_actions(out.state, RS, "p2") == [WAIT]
@@ -61,7 +63,9 @@ def test_card_11_choose_yellow_2_gives_yellow_4():
 
 def test_card_11_choose_green_1_gives_green_2():
     bag = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1, "white_3": 1}
-    out = start("card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
+    out = start(
+        "card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4
+    )
     done = choose(out, "card_upgrade:green_1", WAIT)
     p1 = done.state.players["p1"]
     assert p1.bag["green_2"] == 1 and "green_1" not in p1.bag
@@ -106,7 +110,9 @@ def test_card_11_value_4_chips_white_and_orange_are_not_upgradable():
 
 def test_card_11_a_chip_twice_in_the_draw_is_one_action_and_one_upgrade():
     bag = {"yellow_2": 2, "white_1": 4, "white_2": 1}
-    out = start("card_11", {"p1": bag}, ["yellow_2", "yellow_2", "white_1", "white_2"] + ["white_1"] * 4)
+    out = start(
+        "card_11", {"p1": bag}, ["yellow_2", "yellow_2", "white_1", "white_2"] + ["white_1"] * 4
+    )
     assert legal_actions(out.state, RS, "p1") == ["card_upgrade:yellow_2"]
     done = choose(out, "card_upgrade:yellow_2", WAIT)
     assert done.state.players["p1"].bag["yellow_2"] == 1
@@ -116,7 +122,11 @@ def test_card_11_a_chip_twice_in_the_draw_is_one_action_and_one_upgrade():
 def test_card_11_a_third_copy_of_a_chip_the_bag_holds_twice_is_illegal_chance():
     bag = {"yellow_2": 2, "white_1": 4, "white_2": 1}
     with pytest.raises(IllegalChance):
-        start("card_11", {"p1": bag}, ["yellow_2", "yellow_2", "yellow_2", "white_1"] + ["white_1"] * 4)
+        start(
+            "card_11",
+            {"p1": bag},
+            ["yellow_2", "yellow_2", "yellow_2", "white_1"] + ["white_1"] * 4,
+        )
 
 
 def test_card_11_a_failed_draw_leaves_the_input_state_untouched():
@@ -129,16 +139,24 @@ def test_card_11_a_failed_draw_leaves_the_input_state_untouched():
 
 def test_card_11_the_bag_is_whole_after_the_draw_and_the_choice_is_permanent():
     bag = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1}
-    out = start("card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
+    out = start(
+        "card_11", {"p1": bag}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4
+    )
     assert out.state.players["p1"].bag == bag  # the drawn chips are still in the bag
     assert out.state.players["p1"].card_draw == ["white_1", "white_2", "yellow_2", "green_1"]
     done = choose(out, "card_upgrade:yellow_2", WAIT)
-    assert Counter(done.state.players["p1"].bag) == Counter({**bag, "yellow_2": 0, "yellow_4": 1}) + Counter()
+    assert (
+        Counter(done.state.players["p1"].bag)
+        == Counter({**bag, "yellow_2": 0, "yellow_4": 1}) + Counter()
+    )
 
 
 def _state_with_opponent_draw(opp_draw):
-    out = start("card_11", {"p1": {"white_1": 4, "yellow_2": 1, "green_1": 1, "white_2": 1}}, [
-        "white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
+    out = start(
+        "card_11",
+        {"p1": {"white_1": 4, "yellow_2": 1, "green_1": 1, "white_2": 1}},
+        ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4,
+    )
     s = out.state
     s.players["p2"].card_draw = list(opp_draw)
     return s
@@ -157,7 +175,9 @@ def test_card_11_the_draw_is_visible_to_the_choosing_player_only():
         stream = io.StringIO()
         legal = legal_actions(s, RS, seat)
         key = next(iter(key_map(legal)))
-        HumanSeat("P", Console(file=stream, width=2000), True, RS, read_key=lambda: key).choose(s, seat, legal)
+        HumanSeat("P", Console(file=stream, width=2000), True, RS, read_key=lambda: key).choose(
+            s, seat, legal
+        )
         return stream.getvalue()
 
     assert view(a, "p1") == view(b, "p1")
@@ -173,7 +193,12 @@ def lowest(out):
 
 
 def test_card_20_clear_lowest_gets_blue_2_the_other_one_ruby():
-    out = start("card_20", chance=["white_1"] * 4 + ["white_2"] + ["white_3", "white_2", "white_2", "white_1", "white_1"])
+    out = start(
+        "card_20",
+        chance=["white_1"] * 4
+        + ["white_2"]
+        + ["white_3", "white_2", "white_2", "white_1", "white_1"],
+    )
     assert out.state.phase is Phase.BREW  # no question, no choice phase
     p1, p2 = lowest(out)  # p1: 6, p2: 9
     assert p1.bag.get("blue_2") == 1 and p1.rubies == RS.start_rubies
@@ -184,7 +209,11 @@ def test_card_20_clear_lowest_gets_blue_2_the_other_one_ruby():
 
 def test_card_20_the_higher_sum_gets_the_ruby_the_lower_the_blue_2():
     bag = {"white_1": 6, "white_2": 2, "white_3": 2}
-    out = start("card_20", {"p1": bag, "p2": bag}, ["white_3", "white_3", "white_2", "white_2", "white_1"] + ["white_1"] * 4 + ["white_2"])
+    out = start(
+        "card_20",
+        {"p1": bag, "p2": bag},
+        ["white_3", "white_3", "white_2", "white_2", "white_1"] + ["white_1"] * 4 + ["white_2"],
+    )
     p1, p2 = lowest(out)  # p1: 11, p2: 6
     assert p2.bag.get("blue_2") == 1 and "blue_2" not in p1.bag
     assert p1.rubies == RS.start_rubies + 1 and p2.rubies == RS.start_rubies
@@ -200,11 +229,19 @@ def test_card_20_tie_of_the_lowest_sum_both_take_blue_2_and_nobody_gets_a_ruby()
 
 def test_card_20_orange_6_counts_6():
     bag = {"orange_6": 1, "white_1": 4}
-    out = start("card_20", {"p1": bag, "p2": bag}, ["orange_6", "white_1", "white_1", "white_1", "white_1"] + ["white_1"] * 4 + ["orange_6"])
+    out = start(
+        "card_20",
+        {"p1": bag, "p2": bag},
+        ["orange_6", "white_1", "white_1", "white_1", "white_1"] + ["white_1"] * 4 + ["orange_6"],
+    )
     # both sum 10: a tie
     p1, p2 = lowest(out)
     assert p1.bag["blue_2"] == p2.bag["blue_2"] == 1
-    out = start("card_20", {"p1": bag, "p2": {"white_1": 5}}, ["orange_6", "white_1", "white_1", "white_1", "white_1"] + ["white_1"] * 5)
+    out = start(
+        "card_20",
+        {"p1": bag, "p2": {"white_1": 5}},
+        ["orange_6", "white_1", "white_1", "white_1", "white_1"] + ["white_1"] * 5,
+    )
     p1, p2 = lowest(out)  # p1: 10, p2: 5
     assert p2.bag["blue_2"] == 1 and p1.rubies == RS.start_rubies + 1
 
@@ -226,8 +263,22 @@ def test_the_new_actions_are_appended_at_the_end():
     tail = [*(f"card_place:{c.id}" for c in RS.chips), "use_card_17"]  # cards 10 and 17 come last
     assert names[-len(tail) :] == tail
     head = names[: -len(tail)]
-    assert head[-9:] == ["card_tail_points", *(f"card_upgrade:{c}" for c in (
-        "green_1", "green_2", "blue_1", "blue_2", "red_1", "red_2", "yellow_1", "yellow_2"))]
+    assert head[-9:] == [
+        "card_tail_points",
+        *(
+            f"card_upgrade:{c}"
+            for c in (
+                "green_1",
+                "green_2",
+                "blue_1",
+                "blue_2",
+                "red_1",
+                "red_2",
+                "yellow_1",
+                "yellow_2",
+            )
+        ),
+    ]
 
 
 def _play(seed, deck=None, cap=4000):

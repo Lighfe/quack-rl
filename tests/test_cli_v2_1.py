@@ -62,8 +62,21 @@ def test_own_hand_is_shown_and_the_other_hand_is_not():
 def test_cli_simulate_v2_runs_a_full_game(tmp_path):
     result = runner.invoke(
         app,
-        ["simulate", "--rules", "v2.1", "--p1", "bot:random", "--p2", "bot:random",
-         "--games", "2", "--seed", "3", "--out", str(tmp_path)],
+        [
+            "simulate",
+            "--rules",
+            "v2.1",
+            "--p1",
+            "bot:random",
+            "--p2",
+            "bot:random",
+            "--games",
+            "2",
+            "--seed",
+            "3",
+            "--out",
+            str(tmp_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert "Traceback" not in result.output
@@ -98,7 +111,8 @@ def test_cli_play_v2_full_game(tmp_path, monkeypatch):
 
     monkeypatch.setattr(human, "default_read_key", read)
     result = runner.invoke(
-        app, ["play", "--rules", "v2.1", "--seed", "2", "--out", str(tmp_path), "--p2", "bot:random"]
+        app,
+        ["play", "--rules", "v2.1", "--seed", "2", "--out", str(tmp_path), "--p2", "bot:random"],
     )
     out = result.output
     assert result.exit_code == 0, out

@@ -50,7 +50,11 @@ def test_invariants_hold_in_random_games(seed):
                     acquired[e["seat"]][item.chip] -= 1
             if e["kind"] == "card_remove_chip":  # card 14: a white 1 leaves the bag
                 acquired[e["seat"]][e["chip"]] -= 1
-            if e["kind"] in ("card_chip", "card_swap", "round_chip"):  # v2.1: cards 5, 6 and 7 put a chip into the bag
+            if e["kind"] in (
+                "card_chip",
+                "card_swap",
+                "round_chip",
+            ):  # v2.1: cards 5, 6 and 7 put a chip into the bag
                 acquired[e["seat"]][e["chip"]] += 1
             if e["kind"] == "die":
                 face = next(f for f in RS.die if f.id == e["face"])
