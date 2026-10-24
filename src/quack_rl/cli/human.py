@@ -24,16 +24,32 @@ from quack_rl.engine import (
     USE_FLASK,
     GameState,
 )
-from quack_rl.engine.actions import CARD_BLACK, CARD_CHIP_PREFIX, CARD_PURPLE
+from quack_rl.engine.actions import (
+    CARD_BLACK,
+    CARD_CHIP4_PREFIX,
+    CARD_CHIP_PREFIX,
+    CARD_PLACE_PREFIX,
+    CARD_POINTS,
+    CARD_POINTS_AMOUNT,
+    CARD_PURPLE,
+    CARD_REMOVE_WHITE,
+    CARD_SWAP_NO,
+    CARD_SWAP_PREFIX,
+    CARD_TAIL_POINTS,
+    CARD_TAILS_PREFIX,
+    CARD_UPGRADE_PREFIX,
+    USE_CARD_17,
+)
 from quack_rl.engine.state import Phase, scoring_field
 from quack_rl.rules import Ruleset
 
-# Skips d, s, m, p, r, t, k, f, l (fixed keys of other actions) so no key is used twice.
-BUY_KEYS = "123456789abceghijnoquvwxyz"
+# Skips d, s, m, p, r, t, k, f, l, u (fixed keys of other actions) so no key is used twice.
+BUY_KEYS = "123456789abceghijnoqvwxyz"
 PUT_BACK_DRAW_KEY = "r"
 PUT_BACK_STOP_KEY = "t"
 RUBY_DROP_KEY = "k"
 USE_FLASK_KEY = "f"
+USE_CARD_17_KEY = "u"
 REFILL_FLASK_KEY = "l"
 CONTINUE_KEY = "c"
 RESTART_KEY = "r"
@@ -67,6 +83,8 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys[RUBY_DROP_KEY] = RUBY_DROP
         elif action == USE_FLASK:
             keys[USE_FLASK_KEY] = USE_FLASK
+        elif action == USE_CARD_17:
+            keys[USE_CARD_17_KEY] = USE_CARD_17
         elif action == REFILL_FLASK:
             keys[REFILL_FLASK_KEY] = REFILL_FLASK
         elif action == CONTINUE:
@@ -117,11 +135,32 @@ class HumanSeat:
                 return f"play {slot}: {chip}"
             return f"play {slot}"
         if action == RUBY_DROP:
-            return f"ruby drop: {self.rs.ruby_cost} rubies for droplet +1"
+            return f"ruby drop: {self.rs.ruby_cost} rubies, droplet +1"
         if action == USE_FLASK:
-            return "use the flask: the last white chip goes back into the bag"
+            return "flask: last white chip back to bag"
+        if action == USE_CARD_17:
+            return "card 17: first white chip back to bag"
         if action == REFILL_FLASK:
-            return f"refill the flask: {self.rs.ruby_cost} rubies"
+            return f"refill flask: {self.rs.ruby_cost} rubies"
+        if action.startswith(CARD_TAILS_PREFIX):
+            n = int(action.removeprefix(CARD_TAILS_PREFIX))
+            return f"card 8: {n} rat tail{'s' * (n != 1)} for rubies" if n else "card 8: keep my rat tails"
+        if action.startswith(CARD_PLACE_PREFIX):
+            return f"card 10: place {chip_text(action.removeprefix(CARD_PLACE_PREFIX), self.rs).plain}"
+        if action.startswith(CARD_UPGRADE_PREFIX):
+            return f"card 11: upgrade {chip_text(action.removeprefix(CARD_UPGRADE_PREFIX), self.rs).plain}"
+        if action.startswith(CARD_SWAP_PREFIX):
+            return f"card 12: ruby for a {self._colour(action.removeprefix(CARD_SWAP_PREFIX))} 1"
+        if action == CARD_SWAP_NO:
+            return "card 12: no swap"
+        if action == CARD_POINTS:
+            return f"card 14: {CARD_POINTS_AMOUNT} points"
+        if action == CARD_REMOVE_WHITE:
+            return "card 14: remove a white 1 from the bag"
+        if action.startswith(CARD_CHIP4_PREFIX):
+            return f"card 19: a {self._colour(action.removeprefix(CARD_CHIP4_PREFIX))} 4 into the bag"
+        if action == CARD_TAIL_POINTS:
+            return "card 19: points for rat tails"
         if action == CONTINUE:
             return "continue brewing"
         if action == RESTART:
@@ -145,6 +184,9 @@ class HumanSeat:
             item = self.rs.shop_item(action.removeprefix(BUY_PREFIX))
             return f"buy {item.id} ({item.price})"
         return action
+
+    def _colour(self, chip_id: str) -> str:
+        return self.rs.chip(chip_id).colour
 
     def _card_chip(self, colour: str, value: int) -> str:
         return next(c.id for c in self.rs.chips if c.colour == colour and c.value == value)

@@ -37,6 +37,8 @@ from quack_rl.tournament import (
     write_run,
 )
 
+PLAY_SEAT_HELP = "Seat {}: human, bot:random or bot:draw<percent>-pts<round>-<strategy> (see above)."
+
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
 
 
@@ -284,8 +286,8 @@ def replay(
 
 @app.command()
 def play(
-    p1: Annotated[str, typer.Option(help="Seat p1 (human or bot:random).")] = "human",
-    p2: Annotated[str, typer.Option(help="Seat p2 (human or bot:random).")] = "bot:random",
+    p1: Annotated[str, typer.Option(help=PLAY_SEAT_HELP.format("p1"))] = "human",
+    p2: Annotated[str, typer.Option(help=PLAY_SEAT_HELP.format("p2"))] = "bot:random",
     seed: Annotated[int | None, typer.Option(help="Chance seed (random when not given).")] = None,
     bag_assist: Annotated[
         bool, typer.Option("--bag-assist/--no-bag-assist", help="Show the bag contents.")
@@ -298,7 +300,10 @@ def play(
     ] = None,
     out: Annotated[Path, typer.Option(help="Record root folder.")] = Path("data/records"),
 ) -> None:
-    """Play a recorded game in the terminal (human vs bot, or hot seat with two humans)."""
+    """Play a recorded game in the terminal (human vs bot, or hot seat with two humans).
+
+    Seat specs for --p1 and --p2: human, bot:random, bot:draw<percent>-pts<round>-<strategy>.
+    """
     console = Console()
     # Check every input before the record file is created.
     for option, spec in (("--p1", p1), ("--p2", p2)):

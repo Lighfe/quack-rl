@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from quack_rl.cli import human
 from quack_rl.cli.human import HumanSeat
 from quack_rl.cli.main import app
-from quack_rl.cli.render import render_board, render_step
+from quack_rl.cli.render import chip_text, render_board, render_step
 from quack_rl.engine import DRAW, STOP, Phase, StepResult, buy, new_game
 from quack_rl.record import read_games, verify_game
 
@@ -410,3 +410,186 @@ def test_flask_keys_are_their_own_and_the_board_shows_the_flask():
     assert key_map(["done", REFILL_FLASK])[REFILL_FLASK_KEY] == REFILL_FLASK
     assert USE_FLASK_KEY not in BUY_KEYS and REFILL_FLASK_KEY not in BUY_KEYS
     assert board(width=120).count("flask full") == 2
+
+
+# --- v2.1 actions: keys, texts, scripted games (issue #191) ---------------------
+
+
+def test_new_actions_get_distinct_keys():
+    from quack_rl.cli.human import USE_CARD_17_KEY, key_map
+    from quack_rl.engine import REFILL_FLASK, RUBY_DROP, USE_FLASK
+    from quack_rl.engine.actions import USE_CARD_17
+
+    legal = [USE_FLASK, USE_CARD_17, RUBY_DROP, REFILL_FLASK]
+    keys = key_map(legal)
+    assert len(keys) == len(legal)
+    assert keys[USE_CARD_17_KEY] == USE_CARD_17
+    shop = ["done", RUBY_DROP, REFILL_FLASK, *[buy(i.id) for i in RS.shop]]
+    assert len(key_map(shop)) == len(shop)
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "use_flask", "use_card_17", "ruby_drop", "refill_flask", "card_tails:2", "card_tails:0",
+        "card_place:blue_2", "card_upgrade:green_1", "card_swap:green_1", "card_swap_no",
+        "card_points", "card_remove_white", "card_chip4:red_4", "card_tail_points",
+    ],
+)
+def test_describe_new_actions_is_short_text(action):
+    seat, _ = seat_with("")
+    text = seat._describe(action)
+    assert text != action and 0 < len(text) <= 45
+
+
+def test_play_help_names_the_three_seat_forms():
+    out = runner.invoke(app, ["play", "--help"]).output
+    out = " ".join(out.split())
+    assert "human" in out and "bot:random" in out
+    assert "bot:draw<percent>-pts<round>-<strategy>" in out
+
+
+def policy_reader(monkeypatch, prefer, log):
+    """Scripted keys: take each action of `prefer` once when it is legal, else a plain choice."""
+    last = {}
+    original = HumanSeat.choose
+    used: set[str] = set()
+
+    def spy(self, state, seat, legal):
+        last["legal"] = list(legal)
+        return original(self, state, seat, legal)
+
+    def read():
+        legal = last["legal"]
+        by_action = {a: k for k, a in human.key_map(legal).items()}
+        for action in prefer:
+            if action in legal and action not in used:
+                used.add(action)
+                log.append(action)
+                return by_action[action]
+        for action in ("done", "take_money", "stop"):
+            if action in legal:
+                return by_action[action]
+        return by_action[legal[0]]
+
+    monkeypatch.setattr(HumanSeat, "choose", spy)
+    monkeypatch.setattr(human, "default_read_key", read)
+
+
+def test_scripted_game_with_heuristic_bot_uses_flask_and_ruby_drop(tmp_path, monkeypatch):
+    log: list[str] = []
+    policy_reader(monkeypatch, ["use_flask", "ruby_drop"], log)
+    result = play(tmp_path, "--p2", "bot:draw20-pts1-points", "--rounds", "4", seed="1")
+    assert result.exit_code == 0, result.output
+    _, game = only_game(tmp_path)
+    assert game.footer is not None and verify_game(game) == []
+    assert log == ["use_flask", "ruby_drop"]
+    recorded = [s.actions["p1"] for s in game.steps if s.actions and "p1" in s.actions]
+    assert "use_flask" in recorded and "ruby_drop" in recorded
+
+
+# --- one round for each card with a question ------------------------------------
+
+
+def _card_start(card, **setup):
+    s = new_game(RS)
+    for seat, vals in setup.items():
+        for k, v in vals.items():
+            setattr(s.players[seat], k, v)
+    return s
+
+
+def _ask(state, expected_text, expected_action, p2=None, chance=()):
+    """p1 answers with the key shown for `expected_action`; returns the state after the step."""
+    from quack_rl.engine import ScriptedChance, legal_actions, step
+
+    legal = legal_actions(state, RS, "p1")
+    key = next(k for k, a in human.key_map(legal).items() if a == expected_action)
+    seat, stream = seat_with(key)
+    assert seat.choose(state, "p1", legal) == expected_action
+    assert f"[{key}] {expected_text}" in " ".join(stream.getvalue().split())
+    other = p2 or legal_actions(state, RS, "p2")[0]
+    return step(state, RS, {"p1": expected_action, "p2": other}, ScriptedChance(chance)).state
+
+
+def _after_card(card, bags=None, chance=(), **setup):
+    from quack_rl.engine import ScriptedChance, step
+
+    s = _card_start(card, **setup)
+    for seat, bag in (bags or {}).items():
+        s.players[seat].bag = dict(bag)
+    return step(s, RS, None, ScriptedChance([card, *chance]))
+
+
+def test_every_card_question_is_shown_and_its_answer_is_applied():
+    from quack_rl.engine import DRAW, STOP, ScriptedChance, step
+
+    # card 5: three rubies
+    s = _after_card("card_5").state
+    done = _ask(s, "3 rubies", "card_rubies")
+    assert done.players["p1"].rubies == RS.start_rubies + 3
+    # card 8: p1 trails by 13 points, gives up 2 rat tails
+    out = _after_card("card_8", p1={"points": 0}, p2={"points": 13})
+    done = _ask(out.state, "card 8: 2 rat tails for rubies", "card_tails:2")
+    assert done.players["p1"].rubies > RS.start_rubies
+    # card 10: both stop after one chip, p1 places one of the 5 drawn chips
+    bag = {"white_1": 4, "white_2": 2, "green_1": 2}
+    s = _card_start("card_10")
+    s.players["p1"].bag, s.players["p2"].bag = dict(bag), dict(bag)
+    s = step(s, RS, None, ScriptedChance(["card_10"])).state
+    s = step(s, RS, {"p1": DRAW, "p2": DRAW}, ScriptedChance(["white_1", "white_1"])).state
+    drawn = ["green_1", "green_1", "white_1", "white_2", "white_2"]
+    p2_drawn = ["white_1", "white_1", "white_1", "white_2", "white_2"]
+    out = step(s, RS, {"p1": STOP, "p2": STOP}, ScriptedChance([*drawn, *p2_drawn]))
+    chip = chip_text("green_1", RS).plain
+    done = _ask(out.state, f"card 10: place {chip}", "card_place:green_1")
+    assert done.phase is not Phase.CARD_CHOICE
+    # card 11: upgrade green_1 to green_2
+    b11 = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1, "white_3": 1}
+    out = _after_card("card_11", {"p1": b11}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
+    chip = chip_text("green_1", RS).plain
+    done = _ask(out.state, f"card 11: upgrade {chip}", "card_upgrade:green_1")
+    assert done.players["p1"].bag["green_2"] == 1
+    # card 12: a ruby for a white 1
+    out = _after_card("card_12", p2={"rubies": 0})
+    before = out.state.players["p1"].rubies
+    done = _ask(out.state, "card 12: ruby for a white 1", "card_swap:white_1")
+    assert done.players["p1"].rubies == before - 1
+    # card 14: 4 points
+    out = _after_card("card_14")
+    done = _ask(out.state, "card 14: 4 points", "card_points")
+    assert done.players["p1"].points == 4
+    # card 19: a value-4 chip
+    out = _after_card("card_19")
+    done = _ask(out.state, "card 19: a green 4 into the bag", "card_chip4:green_4")
+    assert done.players["p1"].bag["green_4"] == 1
+
+
+def test_scripted_card_17_decision_puts_the_first_white_chip_back():
+    from quack_rl.engine import DRAW, ScriptedChance, legal_actions, step
+    from quack_rl.engine.actions import USE_CARD_17
+
+    s = new_game(RS)
+    s.players["p1"].bag = s.players["p2"].bag = {"white_1": 4, "white_2": 2, "green_1": 2}
+    s = step(s, RS, None, ScriptedChance(["card_17"])).state
+    for p in s.players.values():
+        p.flask_full = False
+    s = step(s, RS, {"p1": DRAW, "p2": DRAW}, ScriptedChance(["white_2", "white_1"])).state
+    legal = legal_actions(s, RS, "p1")
+    assert USE_CARD_17 in legal
+    done = _ask(s, "card 17: first white chip back to bag", USE_CARD_17, p2=DRAW, chance=["white_1"])
+    assert done.players["p1"].placed == []
+
+
+def test_board_shows_rubies_flask_and_the_card_line_but_no_hidden_hand():
+    from quack_rl.engine import ScriptedChance, step
+
+    s = step(new_game(RS), RS, None, ScriptedChance(["card_14"])).state
+    s.players["p1"].rubies, s.players["p2"].rubies = 3, 0
+    s.players["p2"].flask_full = False
+    s.players["p2"].hand = ["yellow_2"]
+    text = board(s)
+    assert "rubies 3" in text and "rubies 0" in text
+    assert "flask full" in text and "flask empty" in text
+    assert "card: card_14 (" in text and "deck:" in text
+    assert "hand" not in text and "Y2" not in text

@@ -28,10 +28,19 @@ Requires [uv](https://docs.astral.sh/uv/).
     uv run quack-rl play --p2 human               # hot seat on one keyboard
     uv run quack-rl play --no-bag-assist          # hide the bag contents
     uv run quack-rl play --rounds 4               # a shorter game (default 9)
+    uv run quack-rl play --p2 bot:draw20-pts1-points   # against a heuristic bot
 
 The game is played with ruleset `v2.1`, the only ruleset and the default. `--rules v2` is an error: v2 is archived.
 
-Keys: `d` draw, `s` stop, `0` done shopping, `1`-`9`/`a`-`c` buy. Your key is not shown.
+Keys: `d` draw, `s` stop, `0` done shopping, `1`-`9` and letters buy. Your key is not shown. The menu lists the keys that are legal now:
+
+- `f` flask: the last white chip goes back to the bag (brew)
+- `u` card 17: the first white chip goes back to the bag (brew)
+- `k` ruby drop: rubies for droplet +1 (shop)
+- `l` refill the empty flask for rubies (shop)
+- `1`, `2`, ... answer a card question (cards 5, 8, 10, 11, 12, 14, 19)
+
+Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
 
 ## RL environment
 
