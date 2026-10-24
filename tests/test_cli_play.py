@@ -521,6 +521,23 @@ def _after_card(card, bags=None, chance=(), **setup):
     return step(s, RS, None, ScriptedChance([card, *chance]))
 
 
+def _finish_round(state, start_round):
+    """Play the rest of the round with plain choices (stop, done, take_money, else the first legal action)."""
+    from quack_rl.engine import RngChance, legal_actions, step
+
+    chance = RngChance(7)
+    for _ in range(500):
+        if state.round > start_round or state.phase is Phase.GAME_OVER:
+            return state
+        joint = {}
+        for seat in ("p1", "p2"):
+            legal = legal_actions(state, RS, seat)
+            if legal:
+                joint[seat] = next((a for a in ("stop", "done", "take_money") if a in legal), legal[0])
+        state = step(state, RS, joint or None, chance).state
+    raise AssertionError("the round did not end")
+
+
 def test_every_card_question_is_shown_and_its_answer_is_applied():
     from quack_rl.engine import DRAW, STOP, ScriptedChance, step
 
@@ -528,10 +545,12 @@ def test_every_card_question_is_shown_and_its_answer_is_applied():
     s = _after_card("card_5").state
     done = _ask(s, "3 rubies", "card_rubies")
     assert done.players["p1"].rubies == RS.start_rubies + 3
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 8: p1 trails by 13 points, gives up 2 rat tails
     out = _after_card("card_8", p1={"points": 0}, p2={"points": 13})
     done = _ask(out.state, "card 8: 2 rat tails for rubies", "card_tails:2")
     assert done.players["p1"].rubies > RS.start_rubies
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 10: both stop after one chip, p1 places one of the 5 drawn chips
     bag = {"white_1": 4, "white_2": 2, "green_1": 2}
     s = _card_start("card_10")
@@ -544,25 +563,31 @@ def test_every_card_question_is_shown_and_its_answer_is_applied():
     chip = chip_text("green_1", RS).plain
     done = _ask(out.state, f"card 10: place {chip}", "card_place:green_1")
     assert done.phase is not Phase.CARD_CHOICE
+    assert "green_1" in done.players["p1"].placed
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 11: upgrade green_1 to green_2
     b11 = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1, "white_3": 1}
     out = _after_card("card_11", {"p1": b11}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
     chip = chip_text("green_1", RS).plain
     done = _ask(out.state, f"card 11: upgrade {chip}", "card_upgrade:green_1")
     assert done.players["p1"].bag["green_2"] == 1
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 12: a ruby for a white 1
     out = _after_card("card_12", p2={"rubies": 0})
     before = out.state.players["p1"].rubies
     done = _ask(out.state, "card 12: ruby for a white 1", "card_swap:white_1")
     assert done.players["p1"].rubies == before - 1
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 14: 4 points
     out = _after_card("card_14")
     done = _ask(out.state, "card 14: 4 points", "card_points")
     assert done.players["p1"].points == 4
+    assert _finish_round(done, done.round).round == done.round + 1
     # card 19: a value-4 chip
     out = _after_card("card_19")
     done = _ask(out.state, "card 19: a green 4 into the bag", "card_chip4:green_4")
     assert done.players["p1"].bag["green_4"] == 1
+    assert _finish_round(done, done.round).round == done.round + 1
 
 
 def test_scripted_card_17_decision_puts_the_first_white_chip_back():
