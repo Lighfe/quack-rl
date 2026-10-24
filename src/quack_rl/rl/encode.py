@@ -1,11 +1,12 @@
 """Observation of one seat: a readable dict, a flat float32 vector and an action mask.
 
 The view holds only what the seat may know: no draw order, no opponent bag, no simultaneous
-choice of the opponent. The one observation layout is number 7 (`BOARD_LAYOUT`): a board map
-of the placed chips with the money, points and ruby of every field, both bags (remaining and
-complete), the rule scalars, derived features, the hand, the shop, the card block and the point
-board block (`docs/specs/2026-10-22-ruleset-v2.md`). The layouts 2 to 6 are archived
-(`archive/src/quack_rl/rl/encode.py`).
+choice of the opponent. The one observation layout is number 8 (`BOARD_LAYOUT`): a look-ahead
+window of the fields from the own scoring field on (money, points, ruby), a board map of the
+placed chips (no static field table), both bags (remaining and complete), the rule scalars,
+derived features with the field and points gaps, the hand, the shop, the card block and the point
+board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`). The layouts 2 to 6 are archived in
+`archive/src/quack_rl/rl/encode.py`, the layout before it in `archive/src/quack_rl/rl/encode_layout7.py`.
 """
 
 from typing import Any
@@ -30,27 +31,29 @@ from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
-BOARD_LAYOUT = 7
+BOARD_LAYOUT = 8
+LOOKAHEAD = 10  # default K: the window holds the fields k = 0 ... K
 PHASES = [p.value for p in Phase]
 RESTART_EFFECT = "restart_after_5"
 LIMIT_PLUS_2_EFFECT = "explosion_limit_plus_2"
 STATUSES = [s.value for s in Status]
 _SCALARS = (
     "money",
+    "rubies",
+    "flask_full",
     "white_total",
-    "ruby_fields_ahead",
     "points",
     "droplet_halves",
     "purchases",
     "chip_purchases",
     "shop_done",
 )
-# Map channels per field: money, points, ruby, then own and opponent: colour flags, value, order.
+# Map channels per field, for own and opponent: colour flags, value, order.
 MAP_COLOURS = 8  # colour flags per chip in the map: the eight colours of the ruleset
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: always 7, the only layout. The version name is not read."""
+    """The layout number of a ruleset: always 8, the only layout. The version name is not read."""
     return BOARD_LAYOUT
 
 
@@ -63,9 +66,8 @@ def map_colours(rs: Ruleset) -> int:
 
 
 def map_channels(rs: Ruleset) -> int:
-    """Map channels per field: money, points, ruby, then own and opponent: colour flags, value,
-    order."""
-    return 3 + 2 * (map_colours(rs) + 2)
+    """Map channels per field, for own and opponent: colour flags, value, order."""
+    return 2 * (map_colours(rs) + 2)
 
 
 def phases(rs: Ruleset) -> list[str]:
@@ -123,14 +125,20 @@ def _board(p: PlayerState) -> dict[int, dict[str, Any]]:
     return board
 
 
+def _ahead(p: PlayerState, rs: Ruleset, k_max: int) -> list[dict[str, int]]:
+    """The window of the player: the fields `scoring field + k` for k = 0 ... k_max. Past
+    `track_end` the last field repeats."""
+    start = scoring_field(p.field, rs)
+    cells = (rs.fields[min(start + k, rs.track_end)] for k in range(k_max + 1))
+    return [{"money": f.money, "points": f.points, "ruby": int(f.ruby)} for f in cells]
+
+
 def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
-    ahead = sum(
-        1 for f in range(scoring_field(p.field, rs), rs.track_end + 1) if rs.fields[f].ruby
-    )
     return {
         "money": p.money,
+        "rubies": p.rubies,
+        "flask_full": p.flask_full,
         "white_total": p.white_total,
-        "ruby_fields_ahead": ahead,
         "points": p.points,
         "status": p.status.value,
         "droplet_halves": p.droplet_halves,
@@ -144,9 +152,10 @@ def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
     }
 
 
-def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
+def observe(state: GameState, rs: Ruleset, seat: str, k_max: int = LOOKAHEAD) -> dict[str, Any]:
     """The view of `seat`. The draw order of the bags and the opponent's pending choice are
-    not part of it; both bags and the placed chips are public."""
+    not part of it; both bags and the placed chips are public. `ahead` is the look-ahead window
+    of `seat` with `k_max + 1` cells; the opponent has none (`field_gap` covers it)."""
     own = _public(state.players[seat], rs)
     opponent = _public(state.players[other_seat(seat)], rs)
     if has_hand(rs):
@@ -159,6 +168,7 @@ def observe(state: GameState, rs: Ruleset, seat: str) -> dict[str, Any]:
         "own": own,
         "opponent": opponent,
         "derived": derived(state, rs, seat),
+        "ahead": _ahead(state.players[seat], rs, k_max),
     }
     # the card and the deck are open; the drop of card 5 at round end is open once the
     # choice has resolved (the choice phase is over); a pending choice is not stored
@@ -267,13 +277,18 @@ def _board_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     return [*values, *obs["board"]["tails"]]
 
 
+def _ahead_names(k_max: int) -> list[str]:
+    return [f"ahead.{k}.{c}" for k in range(k_max + 1) for c in ("money", "points", "ruby")]
+
+
+def _ahead_values(obs: dict[str, Any]) -> list[float]:
+    return [cell[c] for cell in obs["ahead"] for c in ("money", "points", "ruby")]
+
+
 def _map_names(rs: Ruleset) -> list[str]:
     colours = _colours(rs)
     names = []
     for f in range(rs.track_end + 1):
-        names.append(f"map.{f}.money")
-        names.append(f"map.{f}.points")
-        names.append(f"map.{f}.ruby")
         for who in ("own", "opponent"):
             names += [f"map.{f}.{who}.colour.{c}" for c in colours]
             names += [f"map.{f}.{who}.value", f"map.{f}.{who}.order"]
@@ -290,8 +305,9 @@ def _player_names(prefix: str, rs: Ruleset) -> list[str]:
     ]
 
 
-def vector_names(rs: Ruleset) -> list[str]:
-    """One name per entry of the vector. Depends only on the ruleset. The map block is last."""
+def vector_names(rs: Ruleset, k_max: int = LOOKAHEAD) -> list[str]:
+    """One name per entry of the vector. Depends only on the ruleset and `k_max`. The window
+    block comes before the map block, which is last."""
     return [
         "round",
         "rounds",
@@ -304,14 +320,15 @@ def vector_names(rs: Ruleset) -> list[str]:
         *_shop_names(rs),
         *_card_names(rs),
         *_board_names(rs),
+        *_ahead_names(k_max),
         *_map_names(rs),
     ]
 
 
-def map_slice(rs: Ruleset) -> slice:
+def map_slice(rs: Ruleset, k_max: int = LOOKAHEAD) -> slice:
     """The map block: `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`."""
     n = (rs.track_end + 1) * map_channels(rs)
-    total = len(vector_names(rs))
+    total = len(vector_names(rs, k_max))
     return slice(total - n, total)
 
 
@@ -329,9 +346,6 @@ def _map_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
     colours = _colours(rs)
     values: list[float] = []
     for f in range(rs.track_end + 1):
-        values.append(rs.fields[f].money)
-        values.append(rs.fields[f].points)
-        values.append(rs.fields[f].ruby)
         for who in ("own", "opponent"):
             slot = obs[who]["board"].get(f)
             if slot is None:
@@ -356,12 +370,13 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *_shop_values(obs, rs),
         *_card_values(obs, rs),
         *_board_values(obs, rs),
+        *_ahead_values(obs),
         *_map_values(obs, rs),
     ]
     return np.asarray(values, dtype=np.float32)
 
 
-def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
+def observation_bounds(rs: Ruleset, k_max: int = LOOKAHEAD) -> tuple[np.ndarray, np.ndarray]:
     """(low, high) per vector entry, `float32`. Finite where the bound is real (flags, fields,
     ruleset constants, counts the ruleset limits), `inf` where it is not (points, bag counts:
     shops can add chips)."""
@@ -370,8 +385,9 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
     max_points = float(rs.point_board.max_points)
     scalar_high = {
         "money": inf,
+        "rubies": inf,
+        "flask_full": 1.0,
         "white_total": inf,
-        "ruby_fields_ahead": float(sum(1 for f in rs.fields if f.ruby)),
         "points": max_points,
         "droplet_halves": inf,
         "purchases": inf,
@@ -385,13 +401,18 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *[inf] * (2 * len(rs.chips)),
     ]
     max_value = float(max(c.value for c in rs.chips))
-    cell = [float(max(f.money for f in rs.fields)), float(max(f.points for f in rs.fields)), 1.0]
+    cell: list[float] = []
     for _ in range(2):
         cell += [1.0] * len(_colours(rs)) + [max_value, inf]
+    ahead_high = [
+        float(max(f.money for f in rs.fields)),
+        float(max(f.points for f in rs.fields)),
+        1.0,
+    ] * (k_max + 1)
     # A seat explodes on the draw that passes the limit, so its white total ends below
     # limit + the largest explosion weight of a chip.
     max_weight = max(get_component(rs.component_name(c)).explosion_weight(c) for c in rs.chips)
-    # Derived entries. `limit_distance` is negative after an explosion; `point_delta` has no bound.
+    # Derived entries. `limit_distance` is negative after an explosion; `points_gap` and `field_gap` have no bound.
     derived_bounds = {
         "scoring_field": (0.0, float(rs.track_end)),
         "ruby_at_scoring_field": (0.0, 1.0),
@@ -400,7 +421,8 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         "explosion_chance": (0.0, 1.0),
         "rolls_die": (0.0, 1.0),
         "chips_placed": (0.0, inf),
-        "point_delta": (-inf, inf),
+        "field_gap": (-float(rs.track_end), float(rs.track_end)),
+        "points_gap": (-inf, inf),
         "field_points": (0.0, float(max(f.points for f in rs.fields))),
         "last_round": (0.0, 1.0),
     }
@@ -429,6 +451,7 @@ def observation_bounds(rs: Ruleset) -> tuple[np.ndarray, np.ndarray]:
         *shop_high,
         *card_high,
         *board_high,
+        *ahead_high,
         *cell * (rs.track_end + 1),
     ]
     n_before = 3 + len(phases(rs)) + 2 * len(player)

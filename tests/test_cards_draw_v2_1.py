@@ -148,7 +148,7 @@ def test_card_11_the_draw_is_visible_to_the_choosing_player_only():
     a = _state_with_opponent_draw(["white_1"] * 4)
     b = _state_with_opponent_draw(["white_1", "white_1", "white_2", "white_3"])
     assert a.players["p2"].card_draw != b.players["p2"].card_draw
-    # the observation of p1 (layout 7) and its text render are equal
+    # the observation of p1 (layout 8) and its text render are equal
     va = vectorize(observe(a, RS, "p1"), RS)
     vb = vectorize(observe(b, RS, "p1"), RS)
     assert (va == vb).all()

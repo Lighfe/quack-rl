@@ -122,8 +122,8 @@ def test_other_features():
     state.players["p1"].white_total = 4
     state.players["p1"].placed = ["white_1", "white_1"]
     d = derived(state, rs, "p1")
-    assert d["point_delta"] == -3
-    assert derived(state, rs, "p2")["point_delta"] == 3
+    assert d["points_gap"] == -3
+    assert derived(state, rs, "p2")["points_gap"] == 3
     assert d["own.limit_distance"] == rs.explosion_limit - 4
     assert d["own.chips_placed"] == 2 and d["opponent.chips_placed"] == 0
     assert d["own.scoring_field"] == 13
@@ -132,7 +132,7 @@ def test_other_features():
 
 def test_names_are_generic():
     names = derived_names()
-    assert len(set(names)) == len(names) == 17
+    assert len(set(names)) == len(names) == 18
     rs = load_ruleset("v2.1")
     colours = {c.colour for c in rs.chips} | {c.id for c in rs.chips}
     for n in names:

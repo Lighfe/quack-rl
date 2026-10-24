@@ -108,7 +108,8 @@ def test_observation_content():
         "board",
         "money",
         "white_total",
-        "ruby_fields_ahead",
+        "rubies",
+        "flask_full",
         "points",
         "status",
         "droplet_halves",
@@ -116,9 +117,9 @@ def test_observation_content():
         "chip_colours",
     }
     assert "bag" not in obs["opponent"] and "placed" not in obs["own"] and "field" not in obs["own"]
-    assert obs["own"]["ruby_fields_ahead"] == sum(f.ruby for f in rs.fields)
-    state.players["p1"].field = 12  # scoring field 13: rubies 13.. are ahead
-    assert observe(state, rs, "p1")["own"]["ruby_fields_ahead"] == sum(f.ruby for f in rs.fields) - 2
+    assert not [k for k in obs["own"] if k.startswith("ruby_fields")]
+    assert obs["own"]["rubies"] == state.players["p1"].rubies
+    assert obs["own"]["flask_full"] is True
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -181,13 +182,14 @@ def _place_events(rs, seed):
 def test_names_unique_and_layout_version(version):
     rs = load_ruleset(version)
     names = vector_names(rs)
-    assert observation_layout(rs) == 7
+    assert observation_layout(rs) == 8
     assert len(set(names)) == len(names)
     assert names == vector_names(load_ruleset(version))
     sl = map_slice(rs)
     assert sl.stop == len(names)
     assert (sl.stop - sl.start) == (rs.track_end + 1) * map_channels(rs)
-    assert names[sl.start] == "map.0.money"
+    assert names[sl.start] == "map.0.own.colour.white"
+    assert not [n for n in names if n.startswith("map.") and n.endswith((".money", ".points", ".ruby"))]
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -209,12 +211,9 @@ def test_map_matches_place_events(version):
                     for order, e in enumerate(events[s], start=1):
                         expected[who][e["to"]] = (rs.chip(e["chip"]), order)
                 for f in range(rs.track_end + 1):
-                    # layout 7: money, points and ruby, then the cells of both seats
-                    assert grid[f, 0] == rs.fields[f].money
-                    assert grid[f, 1] == rs.fields[f].points
-                    assert grid[f, 2] == rs.fields[f].ruby
+                    # layout 8: the cells of both seats, no field table
                     for k, who in enumerate(("own", "opponent")):
-                        cell = grid[f, 3 + k * (len(colours) + 2) :][: len(colours) + 2]
+                        cell = grid[f, k * (len(colours) + 2) :][: len(colours) + 2]
                         if f in expected[who]:
                             chip, order = expected[who][f]
                             flags = [float(chip.colour == c) for c in colours]
@@ -235,7 +234,7 @@ def test_two_chips_on_track_end_later_chip_fills_the_slot():
     vec = vectorize(observe(state, rs, "p1"), rs)
     grid = vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))
     colours = list(dict.fromkeys(c.colour for c in rs.chips))
-    cell = grid[rs.track_end, 3 : 3 + len(colours) + 2]
+    cell = grid[rs.track_end, : len(colours) + 2]
     assert list(cell) == [1.0, *[0.0] * (len(colours) - 1), rs.chip("white_1").value, 2.0]
 
 
@@ -273,7 +272,7 @@ def test_removed_entries_and_kept_entries(version):
     for who in ("own", "opponent"):
         assert not [n for n in names if n.startswith(f"{who}.placed.")]
         assert f"{who}.field" not in names
-        for k in ("points", "droplet_halves", "white_total", "ruby_fields_ahead", "money"):
+        for k in ("points", "droplet_halves", "white_total", "rubies", "flask_full", "money"):
             assert f"{who}.{k}" in names
         assert f"{who}.status.exploded" in names
     assert "round" in names and "phase.brew" in names
@@ -288,7 +287,8 @@ def test_vector_lies_inside_the_bounds(version):
     names = vector_names(rs)
     assert high[names.index("own.points")] == 100  # v2.1 caps the points at 100
     assert high[names.index("own.status.exploded")] == 1
-    assert np.isfinite(high[names.index("own.ruby_fields_ahead")])
+    assert np.isfinite(high[names.index("own.flask_full")])
+    assert np.isfinite(high[names.index("ahead.10.money")])
     for seed in range(5):
         for state in random_game(rs, seed):
             for seat in ("p1", "p2"):

@@ -22,7 +22,7 @@ SEAT_FEATURES = (
     "rolls_die",
     "chips_placed",
 )
-SHARED_FEATURES = ("point_delta",)
+SHARED_FEATURES = ("field_gap", "points_gap")
 CHOICE_FEATURES = ("own.field_points", "last_round")
 
 
@@ -44,8 +44,9 @@ def _money_if_stop(p: PlayerState, state: GameState, rs: Ruleset) -> int:
 
 
 def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
-    """Derived features of `seat` ("own.*"), of its opponent ("opponent.*") and "point_delta"
-    (own points minus opponent points)."""
+    """Derived features of `seat` ("own.*"), of its opponent ("opponent.*") and the shared
+    "field_gap" (own field minus opponent field) and "points_gap" (own points minus opponent
+    points)."""
     other = SEATS[1] if seat == SEATS[0] else SEATS[0]
     players = {"own": state.players[seat], "opponent": state.players[other]}
     fields = {who: scoring_field(p.field, rs) for who, p in players.items()}
@@ -63,7 +64,8 @@ def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
         out[f"{who}.explosion_chance"] = explosion_chance(p.bag, p.white_total, rs, limit=limit)
         out[f"{who}.rolls_die"] = float(p.status is not Status.EXPLODED and fields[who] == best)
         out[f"{who}.chips_placed"] = len(p.placed)
-    out["point_delta"] = players["own"].points - players["opponent"].points
+    out["field_gap"] = players["own"].field - players["opponent"].field
+    out["points_gap"] = players["own"].points - players["opponent"].points
     out["own.field_points"] = rs.fields[fields["own"]].points
     out["last_round"] = float(state.round == rs.rounds)
     return out
