@@ -32,7 +32,7 @@ def write_record(version: str, out: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     header = HeaderLine(
         game_id=f"golden-{version}-seed7",
-        schema_version=1,
+        schema_version=2,
         rules_version=version,
         rounds=rs.rounds,
         seed=7,

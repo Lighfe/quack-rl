@@ -290,6 +290,7 @@ def seat_columns(rs: Ruleset) -> list[str]:
         *(f"money_r{k}" for k in rounds),
         *(f"points_r{k}" for k in rounds),
         *(f"bag_{c.id}" for c in rs.chips),
+        "rubies",
     ]
 
 
@@ -321,6 +322,7 @@ def seat_rows(
         player = final.players[seat]
         for chip in rs.chips:
             seat_row[f"bag_{chip.id}"] = player.owned(chip.id)
+        seat_row["rubies"] = player.rubies
         out.append(seat_row)
     return out
 

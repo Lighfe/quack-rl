@@ -455,6 +455,7 @@ def _expected_schema(rounds: int, rules: str = "v2.1"):
     fields += [(f"money_r{k}", pa.int64()) for k in range(1, rounds + 1)]
     fields += [(f"points_r{k}", pa.int64()) for k in range(1, rounds + 1)]
     fields += [(f"bag_{c.id}", pa.int64()) for c in rs.chips]
+    fields.append(("rubies", pa.int64()))
     return pa.schema(fields)
 
 
@@ -567,6 +568,47 @@ def test_end_bag_matches_the_game_record(tmp_path, rules):
     for seat in ("p1", "p2"):
         got = {c.id: seats[seat][f"bag_{c.id}"] for c in rs.chips}
         assert got == expected[seat], seat
+
+
+def test_rubies_column_is_last_and_equals_the_final_ruby_count():
+    from quack_rl.engine import new_game
+    from quack_rl.rules import load_ruleset
+    from quack_rl.simgame import GameStats
+    from quack_rl.tournament import seat_columns, seat_rows
+
+    rs = load_ruleset("v2.1")
+    assert seat_columns(rs)[-1] == "rubies"
+    stats = GameStats()
+    for seat in ("p1", "p2"):
+        for k in range(1, rs.rounds + 1):
+            stats.points[seat][k] = k
+            stats.money[seat][k] = k
+    final = new_game(rs)
+    final.players["p1"].rubies = 3
+    final.players["p2"].rubies = 0
+    row = {"pairing": "a vs b", "p1": "a", "p2": "b", "game": 0, "seed": 1, "sweep_value": ""}
+    p1, p2 = seat_rows(row, final, stats, rs)
+    assert (p1["rubies"], p2["rubies"]) == (final.players["p1"].rubies, final.players["p2"].rubies)
+    assert (p1["rubies"], p2["rubies"]) == (3, 0)
+
+
+def test_rubies_column_matches_the_ruby_events_of_the_game_record(tmp_path):
+    assert tour(tmp_path, "--keep-records", games="6").exit_code == 0
+    (run,) = runs(tmp_path)
+    table = read_seats(run).to_pylist()
+    checked = 0
+    for shard in sorted((run / "records").glob("shard-*.jsonl.gz")):
+        for game in read_games(shard):
+            total = {"p1": 0, "p2": 0}
+            for step in game.steps:
+                for e in step.events:
+                    if e["kind"] in ("ruby", "ruby_drop", "refill_flask", "card_swap"):
+                        total[e["seat"]] = e["total"]  # every event that changes rubies carries the balance
+            for s in table:
+                if s["seed"] == game.header.seed:
+                    assert s["rubies"] == total[s["seat"]]
+                    checked += s["rubies"] > 0
+    assert checked, "no seat ended with a ruby in 6 games"
 
 
 def test_money_matches_the_money_events_of_the_game_record(tmp_path):

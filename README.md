@@ -103,6 +103,7 @@ Apache Parquet, written with pyarrow, zstd compression. Columns in this order:
 | `money_r1` .. `money_r<rounds>` | int64 | money of the seat when its shop phase of round k starts (the amount of its `money` event: after the die and the last-round bonus) |
 | `points_r1` .. `points_r<rounds>` | int64 | points total of the seat at the end of round k (after the shop) |
 | `bag_<chip id>` | int64 | count of that chip id the seat owns at game end (bag plus placed chips), one column for every chip id of the ruleset, in ruleset order, zeros included |
+| `rubies` | int64 | ruby count of the seat in the final state, after the `bag_*` columns |
 
 Rows follow the order of `results.csv`, and inside a game first `p1`, then `p2`. Join key to `results.csv`: (`pairing`, `sweep_value`, `game`, `seed`); `seed` alone is also unique in a run.
 

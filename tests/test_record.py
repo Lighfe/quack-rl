@@ -24,7 +24,7 @@ from quack_rl.runner import play_game
 def header(game_id="g1", seed=5):
     return HeaderLine(
         game_id=game_id,
-        schema_version=1,
+        schema_version=2,
         rules_version="v2.1",
         rounds=9,
         seed=seed,
@@ -223,7 +223,7 @@ def test_record_package_reexports_all_produced_names():
     for name in names:
         assert hasattr(record, name), name
         assert name in record.__all__, name
-    assert record.RECORD_SCHEMA_VERSION == 1
+    assert record.RECORD_SCHEMA_VERSION == 2
 
 
 def test_the_record_carries_the_ruby_balance():

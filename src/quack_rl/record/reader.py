@@ -8,7 +8,7 @@ from typing import IO
 
 from pydantic import ValidationError
 
-from quack_rl.record.schema import LINE_ADAPTER, FooterLine, HeaderLine, StepLine
+from quack_rl.record.schema import LINE_ADAPTER, RECORD_SCHEMA_VERSION, FooterLine, HeaderLine, StepLine
 
 
 class RecordFormatError(ValueError):
@@ -34,6 +34,21 @@ def _check_header_rounds(path: Path, number: int, text: str) -> None:
         )
 
 
+def _check_header_schema_version(path: Path, number: int, text: str) -> None:
+    """A header of another schema version is refused; there is no reader for older records."""
+    try:
+        raw = json.loads(text)
+    except ValueError:
+        return  # the schema check reports it
+    if isinstance(raw, dict) and raw.get("type") == "header":
+        version = raw.get("schema_version")
+        if version != RECORD_SCHEMA_VERSION:
+            raise RecordFormatError(
+                f"{path}:{number}: game {raw.get('game_id')}: record has schema_version "
+                f"{version}, this reader reads schema_version {RECORD_SCHEMA_VERSION} only"
+            )
+
+
 def _open_text(path: Path) -> IO[str]:
     """Open a record file as text; a `.gz` file is read through gzip."""
     if path.suffix == ".gz":
@@ -57,6 +72,7 @@ def read_games(path: Path) -> Iterator[RecordedGame]:
             if not text.strip():
                 continue
             _check_header_rounds(path, number, text)
+            _check_header_schema_version(path, number, text)
             try:
                 line = LINE_ADAPTER.validate_json(text)
             except ValidationError as e:
