@@ -7,9 +7,9 @@ from quack_rl.rules import load_ruleset
 
 
 def make_opponent(name: str, seed: int | None = None, rules: str = "v2.1") -> Any:
-    """Return a bot for `name`: `random`, or `draw<percent>-pts<round>-<strategy>` (with or
+    """Return a bot for `name`: `random`, or `draw<percent>-pts<round>-<strategy>` (each with or
     without the `bot:` prefix). Raise ValueError on any other name."""
-    if name == "random":
+    if name in ("random", "bot:random"):
         return RandomBot(seed)
     try:
         draw_limit, points_round, strategy = parse_bot_name(name)

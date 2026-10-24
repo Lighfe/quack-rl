@@ -218,3 +218,19 @@ def test_episode_seat_follows_random_seat():
         assert info["episode"]["seat"] == agent
         seats.add(agent)
     assert seats == {"p1", "p2"}
+
+
+def test_masked_rollout_of_20_games_stays_inside_the_spaces():
+    env = QuackEnv(seat="random")
+    rng = np.random.default_rng(1)
+    for game in range(20):
+        obs, info = env.reset(seed=game)
+        done = False
+        while not done:
+            assert env.observation_space.contains(obs)
+            action = int(rng.choice(np.flatnonzero(info["action_mask"])))
+            obs, rew, done, _, info = env.step(action)
+            assert not info["illegal_action"]
+        assert rew in (1.0, -1.0, 0.0)
+        assert not info["action_mask"].any()
+        assert env.observation_space.contains(obs)

@@ -12,7 +12,7 @@ from quack_rl.cli.seats import check_seat
 # the names are joined so that a grep of the package finds no mention of the archived code
 MOVED = (
     "Policy" + "Bot",
-    "evaluate",
+    # (`evaluate` is a module of the package again, so hasattr(rl, "evaluate") is no check)
     "random_policy",
     "check_policy" + "_layout",
     "EvalResult",
