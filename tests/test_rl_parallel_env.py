@@ -87,7 +87,7 @@ def test_steps_land_on_decision_points_and_end_after_round_9(version):
     assert set(obs) == set(SEATS)
     for seat in SEATS:
         assert rew[seat] == reward(env.state, seat)
-        assert obs[seat]["action_mask"].tolist().count(1) == 1
+        assert not obs[seat]["action_mask"].any()  # game over: all zero
 
 
 def test_custom_reward_fn():

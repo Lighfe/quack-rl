@@ -81,8 +81,6 @@ class QuackParallelEnv(ParallelEnv):
         out = {}
         for seat in self.agents or self.possible_agents:
             mask = action_mask(self.state, self.rs, seat)
-            if not mask.any():  # the game is over: only Wait
-                mask[self._wait] = 1
             out[seat] = {
                 "observation": vectorize(observe(self.state, self.rs, seat), self.rs),
                 "action_mask": mask,
