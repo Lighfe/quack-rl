@@ -576,6 +576,11 @@ effect = "die_twice"
 count = 1
 
 [[cards]]
+id = "card_11"
+effect = "draw4_upgrade"
+count = 1
+
+[[cards]]
 id = "card_12"
 effect = "ruby_for_chip"
 count = 1
@@ -608,6 +613,11 @@ count = 1
 [[cards]]
 id = "card_19"
 effect = "chip4_or_tail_points"
+count = 1
+
+[[cards]]
+id = "card_20"
+effect = "draw5_lowest"
 count = 1
 
 # The points board: fields 0..fields, two laps (at most fields * laps points). A rat tail after

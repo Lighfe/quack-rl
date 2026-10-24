@@ -134,8 +134,9 @@ def test_step_after_end_raises_runtime_error():
     play_env(env, 0)
     with pytest.raises(RuntimeError, match="reset"):
         env.step({s: 0 for s in SEATS})
-    env.reset(seed=0)
-    env.step({s: 1 for s in SEATS})  # works again after reset
+    obs, _ = env.reset(seed=0)
+    # works again after reset (the first legal action: the first card may open a choice)
+    env.step({s: int(np.flatnonzero(obs[s]["action_mask"])[0]) for s in SEATS})
 
 
 def test_step_before_reset_raises_runtime_error():

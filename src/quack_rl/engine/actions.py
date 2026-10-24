@@ -31,6 +31,9 @@ CARD_POINTS_AMOUNT = 4
 CARD_CHIP4_PREFIX = "card_chip4:"  # card 19: a value-4 chip, by id
 CARD_TAIL_POINTS = "card_tail_points"  # card 19: points equal to the rat tail entitlement
 CARD_CHIP4_COLOURS = ("green", "blue", "red", "yellow")
+CARD_UPGRADE_PREFIX = "card_upgrade:"  # card 11: a drawn chip becomes the next higher value of its colour
+CARD_DRAW_COUNT = 4  # card 11: chips drawn by each player
+CARD_NO_UPGRADE = ("white", "orange")  # colours card 11 cannot upgrade
 RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
 USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
 REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
@@ -92,8 +95,24 @@ def chip4_chips(rs: Ruleset) -> list[str]:
     return [c.id for col in CARD_CHIP4_COLOURS for c in rs.chips if c.colour == col and c.value == 4]
 
 
+def upgrade_target(rs: Ruleset, chip_id: str) -> str | None:
+    """Card 11: the next higher value of the colour of `chip_id`; None for white, orange and the
+    top value of a colour."""
+    chip = rs.chip(chip_id)
+    if chip.colour in CARD_NO_UPGRADE:
+        return None
+    higher = [c for c in rs.chips if c.colour == chip.colour and c.value > chip.value]
+    return min(higher, key=lambda c: c.value).id if higher else None
+
+
+def upgradable_chips(rs: Ruleset) -> list[str]:
+    """Card 11: the chips that have an upgrade, in ruleset order."""
+    return [c.id for c in rs.chips if upgrade_target(rs, c.id) is not None]
+
+
 def _late_card_actions(rs: Ruleset) -> list[str]:
-    """The actions of cards 8, 12, 14 and 19, appended after the flask actions."""
+    """The actions of cards 8, 11, 12, 14 and 19 (and 20, which has none), appended after the flask
+    actions."""
     effects = {rs.card(c.id).effect for c in rs.cards}
     names: list[str] = []
     if "rat_tails_for_rubies" in effects:
@@ -104,6 +123,8 @@ def _late_card_actions(rs: Ruleset) -> list[str]:
         names += [CARD_POINTS, CARD_REMOVE_WHITE]
     if "chip4_or_tail_points" in effects:
         names += [*(f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)), CARD_TAIL_POINTS]
+    if "draw4_upgrade" in effects:
+        names += [f"{CARD_UPGRADE_PREFIX}{c}" for c in upgradable_chips(rs)]
     return names
 
 
@@ -147,6 +168,10 @@ def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | No
         if p.bag.get(white_one(rs), 0) < 1:
             return [WAIT]
         return [CARD_POINTS, CARD_REMOVE_WHITE]
+    if effect == "draw4_upgrade":
+        drawn = dict.fromkeys(p.card_draw)  # distinct chips, in draw order
+        options = [f"{CARD_UPGRADE_PREFIX}{c}" for c in drawn if upgrade_target(rs, c) is not None]
+        return options or [WAIT]
     if effect == "chip4_or_tail_points":
         chips = [f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)]
         entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]

@@ -64,3 +64,9 @@ register_card_effect(
 register_card_effect(
     "chip4_or_tail_points", "choice: a value-4 chip, or points equal to the rat tail entitlement"
 )
+register_card_effect(
+    "draw4_upgrade", "each player draws 4 chips and upgrades one of them to the next higher value of its colour"
+)
+register_card_effect(
+    "draw5_lowest", "each player draws 5 chips; the lowest sum gets a blue 2 chip, the others 1 ruby"
+)

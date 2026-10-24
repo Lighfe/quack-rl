@@ -4,7 +4,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
-from quack_rl.cli.render import chip_text, hand_text, render_board
+from quack_rl.cli.render import chip_text, draw_text, hand_text, render_board
 from quack_rl.engine import (
     BUY_PREFIX,
     CARD_DROP_2,
@@ -25,7 +25,7 @@ from quack_rl.engine import (
     GameState,
 )
 from quack_rl.engine.actions import CARD_BLACK, CARD_CHIP_PREFIX, CARD_PURPLE
-from quack_rl.engine.state import scoring_field
+from quack_rl.engine.state import Phase, scoring_field
 from quack_rl.rules import Ruleset
 
 # Skips d, s, m, p, r, t, k, f, l (fixed keys of other actions) so no key is used twice.
@@ -154,6 +154,8 @@ class HumanSeat:
         self.console.print(render_board(state, self.rs, self.bag_assist))
         if any(a.startswith(PLAY_PREFIX) or a in (PUT_BACK_DRAW, PUT_BACK_STOP) for a in legal):
             self.console.print(hand_text(state.players[seat].hand, self.rs))
+        if state.phase is Phase.CARD_CHOICE and state.players[seat].card_draw:
+            self.console.print(draw_text(state.players[seat].card_draw, self.rs))
         menu = "   ".join(f"[{k}] {self._describe(a, state, seat)}" for k, a in keys.items())
         self.console.print(
             f"{self.label} ({seat}), press your key (hidden): {menu}", markup=False, highlight=False

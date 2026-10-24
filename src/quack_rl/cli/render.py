@@ -33,6 +33,11 @@ def hand_text(chip_ids: list[str], rs: Ruleset) -> Text:
     return Text("hand: ") + _chips(chip_ids, rs)
 
 
+def draw_text(chip_ids: list[str], rs: Ruleset) -> Text:
+    """Card 11: the chips a player drew; only the choosing player is shown this line."""
+    return Text("drawn: ") + _chips(chip_ids, rs)
+
+
 def _chips(chip_ids: list[str], rs: Ruleset) -> Text:
     return Text(" ").join(chip_text(c, rs) for c in chip_ids) if chip_ids else Text("-")
 

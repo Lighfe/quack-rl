@@ -107,8 +107,16 @@ def test_action_names_v2_1():
         "card_chip4:red_4",
         "card_chip4:yellow_4",
         "card_tail_points",
+        "card_upgrade:green_1",
+        "card_upgrade:green_2",
+        "card_upgrade:blue_1",
+        "card_upgrade:blue_2",
+        "card_upgrade:red_1",
+        "card_upgrade:red_2",
+        "card_upgrade:yellow_1",
+        "card_upgrade:yellow_2",
     ]
-    assert len(names) == 60
+    assert len(names) == 68
     assert buy("blue_2") == "buy:blue_2"
     assert {buy(i.id) for i in RS.shop} <= set(names)
 

@@ -170,6 +170,9 @@ def _place_events(rs, seed):
                 events[e["seat"]].append(e)
             elif e["kind"] == "use_flask":  # the flask takes the last chip out of the pot
                 events[e["seat"]].pop()
+            elif e["kind"] == "pot_put_back":  # a chip effect (yellow 4) takes a white chip out of the pot
+                mine = events[e["seat"]]
+                mine.pop(max(i for i, p in enumerate(mine) if p["chip"] == e["chip"]))
         state = result.state
         yield state, events
 

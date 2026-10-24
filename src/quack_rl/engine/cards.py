@@ -17,6 +17,7 @@ from quack_rl.engine.actions import (
     CARD_BLACK,
     CARD_CHIP4_PREFIX,
     CARD_CHIP_PREFIX,
+    CARD_DRAW_COUNT,
     CARD_DROP_2,
     CARD_POINTS,
     CARD_POINTS_AMOUNT,
@@ -26,9 +27,11 @@ from quack_rl.engine.actions import (
     CARD_SWAP_PREFIX,
     CARD_TAIL_POINTS,
     CARD_TAILS_PREFIX,
+    CARD_UPGRADE_PREFIX,
     RESTART,
     WAIT,
     late_card_choice,
+    upgrade_target,
     white_one,
 )
 from quack_rl.engine.board import add_points, apply_die_face, calculate_rat_tails, set_rat_tails
@@ -91,7 +94,49 @@ _LATE_CHOICE_EFFECTS = (
     "ruby_for_chip",
     "points_or_remove_white",
     "chip4_or_tail_points",
-)  # cards 8, 12, 14, 19: a seat that is not asked gets WAIT
+    "draw4_upgrade",
+)  # cards 8, 11, 12, 14, 19: a seat that is not asked gets WAIT
+
+
+CARD_LOWEST_DRAW = 5  # card 20: chips drawn by each player
+CARD_LOWEST_CHIP = ("blue", 2)  # card 20: the reward of the lowest sum
+
+
+def _draw_chips(
+    p: PlayerState, seat: str, n: int, chance: ChanceLog
+) -> list[str]:
+    """Draw `n` chips from the bag of one player without replacement. Each chip is one `draw_chip`
+    outcome, checked against the bag minus the chips already drawn in this draw. The chips go back
+    into the bag at the end, so the bag is unchanged."""
+    drawn: list[str] = []
+    try:
+        for _ in range(n):
+            chip_id = chance.draw_chip(p, seat)
+            p.bag[chip_id] -= 1
+            drawn.append(chip_id)
+    finally:
+        for chip_id in drawn:
+            p.bag[chip_id] += 1
+    return drawn
+
+
+def _card_20(state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]) -> None:
+    """Card 20: both players draw 5 chips (p1, then p2) and add the values; the lowest sum (all
+    tied players) gets a blue 2 chip, every other player 1 ruby. The draws are done before any
+    reward."""
+    sums = {
+        seat: sum(rs.chip(c).value for c in _draw_chips(state.players[seat], seat, CARD_LOWEST_DRAW, chance))
+        for seat in SEATS
+    }
+    lowest = min(sums.values())
+    chip_id = _chip_of(rs, *CARD_LOWEST_CHIP)
+    for seat in SEATS:
+        p = state.players[seat]
+        if sums[seat] == lowest:
+            p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+            events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
+        else:
+            _give_rubies(p, seat, 1, events)
 
 
 def apply_card(
@@ -135,6 +180,11 @@ def apply_card(
             if p.points == fewest:
                 p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
                 events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
+    elif effect == "draw5_lowest":
+        _card_20(state, rs, chance, events)
+    elif effect == "draw4_upgrade":
+        for seat in SEATS:
+            state.players[seat].card_draw = _draw_chips(state.players[seat], seat, CARD_DRAW_COUNT, chance)
     if effect in _CHOICE_EFFECTS:
         state.phase = Phase.CARD_CHOICE
     elif effect in _LATE_CHOICE_EFFECTS:
@@ -195,7 +245,23 @@ def _apply_late_choice(
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
-        if effect == "rat_tails_for_rubies" and action.startswith(CARD_TAILS_PREFIX):
+        if effect == "draw4_upgrade":
+            if action.startswith(CARD_UPGRADE_PREFIX):
+                chip_id = action.removeprefix(CARD_UPGRADE_PREFIX)
+                upgraded = upgrade_target(rs, chip_id)
+                assert upgraded is not None
+                p.bag[chip_id] -= 1
+                if p.bag[chip_id] == 0:
+                    del p.bag[chip_id]
+                p.bag[upgraded] = p.bag.get(upgraded, 0) + 1
+                events.append({"seat": seat, "kind": "card_remove_chip", "chip": chip_id})
+                events.append({"seat": seat, "kind": "card_chip", "chip": upgraded})
+            else:  # WAIT: no drawn chip can be upgraded
+                chip_id = _green_one(rs)
+                p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+                events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
+            p.card_draw = []
+        elif effect == "rat_tails_for_rubies" and action.startswith(CARD_TAILS_PREFIX):
             given = int(action.removeprefix(CARD_TAILS_PREFIX))
             if given:
                 p.rat_tail_adjust += given

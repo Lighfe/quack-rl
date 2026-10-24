@@ -49,6 +49,7 @@ class PlayerState:
     rubies: int = 0  # the ruby currency: earned on ruby fields, spent in the shop (ruby_drop)
     rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
     rat_tail_adjust: int = 0  # a card lowers the rat tail bonus by this (positive); reset every round
+    card_draw: list[str] = dataclasses.field(default_factory=list)  # card 11: the chips drawn, hidden; the chips stay in the bag
     flask_full: bool = True  # the flask: use_flask puts a white chip back, refill_flask fills it
 
     def owned(self, chip_id: str) -> int:
