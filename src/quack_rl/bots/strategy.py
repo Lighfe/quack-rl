@@ -65,6 +65,23 @@ STRATEGIES: dict[str, Strategy] = {
 }
 
 
+# The colour a strategy takes when a card or the flask offers a coloured chip (cards 11, 12, 19).
+# The shop lists of the strategies above carry no colour, so the table is here.
+STRATEGY_COLOUR: dict[str, str] = {
+    "points": "blue",
+    "blue": "blue",
+    "balanced": "blue",
+    "green": "green",
+    "cleaner": "green",
+}
+DEFAULT_COLOUR = "blue"
+
+
+def strategy_colour(name: str) -> str:
+    """The chip colour of a strategy (`STRATEGY_COLOUR`); blue for a strategy not in the table."""
+    return STRATEGY_COLOUR.get(name, DEFAULT_COLOUR)
+
+
 def load_strategy(name: str) -> Strategy:
     try:
         return STRATEGIES[name]

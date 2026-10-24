@@ -11,7 +11,8 @@ chips), one draw limit after the other, and compares the averages with it:
 
 The calculation has no card effects (only the explosion limit of card 4), and cards cannot be
 removed from the deck, so the simulation is above it. One measurement gave about 22% more; the
-margin is CARD_MARGIN. The number is not an upper bound of the real baseline bot.
+margin is CARD_MARGIN. Since the bots spend rubies on droplets (issue #190) the simulation is
+about 43% above it. The number is not an upper bound of the real baseline bot.
 
 The opponent is `draw100-pts9-points`: it draws until it explodes, so it never rolls the bonus
 die and the bot under test always rolls it when it does not explode, as the calculation assumes.
@@ -31,7 +32,7 @@ from quack_rl.report import baseline_maximum, realistic_baseline_maximum
 from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
-CARD_MARGIN = 0.40
+CARD_MARGIN = 0.50
 GAMES = 1000
 DRAW_LIMITS = (0, 10, 20, 30, 40, 50)
 OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
