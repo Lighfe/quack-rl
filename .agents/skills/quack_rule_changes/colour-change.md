@@ -85,7 +85,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 - Effect on the pot (case B): `test_only_blue_has_a_place_bonus` in `tests/test_components.py`, `test_pick_red_beats_orange_with_three_orange_in_the_pot` in `tests/test_bots.py`.
 - Hand and pick step (case C): `tests/test_brew.py`, `test_pick_plays_the_highest_advance`, `test_random_bot_answers_all_three_kinds_at_the_pick_step`, `test_view_of_the_other_seat_has_no_hand_and_no_pending_choice`.
 - CLI: `tests/test_cli_v2_1.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_keys_map_to_legal_actions`, `test_own_hand_is_shown_and_the_other_hand_is_not`.
-- RL: `tests/test_rl_layout7.py`, `tests/test_rl_layout7_sample.py` and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
+- RL: `tests/test_rl_layout8.py`, `tests/test_golden_v2_1.py` (the stored layout 8 sample) and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
 - Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2.1`).
 
 Edge cases to try for any new colour:

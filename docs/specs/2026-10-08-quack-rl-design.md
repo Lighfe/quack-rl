@@ -47,8 +47,8 @@ The look of the game is not important. The data is as well as the RL environment
 | First human interface | Terminal play | Play and test the rules in M1, with no frontend | Settled |
 | Brewing | Simultaneous per chip draw: hidden choices, public results after each step | Owner decision | Settled |
 | Shop | Simultaneous for now; alternating later (planned rule change) | Owner decision | Default |
-| Win condition | Victory points bought in the shop; most points wins | Coins split between engine and points: a real trade-off, no easy best path | Settled (prices: Default) |
-| Explosion | Half money, no choice | Owner simplification: one fixed penalty, smaller action space | Settled |
+| Win condition | Victory points from the scoring field, the bonus die and cards; most points wins (ruleset v2.1: a shared point board, 0 to 100 points) | Money buys chips, the pot gives points: a real trade-off, no easy best path | Settled (numbers: Default) |
+| Explosion | A potion that explodes gives nothing yet; in the explosion choice step the player takes the money or the points of the scoring field (v2.1) | The v1 rule of half money was replaced in later rulesets; the numbers are ruleset data | Settled (numbers: Default) |
 | Rewards | The env exposes the plain game outcome: 0 per step, +1/-1/0 at the end. No reward design | Reward design is RL work, out of scope. Raw logs allow any reward to be recomputed later | Settled |
 | Records | Local files first, behind a storage interface; hosting later | Owner decision | Settled (hosting: Open) |
 
@@ -95,7 +95,14 @@ Fixed now only: a bot uses the same interface as a human seat (it gets the obser
 
 ### 5.1 Turn structure
 
-A round has the phases Brew → Resolve → Shop → Reset.
+A round has the phases Card → (Card choice) → Brew → Resolve → (Explosion choice) → Shop → Reset (ruleset v2.1; `Phase` in `src/quack_rl/engine/state.py`).
+
+- Card: no action. Round chips (round 6: a white 1 chip for both players), then one round card is drawn from the 20-card deck (without replacement) and its immediate effect runs, then the rat tail bonus is calculated once and the pots move to their start fields (`apply_card` in `engine/cards.py`)
+- Card choice (`Phase.CARD_CHOICE`): a joint choice for the cards that ask a question (5, 6, 8, 11, 12, 14, 19); the choices of all players come first, then the rewards (two passes). A seat with nothing to choose sends `Wait`; when no seat has a choice the step is skipped
+- Restart (`Phase.RESTART`): card 2, `continue` or `restart` after the 5th chip
+- Brew also holds the flask (`use_flask`), card 17 (`use_card_17`), the blue hand pick, and the draw-and-place step of card 10 (`card_place:<chip id>`)
+- Explosion choice (`Phase.CHOICE`): only when a potion exploded; `take_money` or `take_points`
+- Shop also holds `ruby_drop` and `refill_flask` (rubies are a currency)
 
 - Brew: simultaneous steps; each brewing player sends Draw or Stop
 - Resolve: no player actions (rubies, green bonus, bonus die, money)
@@ -144,7 +151,7 @@ Two encodings of the same state:
 
 ### 5.4 Actions
 
-One `Discrete` action space with an action mask: `Wait, Draw, Stop, Done, Buy<item 1> ... Buy<item n>`, built from the ruleset. v1 has 16 actions.
+One `Discrete` action space with an action mask, built from the ruleset by `action_names(rs)` (`src/quack_rl/engine/actions.py`). It starts with `Wait, Draw, Stop, Done`, the explosion choice, the buy actions and the blue pick actions; the card, ruby and flask actions are appended at the end. v2.1 has 88 actions. New state of v2.1 per player: `rubies`, `flask_full`, `rat_tail` and `rat_tail_adjust`, and the hidden `card_draw` of cards 10 and 11; per game: the `deck` and the `card` of the round.
 
 ## 6. Records and datasets (Settled, details Default)
 
@@ -266,8 +273,9 @@ Milestones are the big steps of this spec. They are not the same as the stages o
 | M2.10 | Ruleset v1.9 (spellbook 1) | New rules version: blue draws a hand and has a pick step, new red and orange 6 chips, observation layout 4 and environments; no default or notebook uses it (v1.10, then v1.11 became the default later) |
 | M2.11 | Ruleset v1.10 (issue #131) | Black, yellow and purple chips and shop items with a minimum round, observation layout 5; v1.10 was the default ruleset until v1.11; policy entry points refused it (no trained policy for layout 5); content in `archive/docs/specs/2026-10-18-ruleset-v1-10.md` |
 | M2.13 | Ruleset v1.11 (issue #140) | Round-start cards (12 cards), card choice and restart, per-round explosion limit, observation layout 6; **v1.11 is the default ruleset** of the code (CLI, tournament, RL modules, scripts); notebooks keep their pinned version; policy entry points refuse it (no trained policy for layout 6); content in `archive/docs/specs/2026-10-19-ruleset-v1-11.md`. The points board and rat tails come with v2 (M2.15) |
-| M2.15 | Ruleset v2 (stage #162) | Point board (fields 0 to 50, two laps, at most 100 points, the `has_50pts` flag), rat tails with the catch-up bonus at round start (`rat_tail` on the player, added to the start field), a new die, observation layout 7 (layout 6 plus the points of every map field and a board block); v2 is not the default (the default stays v1.11, notebooks stay pinned); policy entry points refuse it (no trained policy for layout 7); content in `docs/specs/2026-10-22-ruleset-v2.md` and `docs/rules/rules-v2.md` |
-| M2.16 | Retirement before v2 (stage #166) | Everything from before v2 and the whole training stack moved to `archive/` (older rulesets, layouts 2 to 6, trainers, `PolicyBot`, notebooks); v2 is the only ruleset and **the default**, layout 7 the only observation layout; docs and the rule skill updated (#174); content in `docs/specs/2026-10-23-retire-before-v2.md`. Ruleset v2.1 comes next (design in `docs/specs/2026-10-23-ruleset-v2-1-design.md`) |
+| M2.15 | Ruleset v2 (stage #162) | Point board (fields 0 to 50, two laps, at most 100 points, the `has_50pts` flag), rat tails with the catch-up bonus at round start (`rat_tail` on the player, added to the start field), a new die, observation layout 7; archived later; content in `docs/specs/2026-10-22-ruleset-v2.md` |
+| M2.16 | Retirement before v2 (stage #166) | Everything from before v2 and the whole training stack moved to `archive/` (older rulesets, layouts 2 to 6, trainers, `PolicyBot`, notebooks); v2 is the only ruleset and **the default**, layout 7 the only observation layout; docs and the rule skill updated (#174); content in `docs/specs/2026-10-23-retire-before-v2.md`. Ruleset v2.1 followed (M2.17) |
+| M2.17 | Ruleset v2.1 (stage #192 and #193) | The shared point board and rat tails, rubies as a currency (`ruby_drop`), the flask, a field table with money, points and ruby, the round chip of round 6, the 20 round cards (card framework with the card choice phase, two passes, chance draws of cards 10, 11, 18 and 20), bots, CLI and records for all of it (record schema version 2), and observation layout 8 (look-ahead window, gaps, no field table; layout 7 archived). **v2.1 is the only ruleset and the default.** Guards: a golden replay (`tests/test_golden_v2_1.py`) and a stored layout 8 sample (`tests/fixtures/golden/layout8_sample.json`). Content in `docs/specs/2026-10-23-ruleset-v2-1-design.md` and `docs/rules/rules-v2.1.md` |
 | Spellbook and colour stages | More colours and spellbooks follow (issue #71) | Further colours and spellbooks after v1.9; named here only, planned at their own intake |
 | Rules v2 | Rules v2 (issue #79) | Larger rules change after v1.8; planned at its own intake |
 | M3 | Contract and server | JSON Schema, OpenAPI, fixtures, HTTP server |

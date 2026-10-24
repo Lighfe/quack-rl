@@ -65,7 +65,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 7. The RL layout and the action mask
 
-- Think about: the mask has one entry per action of the full list. A removed or added item changes the length of the list, so it changes the size of the observation and of the action space for that ruleset. That is a new layout, not an edit: keep a stored sample of the current layout (`tests/fixtures/layout7/`) from before you change the encoder. A price change does not change the size, but a price is a feature in the observation, so check the bounds.
+- Think about: the mask has one entry per action of the full list. A removed or added item changes the length of the list, so it changes the size of the observation and of the action space for that ruleset. That is a new layout, not an edit: keep a stored sample of the current layout (`tests/fixtures/golden/layout8_sample.json`) from before you change the encoder. A price change does not change the size, but a price is a feature in the observation, so check the bounds.
 - Goes wrong: the layout number is not changed although the vector changed; the mask does not follow the legal actions; the bounds of a price are too narrow for the new price.
 - Check: the layout tests (names, length, bounds), the test that the mask equals the legal actions in every step of random games, and the environment tests with the new version in the list they loop over.
 

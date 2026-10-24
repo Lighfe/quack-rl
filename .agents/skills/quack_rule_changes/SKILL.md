@@ -19,7 +19,7 @@ The skill has three parts, in this order:
 - A change is a new version, a new ruleset file next to the old ones.
 - New behaviour is switched by ruleset fields. The engine reads the field; old versions leave it at a default that keeps them playing as before. Give every new field an old-safe default.
 - The default `rules` value is `v2.1`, everywhere in the code (CLI, tournament, run and simulate functions, RL modules and scripts). v2.1 is the only ruleset (v2 is archived with the older ones, and `v2` is an unknown name); the older rulesets, observation layouts 2 to 6, the training stack and the notebooks are archived in `archive/` (see `archive/README.md`) and not checked. A later ruleset version (v3, say) is not the default until an issue makes it the default, and that issue changes every default, the defaults test and these skill texts together. `tests/test_rules_defaults.py` checks that every default is the current default version and fails on a default that points anywhere else.
-- There is one observation layout, 7, chosen by `rs.point_board`. No policy is trained on it and the policy stack (`PolicyBot`, `train`, `finetune`, `selfplay`, offline training, `evaluate` with a policy) is archived. Environments and baseline bots work on v2.1.
+- There is one observation layout, 8 (`BOARD_LAYOUT`). No policy is trained on it and the policy stack (`PolicyBot`, `train`, `finetune`, `selfplay`, offline training, `evaluate` with a policy) is archived. Environments and baseline bots work on v2.1.
 
 ### Standard rule, plus extras
 
