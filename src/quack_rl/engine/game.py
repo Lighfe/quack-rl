@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from quack_rl.engine.actions import legal_actions
-from quack_rl.engine.brew import apply_brew
-from quack_rl.engine.cards import apply_card, apply_card_choice, apply_restart
+from quack_rl.engine.brew import apply_brew, apply_card_place
+from quack_rl.engine.cards import apply_card, apply_card_choice, apply_restart, card_effect
 from quack_rl.engine.chance import ChanceLog, ChanceSource
 from quack_rl.engine.choice import apply_choice
 from quack_rl.engine.resolve import apply_resolve
@@ -58,7 +58,10 @@ def step(
         if state.phase is Phase.BREW:
             apply_brew(new, rs, actions, log, events)
         elif state.phase is Phase.CARD_CHOICE:
-            apply_card_choice(new, rs, actions, events)
+            if card_effect(state, rs) == "draw5_choose_place":
+                apply_card_place(new, rs, actions, log, events)
+            else:
+                apply_card_choice(new, rs, actions, events)
         elif state.phase is Phase.RESTART:
             apply_restart(new, rs, actions, events)
         elif state.phase is Phase.CHOICE:

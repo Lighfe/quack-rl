@@ -223,7 +223,10 @@ def test_card_20_the_bag_is_whole_after_the_draw_and_a_third_copy_is_illegal():
 def test_the_new_actions_are_appended_at_the_end():
     names = action_names(RS)
     assert len(names) == len(set(names))
-    assert names[-9:] == ["card_tail_points", *(f"card_upgrade:{c}" for c in (
+    tail = [*(f"card_place:{c.id}" for c in RS.chips), "use_card_17"]  # cards 10 and 17 come last
+    assert names[-len(tail) :] == tail
+    head = names[: -len(tail)]
+    assert head[-9:] == ["card_tail_points", *(f"card_upgrade:{c}" for c in (
         "green_1", "green_2", "blue_1", "blue_2", "red_1", "red_2", "yellow_1", "yellow_2"))]
 
 

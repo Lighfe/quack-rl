@@ -576,6 +576,11 @@ effect = "die_twice"
 count = 1
 
 [[cards]]
+id = "card_10"
+effect = "draw5_choose_place"
+count = 1
+
+[[cards]]
 id = "card_11"
 effect = "draw4_upgrade"
 count = 1
@@ -603,6 +608,11 @@ count = 1
 [[cards]]
 id = "card_16"
 effect = "refill_flasks"
+count = 1
+
+[[cards]]
+id = "card_17"
+effect = "first_white_back"
 count = 1
 
 [[cards]]

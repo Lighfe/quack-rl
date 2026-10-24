@@ -70,3 +70,10 @@ register_card_effect(
 register_card_effect(
     "draw5_lowest", "each player draws 5 chips; the lowest sum gets a blue 2 chip, the others 1 ruby"
 )
+register_card_effect(
+    "draw5_choose_place",
+    "a player who stopped without exploding draws 5 chips, places one of them and puts the rest back",
+)
+register_card_effect(
+    "first_white_back", "the first white chip a player places this round can go back into the bag, free"
+)

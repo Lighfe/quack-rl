@@ -168,7 +168,7 @@ def _place_events(rs, seed):
         for e in result.events:
             if e["kind"] == "place":
                 events[e["seat"]].append(e)
-            elif e["kind"] == "use_flask":  # the flask takes the last chip out of the pot
+            elif e["kind"] in ("use_flask", "use_card_17"):  # the flask or card 17 takes the last chip out of the pot
                 events[e["seat"]].pop()
             elif e["kind"] == "pot_put_back":  # a chip effect (yellow 4) takes a white chip out of the pot
                 mine = events[e["seat"]]

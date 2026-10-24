@@ -102,7 +102,7 @@ CARD_LOWEST_DRAW = 5  # card 20: chips drawn by each player
 CARD_LOWEST_CHIP = ("blue", 2)  # card 20: the reward of the lowest sum
 
 
-def _draw_chips(
+def draw_chips(
     p: PlayerState, seat: str, n: int, chance: ChanceLog
 ) -> list[str]:
     """Draw `n` chips from the bag of one player without replacement. Each chip is one `draw_chip`
@@ -125,7 +125,7 @@ def _card_20(state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict
     tied players) gets a blue 2 chip, every other player 1 ruby. The draws are done before any
     reward."""
     sums = {
-        seat: sum(rs.chip(c).value for c in _draw_chips(state.players[seat], seat, CARD_LOWEST_DRAW, chance))
+        seat: sum(rs.chip(c).value for c in draw_chips(state.players[seat], seat, CARD_LOWEST_DRAW, chance))
         for seat in SEATS
     }
     lowest = min(sums.values())
@@ -184,7 +184,7 @@ def apply_card(
         _card_20(state, rs, chance, events)
     elif effect == "draw4_upgrade":
         for seat in SEATS:
-            state.players[seat].card_draw = _draw_chips(state.players[seat], seat, CARD_DRAW_COUNT, chance)
+            state.players[seat].card_draw = draw_chips(state.players[seat], seat, CARD_DRAW_COUNT, chance)
     if effect in _CHOICE_EFFECTS:
         state.phase = Phase.CARD_CHOICE
     elif effect in _LATE_CHOICE_EFFECTS:

@@ -13,7 +13,8 @@ def golden():
 
 
 def first_step_with_draw(game):
-    return next(s for s in game.steps if any(c["kind"] == "draw_chip" for c in s.chance))
+    """The first step whose first chance outcome is a chip draw (not a card step that draws chips)."""
+    return next(s for s in game.steps if s.chance and s.chance[0]["kind"] == "draw_chip")
 
 
 def test_golden_record_verifies():

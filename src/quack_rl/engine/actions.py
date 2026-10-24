@@ -34,6 +34,9 @@ CARD_CHIP4_COLOURS = ("green", "blue", "red", "yellow")
 CARD_UPGRADE_PREFIX = "card_upgrade:"  # card 11: a drawn chip becomes the next higher value of its colour
 CARD_DRAW_COUNT = 4  # card 11: chips drawn by each player
 CARD_NO_UPGRADE = ("white", "orange")  # colours card 11 cannot upgrade
+CARD_PLACE_PREFIX = "card_place:"  # card 10: the drawn chip that is placed, by id
+CARD_PLACE_DRAW = 5  # card 10: chips drawn by a player who stopped without exploding
+USE_CARD_17 = "use_card_17"  # card 17: the first white chip of the round goes back into the bag
 RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
 USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
 REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
@@ -111,8 +114,8 @@ def upgradable_chips(rs: Ruleset) -> list[str]:
 
 
 def _late_card_actions(rs: Ruleset) -> list[str]:
-    """The actions of cards 8, 11, 12, 14 and 19 (and 20, which has none), appended after the flask
-    actions."""
+    """The actions of cards 8, 10, 11, 12, 14, 17 and 19 (and 20, which has none), appended after
+    the flask actions."""
     effects = {rs.card(c.id).effect for c in rs.cards}
     names: list[str] = []
     if "rat_tails_for_rubies" in effects:
@@ -125,6 +128,10 @@ def _late_card_actions(rs: Ruleset) -> list[str]:
         names += [*(f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)), CARD_TAIL_POINTS]
     if "draw4_upgrade" in effects:
         names += [f"{CARD_UPGRADE_PREFIX}{c}" for c in upgradable_chips(rs)]
+    if "draw5_choose_place" in effects:
+        names += [f"{CARD_PLACE_PREFIX}{c.id}" for c in rs.chips]
+    if "first_white_back" in effects:
+        names.append(USE_CARD_17)
     return names
 
 
@@ -148,8 +155,18 @@ def _can_use_flask(p: PlayerState, rs: Ruleset) -> bool:
     return p.flask_full and rs.chip(p.placed[-1]).colour == "white"
 
 
+def _can_use_card_17(state: GameState, rs: Ruleset, p: PlayerState) -> bool:
+    """Card 17: the last placed chip is the first white chip of the round and no other chip has
+    been placed since (`first_white_open`); the flask is not needed."""
+    return (
+        state.card is not None
+        and rs.card(state.card).effect == "first_white_back"
+        and p.first_white_open
+    )
+
+
 def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | None:
-    """The options of the cards 8, 12, 14 and 19 for one seat ([WAIT] when it is not asked);
+    """The options of the cards 8, 10, 11, 12, 14 and 19 for one seat ([WAIT] when it is not asked);
     None for any other card."""
     if state.card is None:
         return None
@@ -172,6 +189,9 @@ def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | No
         drawn = dict.fromkeys(p.card_draw)  # distinct chips, in draw order
         options = [f"{CARD_UPGRADE_PREFIX}{c}" for c in drawn if upgrade_target(rs, c) is not None]
         return options or [WAIT]
+    if effect == "draw5_choose_place":
+        drawn = dict.fromkeys(p.card_draw)  # distinct chips, in draw order
+        return [f"{CARD_PLACE_PREFIX}{c}" for c in drawn] or [WAIT]
     if effect == "chip4_or_tail_points":
         chips = [f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)]
         entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]
@@ -194,7 +214,8 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if not p.placed:
             return [DRAW]
         flask = [USE_FLASK] if _can_use_flask(p, rs) else []
-        return [DRAW, STOP, *flask]
+        card_17 = [USE_CARD_17] if _can_use_card_17(state, rs, p) else []
+        return [DRAW, STOP, *flask, *card_17]
     if state.phase is Phase.CARD_CHOICE:
         late = late_card_choice(state, rs, seat)
         if late is not None:

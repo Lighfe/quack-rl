@@ -60,6 +60,10 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.round_end_halves = 0
         p.rat_tail = 0
         p.rat_tail_adjust = 0
+        p.card_draw = []
+        p.card_place_done = False
+        p.first_white_placed = False
+        p.first_white_open = False
         p.field = start_field(p, rs)
     state.round += 1
     state.card = None
