@@ -110,11 +110,7 @@ def test_games_use_the_new_actions():
 
 def test_strategy_colour_table():
     assert STRATEGY_COLOUR == {
-        "points": "blue",
-        "blue": "blue",
-        "balanced": "blue",
-        "green": "green",
-        "cleaner": "green",
+        "points": "blue", "blue": "blue", "balanced": "blue", "green": "green", "cleaner": "green",
     }
     assert set(STRATEGY_COLOUR) == set(STRATEGIES)
     assert strategy_colour("unknown") == "blue"

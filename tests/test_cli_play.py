@@ -43,9 +43,7 @@ def script(monkeypatch, keys):
 
 
 def play(tmp_path, *extra, seed="4"):
-    return runner.invoke(
-        app, ["play", "--rules", "v2.1", "--seed", seed, "--out", str(tmp_path), *extra]
-    )
+    return runner.invoke(app, ["play", "--rules", "v2.1", "--seed", seed, "--out", str(tmp_path), *extra])
 
 
 def play_files(tmp_path: Path) -> list[Path]:
@@ -433,20 +431,9 @@ def test_new_actions_get_distinct_keys():
 @pytest.mark.parametrize(
     "action",
     [
-        "use_flask",
-        "use_card_17",
-        "ruby_drop",
-        "refill_flask",
-        "card_tails:2",
-        "card_tails:0",
-        "card_place:blue_2",
-        "card_upgrade:green_1",
-        "card_swap:green_1",
-        "card_swap_no",
-        "card_points",
-        "card_remove_white",
-        "card_chip4:red_4",
-        "card_tail_points",
+        "use_flask", "use_card_17", "ruby_drop", "refill_flask", "card_tails:2", "card_tails:0",
+        "card_place:blue_2", "card_upgrade:green_1", "card_swap:green_1", "card_swap_no",
+        "card_points", "card_remove_white", "card_chip4:red_4", "card_tail_points",
     ],
 )
 def test_describe_new_actions_is_short_text(action):
@@ -546,9 +533,7 @@ def _finish_round(state, start_round):
         for seat in ("p1", "p2"):
             legal = legal_actions(state, RS, seat)
             if legal:
-                joint[seat] = next(
-                    (a for a in ("stop", "done", "take_money") if a in legal), legal[0]
-                )
+                joint[seat] = next((a for a in ("stop", "done", "take_money") if a in legal), legal[0])
         state = step(state, RS, joint or None, chance).state
     raise AssertionError("the round did not end")
 
@@ -582,9 +567,7 @@ def test_every_card_question_is_shown_and_its_answer_is_applied():
     assert _finish_round(done, done.round).round == done.round + 1
     # card 11: upgrade green_1 to green_2
     b11 = {"white_1": 4, "white_2": 1, "yellow_2": 1, "green_1": 1, "white_3": 1}
-    out = _after_card(
-        "card_11", {"p1": b11}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4
-    )
+    out = _after_card("card_11", {"p1": b11}, ["white_1", "white_2", "yellow_2", "green_1"] + ["white_1"] * 4)
     chip = chip_text("green_1", RS).plain
     done = _ask(out.state, f"card 11: upgrade {chip}", "card_upgrade:green_1")
     assert done.players["p1"].bag["green_2"] == 1
@@ -619,9 +602,7 @@ def test_scripted_card_17_decision_puts_the_first_white_chip_back():
     s = step(s, RS, {"p1": DRAW, "p2": DRAW}, ScriptedChance(["white_2", "white_1"])).state
     legal = legal_actions(s, RS, "p1")
     assert USE_CARD_17 in legal
-    done = _ask(
-        s, "card 17: first white chip back to bag", USE_CARD_17, p2=DRAW, chance=["white_1"]
-    )
+    done = _ask(s, "card 17: first white chip back to bag", USE_CARD_17, p2=DRAW, chance=["white_1"])
     assert done.players["p1"].placed == []
 
 

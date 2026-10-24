@@ -21,14 +21,7 @@ HEURISTIC = "bot:draw20-pts1-points"
 
 def play(p1, p2, seed, stream=None):
     return play_sim_game(
-        RS,
-        rules="v2.1",
-        rounds=RS.rounds,
-        overrides={},
-        p1=p1,
-        p2=p2,
-        game_seed=seed,
-        stream=stream,
+        RS, rules="v2.1", rounds=RS.rounds, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=stream
     )[0]
 
 
@@ -76,19 +69,8 @@ def test_recorded_v2_game_reads_back_and_verifies(tmp_path):
 def test_tournament_on_v2_writes_its_result_table(tmp_path):
     result = runner.invoke(
         app,
-        [
-            "tournament",
-            "--rules",
-            "v2.1",
-            "--bots",
-            f"{HEURISTIC},bot:random",
-            "--games",
-            "2",
-            "--seed",
-            "5",
-            "--out",
-            str(tmp_path),
-        ],
+        ["tournament", "--rules", "v2.1", "--bots", f"{HEURISTIC},bot:random", "--games", "2",
+         "--seed", "5", "--out", str(tmp_path)],
     )
     assert result.exit_code == 0, result.output
     (run,) = [p for p in tmp_path.glob("*") if p.is_dir()]

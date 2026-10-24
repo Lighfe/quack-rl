@@ -45,6 +45,8 @@ def test_add_points_clamps_and_returns_the_amount_added():
     assert p.points == CAP
 
 
+
+
 def test_die_face_point_2_adds_two_points():
     s = state_for(RS, Phase.RESOLVE, p1_points=50, final_field=0)
     out = step(s, RS, None, ScriptedChance(["point_2"])).state

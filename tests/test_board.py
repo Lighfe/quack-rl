@@ -46,3 +46,5 @@ def test_position_and_flag(total, field, flag):
 @pytest.mark.parametrize("x", [0, 1, 25, 50, 77])
 def test_tails_between_same_is_zero(x):
     assert tails_between(x, x, RS) == 0
+
+

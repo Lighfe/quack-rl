@@ -129,3 +129,7 @@ def test_drop_near_track_end_plus_bonus_stays_at_track_end():
     out = draw(s, "card_16")
     assert out.state.players["p1"].rat_tail == calculate_rat_tails({"p1": 0, "p2": 40}, RS)["p1"]
     assert out.state.players["p1"].field == RS.track_end
+
+
+
+

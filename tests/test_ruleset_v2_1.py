@@ -35,6 +35,8 @@ def test_v2_die_weights():
     assert (faces["point_2"].kind, faces["point_2"].points) == ("points", 2)
 
 
+
+
 def test_tail_outside_board_refused():
     base = RS.model_dump()
     bad = {**base, "point_board": {"fields": 50, "rat_tails": [*TAILS, 50], "laps": 2}}
@@ -64,6 +66,8 @@ def test_point_board_values_are_strict_integers():
     with pytest.raises(ValidationError):
         PointBoard.model_validate({"fields": 50, "rat_tails": [1], "laps": "2"})
     assert load_ruleset("v2.1").point_board is not None
+
+
 
 
 def test_rules_doc_agrees_with_the_file():

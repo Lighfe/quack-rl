@@ -23,26 +23,12 @@ def rules_defaults(source: str) -> list[tuple[str, object, int]]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             args = node.args
             positional = args.posonlyargs + args.args
-            for arg, default in zip(
-                positional[len(positional) - len(args.defaults) :], args.defaults
-            ):
+            for arg, default in zip(positional[len(positional) - len(args.defaults):], args.defaults):
                 if arg.arg == "rules":
-                    found.append(
-                        (
-                            f"param {getattr(node, 'name', 'lambda')}",
-                            _const(default),
-                            default.lineno,
-                        )
-                    )
+                    found.append((f"param {getattr(node, 'name', 'lambda')}", _const(default), default.lineno))
             for arg, default in zip(args.kwonlyargs, args.kw_defaults):
                 if arg.arg == "rules" and default is not None:
-                    found.append(
-                        (
-                            f"param {getattr(node, 'name', 'lambda')}",
-                            _const(default),
-                            default.lineno,
-                        )
-                    )
+                    found.append((f"param {getattr(node, 'name', 'lambda')}", _const(default), default.lineno))
         elif isinstance(node, ast.ClassDef):
             for item in node.body:
                 if (
@@ -71,9 +57,7 @@ def scan(files) -> list[tuple[str, str, object, int]]:
     return out
 
 
-CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted(
-    (ROOT / "scripts").glob("*.py")
-)
+CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
 DEFAULT = "v2.1"
 
 
@@ -89,15 +73,12 @@ def test_scan_finds_the_known_defaults():
     assert any(f[:3] == ("tournament.py", "field TournamentConfig", DEFAULT) for f in found)
     cli = [f for f in found if f[0] == "main.py" and f[1].startswith("param")]
     assert len(cli) >= 3 and all(f[2] == DEFAULT for f in cli[:3])
-    assert any(
-        f[0] == "single_env.py" and f[1] == "param __init__" and f[2] == DEFAULT for f in found
-    )
+    assert any(f[0] == "single_env.py" and f[1] == "param __init__" and f[2] == DEFAULT for f in found)
     assert any(f[0] == "report.py" and f[1] == "get" and f[2] == DEFAULT for f in found)
 
 
 @pytest.mark.parametrize(
-    "name",
-    ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"],
+    "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
 @pytest.mark.parametrize("planted_version", ["v3", "v2.0", "v0", "v2.1"])
 def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
@@ -113,9 +94,7 @@ def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
 def test_grep_of_the_issue_shows_only_v2_1():
     out = subprocess.run(
         ["grep", "-rnE", r'rules[^=]*=\s*"v[0-9]+(\.[0-9]+)?"', "src", "scripts"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
+        cwd=ROOT, capture_output=True, text=True,
     ).stdout
     lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
     assert lines and all('"v2.1"' in ln for ln in lines), lines
@@ -123,10 +102,6 @@ def test_grep_of_the_issue_shows_only_v2_1():
 
 def test_data_folder_is_unchanged():
     out = subprocess.run(
-        ["git", "status", "--porcelain", "data/"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
+        ["git", "status", "--porcelain", "data/"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout
     assert out == ""

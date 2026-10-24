@@ -28,20 +28,7 @@ TRACEBACK = "Traceback (most recent call last)"
 def tour(out: Path, *extra: str, bots: str = BOTS, games: str = "3"):
     return runner.invoke(
         app,
-        [
-            "tournament",
-            "--rules",
-            "v2.1",
-            "--bots",
-            bots,
-            "--games",
-            games,
-            "--seed",
-            "5",
-            "--out",
-            str(out),
-            *extra,
-        ],
+        ["tournament", "--rules", "v2.1", "--bots", bots, "--games", games, "--seed", "5", "--out", str(out), *extra],
     )
 
 
@@ -423,9 +410,7 @@ def _play(seed, p1="bot:draw30-pts3-blue", p2="bot:random"):
 
     rs = load_ruleset("v2.1")
     buf = io.StringIO()
-    play_sim_game(
-        rs, rules="v2.1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf
-    )
+    play_sim_game(rs, rules="v2.1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=buf)
     lines = [json.loads(x) for x in buf.getvalue().splitlines()]
     for line in lines:
         for key in ("game_id", "started_at", "finished_at"):
@@ -577,11 +562,7 @@ def test_end_bag_matches_the_game_record(tmp_path, rules):
                     expected[event["seat"]][face.chip] += 1
             elif event["kind"] == "card_remove_chip":  # card 14
                 expected[event["seat"]][event["chip"]] -= 1
-            elif event["kind"] in (
-                "card_chip",
-                "card_swap",
-                "round_chip",
-            ):  # card 7, the round chip
+            elif event["kind"] in ("card_chip", "card_swap", "round_chip"):  # card 7, the round chip
                 expected[event["seat"]][event["chip"]] += 1
     seats = _seat_rows_of(run, game.header.seed)
     for seat in ("p1", "p2"):
@@ -622,9 +603,7 @@ def test_rubies_column_matches_the_ruby_events_of_the_game_record(tmp_path):
             for step in game.steps:
                 for e in step.events:
                     if e["kind"] in ("ruby", "ruby_drop", "refill_flask", "card_swap"):
-                        total[e["seat"]] = e[
-                            "total"
-                        ]  # every event that changes rubies carries the balance
+                        total[e["seat"]] = e["total"]  # every event that changes rubies carries the balance
             for s in table:
                 if s["seed"] == game.header.seed:
                     assert s["rubies"] == total[s["seat"]]

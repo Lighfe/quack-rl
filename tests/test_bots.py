@@ -88,6 +88,12 @@ def test_draw_when_stop_not_legal():
 # --- shop rule ----------------------------------------------------------------
 
 
+
+
+
+
+
+
 def test_strategy_priority_before_points_round():
     from quack_rl.bots import Strategy
 
@@ -100,6 +106,8 @@ def test_done_when_nothing_affordable():
     bot = HeuristicBot(RS, 30, 1, "points", seed=1)
     state = shop_state(2)
     assert bot.choose(state, "p1", shop_legal(state)) == DONE
+
+
 
 
 def test_bot_returns_only_legal_actions():
@@ -143,21 +151,7 @@ def test_parse_bot_name():
 def sim(out, p1, p2, seed="4", games="4"):
     return runner.invoke(
         app,
-        [
-            "simulate",
-            "--rules",
-            "v2.1",
-            "--p1",
-            p1,
-            "--p2",
-            p2,
-            "--games",
-            games,
-            "--seed",
-            seed,
-            "--out",
-            str(out),
-        ],
+        ["simulate", "--rules", "v2.1", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
     )
 
 
@@ -240,6 +234,10 @@ def test_weights_change_what_the_bot_buys():
     bot = HeuristicBot(RS, 30, 5, s, seed=1)
     state = shop_state(10, rnd=1)
     assert bot.choose(state, "p1", shop_legal(state)) == "buy:green_1"
+
+
+
+
 
 
 def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
@@ -365,6 +363,14 @@ def flat(games):
     return [i for g in games for i in g]
 
 
+
+
+
+
+
+
+
+
 @pytest.mark.parametrize("strategy", ["blue", "green", "cleaner", "balanced"])
 def test_strategy_games_verify(tmp_path, strategy):
     r = sim(tmp_path, f"bot:draw30-pts3-{strategy}", "bot:random", games="3")
@@ -415,10 +421,22 @@ def play_shop(bot, state, rs=RS, limit=20):
     raise AssertionError(f"no done after {limit} actions: {actions}")
 
 
+
+
+
+
+
+
 def test_v1_1_before_points_round_strategy_list_first():
     bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
     state = shop_state11(20, rnd=2)
     assert bot.choose(state, "p1", legal11(state)) == "buy:blue_4"
+
+
+
+
+
+
 
 
 @pytest.mark.parametrize("strategy", ["green", "balanced"])
@@ -438,6 +456,8 @@ def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
         bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
         actions = play_shop(bot, shop_state11(money, rnd=rnd))
         assert actions[-1] == DONE and len(actions) <= 20
+
+
 
 
 # --- v1 games unchanged (golden results.csv) ----------------------------------

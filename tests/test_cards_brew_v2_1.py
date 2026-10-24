@@ -64,16 +64,8 @@ def test_card_10_draws_5_for_each_stopped_player_and_offers_each_distinct_chip()
     draws = [(c["seat"], c["value"]) for c in out.chance]
     assert draws == [("p1", v) for v in drawn1] + [("p2", v) for v in drawn2]
     assert s.players["p1"].card_draw == drawn1
-    assert legal_actions(s, RS, "p1") == [
-        "card_place:green_1",
-        "card_place:white_1",
-        "card_place:white_2",
-    ]
-    assert legal_actions(s, RS, "p2") == [
-        "card_place:white_1",
-        "card_place:white_2",
-        "card_place:green_1",
-    ]
+    assert legal_actions(s, RS, "p1") == ["card_place:green_1", "card_place:white_1", "card_place:white_2"]
+    assert legal_actions(s, RS, "p2") == ["card_place:white_1", "card_place:white_2", "card_place:green_1"]
     # the drawn chips stay in the bag until one is placed
     assert sum(s.players["p1"].bag.values()) == sum(BAG_A.values()) - 1
 
@@ -112,12 +104,7 @@ def test_card_10_blue_chip_draws_its_hand_from_a_bag_that_holds_the_four_returne
     assert p1.hand == ["white_3", "green_1"] and p1.status is Status.BREWING
     assert p1.bag == {"white_2": 2}
     assert out.state.phase is Phase.BREW
-    assert legal_actions(out.state, RS, "p1") == [
-        "play:0",
-        "play:1",
-        "put_back_draw",
-        "put_back_stop",
-    ]
+    assert legal_actions(out.state, RS, "p1") == ["play:0", "play:1", "put_back_draw", "put_back_stop"]
     assert legal_actions(out.state, RS, "p2") == [WAIT]
     # the player picks as usual and may then stop; the step is not offered again
     done = go(out.state, "play:1", WAIT)
@@ -214,13 +201,7 @@ def test_card_17_first_white_chip_goes_back_with_the_flask_untouched():
     assert (p.field, p.white_total, p.placed, p.placed_fields) == (start, 0, [], [])
     assert p.bag == BAG_A and p.status is Status.BREWING and p.flask_full is False
     ev = next(e for e in r.events if e["kind"] == "use_card_17")
-    assert ev == {
-        "seat": "p1",
-        "kind": "use_card_17",
-        "chip": "white_2",
-        "field": start,
-        "white_total": 0,
-    }
+    assert ev == {"seat": "p1", "kind": "use_card_17", "chip": "white_2", "field": start, "white_total": 0}
     assert not any(e["kind"] == "use_flask" for e in r.events)
     # offered once: the chip is back, so the next white chip is not the first one
     assert not p.first_white_open and p.first_white_placed
@@ -265,9 +246,7 @@ def test_card_17_both_offered_with_a_full_flask_and_the_flask_stays_full():
     assert legal_actions(s, RS, "p1") == [DRAW, STOP, USE_FLASK, USE_CARD_17]
     r = go(s, USE_CARD_17, USE_FLASK)
     assert r.state.players["p1"].flask_full and r.state.players["p1"].placed == []
-    assert (
-        r.state.players["p2"].flask_full is False
-    )  # p2 used the flask: its card 17 is not touched
+    assert r.state.players["p2"].flask_full is False  # p2 used the flask: its card 17 is not touched
     assert r.state.players["p2"].placed == []
 
 

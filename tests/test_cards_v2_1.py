@@ -87,13 +87,7 @@ def test_calculate_rat_tails_counts_the_tails_up_to_the_leader(low, high):
     lo, hi = min(low, high), max(low, high)
     got = calculate_rat_tails({"a": low, "b": high}, RS)
     expected = tails_between(lo, hi, RS)
-    assert got == (
-        {"a": expected, "b": 0}
-        if low < high
-        else {"a": 0, "b": expected}
-        if low > high
-        else {"a": 0, "b": 0}
-    )
+    assert got == ({"a": expected, "b": 0} if low < high else {"a": 0, "b": expected} if low > high else {"a": 0, "b": 0})
 
 
 def test_calculate_rat_tails_is_not_capped():

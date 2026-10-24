@@ -169,14 +169,9 @@ def _place_events(rs, seed):
         for e in result.events:
             if e["kind"] == "place":
                 events[e["seat"]].append(e)
-            elif e["kind"] in (
-                "use_flask",
-                "use_card_17",
-            ):  # the flask or card 17 takes the last chip out of the pot
+            elif e["kind"] in ("use_flask", "use_card_17"):  # the flask or card 17 takes the last chip out of the pot
                 events[e["seat"]].pop()
-            elif (
-                e["kind"] == "pot_put_back"
-            ):  # a chip effect (yellow 4) takes a white chip out of the pot
+            elif e["kind"] == "pot_put_back":  # a chip effect (yellow 4) takes a white chip out of the pot
                 mine = events[e["seat"]]
                 mine.pop(max(i for i, p in enumerate(mine) if p["chip"] == e["chip"]))
         state = result.state
@@ -194,9 +189,7 @@ def test_names_unique_and_layout_version(version):
     assert sl.stop == len(names)
     assert (sl.stop - sl.start) == (rs.track_end + 1) * map_channels(rs)
     assert names[sl.start] == "map.0.own.colour.white"
-    assert not [
-        n for n in names if n.startswith("map.") and n.endswith((".money", ".points", ".ruby"))
-    ]
+    assert not [n for n in names if n.startswith("map.") and n.endswith((".money", ".points", ".ruby"))]
 
 
 @pytest.mark.parametrize("version", VERSIONS)

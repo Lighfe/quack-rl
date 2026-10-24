@@ -64,12 +64,7 @@ def test_card_8_entitlement_two_offers_up_to_two():
 def test_card_8_gives_up_three_of_five_and_keeps_two():
     out = start("card_8", 0, 13)
     assert entitlement({"p1": 0, "p2": 13})["p1"] == 5
-    assert legal_actions(out.state, RS, "p1") == [
-        "card_tails:0",
-        "card_tails:1",
-        "card_tails:2",
-        "card_tails:3",
-    ]
+    assert legal_actions(out.state, RS, "p1") == ["card_tails:0", "card_tails:1", "card_tails:2", "card_tails:3"]
     done = choose(out, "card_tails:3", WAIT)
     p1 = done.state.players["p1"]
     assert p1.rat_tail_adjust == 3
@@ -169,12 +164,7 @@ def test_card_19_entitlement_zero_only_the_value_four_chips():
     out = start("card_19")
     legal = legal_actions(out.state, RS, "p1")
     assert CARD_TAIL_POINTS not in legal
-    assert [RS.chip(a.removeprefix("card_chip4:")).colour for a in legal] == [
-        "green",
-        "blue",
-        "red",
-        "yellow",
-    ]
+    assert [RS.chip(a.removeprefix("card_chip4:")).colour for a in legal] == ["green", "blue", "red", "yellow"]
     assert all(RS.chip(a.removeprefix("card_chip4:")).value == 4 for a in legal)
     done = choose(out, legal[1], legal[0])
     assert done.state.players["p1"].bag[legal[1].removeprefix("card_chip4:")] == 1
