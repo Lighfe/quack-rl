@@ -566,13 +566,28 @@ effect = "fewest_points_green"
 count = 1
 
 [[cards]]
+id = "card_8"
+effect = "rat_tails_for_rubies"
+count = 1
+
+[[cards]]
 id = "card_9"
 effect = "die_twice"
 count = 1
 
 [[cards]]
+id = "card_12"
+effect = "ruby_for_chip"
+count = 1
+
+[[cards]]
 id = "card_13"
 effect = "fewest_rubies_ruby"
+count = 1
+
+[[cards]]
+id = "card_14"
+effect = "points_or_remove_white"
 count = 1
 
 [[cards]]
@@ -588,6 +603,11 @@ count = 1
 [[cards]]
 id = "card_18"
 effect = "everyone_rolls"
+count = 1
+
+[[cards]]
+id = "card_19"
+effect = "chip4_or_tail_points"
 count = 1
 
 # The points board: fields 0..fields, two laps (at most fields * laps points). A rat tail after

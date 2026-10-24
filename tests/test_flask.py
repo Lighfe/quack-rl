@@ -27,7 +27,9 @@ def test_flask_is_full_at_the_start_and_survives_the_dict_round_trip():
 
 def test_actions_are_appended_after_ruby_drop():
     names = action_names(RS)
-    assert names[-3:] == ["ruby_drop", USE_FLASK, REFILL_FLASK]
+    i = names.index("ruby_drop")
+    assert names[i : i + 3] == ["ruby_drop", USE_FLASK, REFILL_FLASK]
+    assert names[i + 3].startswith("card_tails:")  # the actions of the later cards follow
 
 
 def test_use_after_the_first_white_chip_goes_back_to_the_start_field():

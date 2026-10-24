@@ -19,8 +19,8 @@ from quack_rl.engine.cards import apply_card
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.rules import Ruleset, with_rounds
 
-DECK = ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6", "card_7", "card_9",
-        "card_13", "card_15", "card_16", "card_18"]  # fmt: skip
+DECK = ["card_1", "card_2", "card_3", "card_4", "card_5", "card_6", "card_7", "card_8", "card_9",
+        "card_12", "card_13", "card_14", "card_15", "card_16", "card_18", "card_19"]  # fmt: skip
 
 
 def draw(card, *rolls, state=None, rs=RS):
@@ -42,11 +42,11 @@ def resolve_state(p1_field=8, p2_field=3, exploded=()):
 # --- the deck ---------------------------------------------------------------
 
 
-def test_the_deck_has_the_12_cards_one_of_each():
+def test_the_deck_has_the_16_cards_one_of_each():
     assert [c.id for c in RS.cards] == DECK
     assert all(c.count == 1 for c in RS.cards)
     assert sorted(new_game(RS).deck) == sorted(DECK)
-    assert len(RS.cards) == 12 and RS.rounds <= 12
+    assert len(RS.cards) == 16 and RS.rounds <= 16
 
 
 def test_a_ruleset_with_fewer_cards_than_rounds_is_refused():
@@ -58,8 +58,8 @@ def test_a_ruleset_with_fewer_cards_than_rounds_is_refused():
 
 def test_with_rounds_refuses_more_rounds_than_cards():
     with pytest.raises(ValueError, match="fewer than"):
-        with_rounds(RS, 13)
-    assert with_rounds(RS, 12).rounds == 12
+        with_rounds(RS, 17)
+    assert with_rounds(RS, 16).rounds == 16
 
 
 # --- the rat tail function ----------------------------------------------------

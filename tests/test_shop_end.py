@@ -203,4 +203,6 @@ def test_rubies_carry_over_into_the_next_round_and_the_droplet_moves_the_start()
 
 
 def test_ruby_drop_is_followed_only_by_the_flask_actions():
-    assert action_names(RS)[-3:] == [RUBY_DROP, "use_flask", "refill_flask"]
+    names = action_names(RS)
+    i = names.index(RUBY_DROP)
+    assert names[i : i + 3] == [RUBY_DROP, "use_flask", "refill_flask"]

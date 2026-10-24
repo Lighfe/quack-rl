@@ -559,7 +559,9 @@ def test_end_bag_matches_the_game_record(tmp_path, rules):
                 face = faces[event["face"]]
                 if face.kind == "chip":
                     expected[event["seat"]][face.chip] += 1
-            elif event["kind"] in ("card_chip", "round_chip"):  # card 7, the round chip
+            elif event["kind"] == "card_remove_chip":  # card 14
+                expected[event["seat"]][event["chip"]] -= 1
+            elif event["kind"] in ("card_chip", "card_swap", "round_chip"):  # card 7, the round chip
                 expected[event["seat"]][event["chip"]] += 1
     seats = _seat_rows_of(run, game.header.seed)
     for seat in ("p1", "p2"):

@@ -15,13 +15,23 @@ from typing import Any
 
 from quack_rl.engine.actions import (
     CARD_BLACK,
+    CARD_CHIP4_PREFIX,
     CARD_CHIP_PREFIX,
     CARD_DROP_2,
+    CARD_POINTS,
+    CARD_POINTS_AMOUNT,
     CARD_PURPLE,
+    CARD_REMOVE_WHITE,
     CARD_RUBIES,
+    CARD_SWAP_PREFIX,
+    CARD_TAIL_POINTS,
+    CARD_TAILS_PREFIX,
     RESTART,
+    WAIT,
+    late_card_choice,
+    white_one,
 )
-from quack_rl.engine.board import apply_die_face, set_rat_tails
+from quack_rl.engine.board import add_points, apply_die_face, calculate_rat_tails, set_rat_tails
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, refill_all_flasks, start_field
 from quack_rl.rules import Ruleset
@@ -76,6 +86,12 @@ def _green_one(rs: Ruleset) -> str:
 
 _CHOICE_EFFECTS = ("choice_drop2_or_purple", "choice_black_or_value2_or_rubies")
 CARD_RUBIES_AMOUNT = 3  # card 5, option C
+_LATE_CHOICE_EFFECTS = (
+    "rat_tails_for_rubies",
+    "ruby_for_chip",
+    "points_or_remove_white",
+    "chip4_or_tail_points",
+)  # cards 8, 12, 14, 19: a seat that is not asked gets WAIT
 
 
 def apply_card(
@@ -121,6 +137,11 @@ def apply_card(
                 events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
     if effect in _CHOICE_EFFECTS:
         state.phase = Phase.CARD_CHOICE
+    elif effect in _LATE_CHOICE_EFFECTS:
+        if any(late_card_choice(state, rs, seat) != [WAIT] for seat in SEATS):
+            state.phase = Phase.CARD_CHOICE
+        else:  # nobody has a decision: the step needs no action (card 14 still pays the points)
+            apply_card_choice(state, rs, dict.fromkeys(SEATS, WAIT), events)
     else:
         state.phase = Phase.BREW
         set_rat_tails(state, rs, events)
@@ -132,6 +153,9 @@ def apply_card_choice(
     """Cards 5 and 6: both players choose at the same moment; the choices resolve together.
 
     A chip goes into the bag at once, a drop (card 6) or the rubies (card 5) at once."""
+    if state.card is not None and rs.card(state.card).effect in _LATE_CHOICE_EFFECTS:
+        _apply_late_choice(state, rs, actions, events)
+        return
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
@@ -152,6 +176,51 @@ def apply_card_choice(
         if chip_id is not None:
             p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
             events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
+    state.phase = Phase.BREW
+    set_rat_tails(state, rs, events)
+
+
+def _apply_late_choice(
+    state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
+) -> None:
+    """Cards 8, 12, 14 and 19. Two passes: first the choices of all players are recorded (and the
+    entitlements read from the points before any reward), then the rewards are paid, so one
+    player's reward never changes another player's entitlement. The rat tail bonus is calculated
+    once afterwards, on the new points."""
+    assert state.card is not None
+    effect = rs.card(state.card).effect
+    entitlement = calculate_rat_tails({s: state.players[s].points for s in SEATS}, rs)
+    for seat in SEATS:
+        events.append({"seat": seat, "kind": "card_choice", "action": actions[seat]})
+    for seat in SEATS:
+        p = state.players[seat]
+        action = actions[seat]
+        if effect == "rat_tails_for_rubies" and action.startswith(CARD_TAILS_PREFIX):
+            given = int(action.removeprefix(CARD_TAILS_PREFIX))
+            if given:
+                p.rat_tail_adjust += given
+                _give_rubies(p, seat, given, events)
+        elif effect == "ruby_for_chip" and action.startswith(CARD_SWAP_PREFIX):
+            chip_id = action.removeprefix(CARD_SWAP_PREFIX)
+            p.rubies -= 1
+            p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+            events.append({"seat": seat, "kind": "card_swap", "chip": chip_id, "total": p.rubies})
+        elif effect == "points_or_remove_white":
+            if action == CARD_REMOVE_WHITE:
+                chip_id = white_one(rs)
+                p.bag[chip_id] -= 1
+                events.append({"seat": seat, "kind": "card_remove_chip", "chip": chip_id})
+            else:  # CARD_POINTS, or WAIT because the bag has no white 1
+                added = add_points(p, CARD_POINTS_AMOUNT, rs)
+                events.append({"seat": seat, "kind": "card_points", "points": added})
+        elif effect == "chip4_or_tail_points":
+            if action == CARD_TAIL_POINTS:
+                added = add_points(p, entitlement[seat], rs)
+                events.append({"seat": seat, "kind": "card_points", "points": added})
+            elif action.startswith(CARD_CHIP4_PREFIX):
+                chip_id = action.removeprefix(CARD_CHIP4_PREFIX)
+                p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
+                events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})
     state.phase = Phase.BREW
     set_rat_tails(state, rs, events)
 

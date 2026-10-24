@@ -89,8 +89,26 @@ def test_action_names_v2_1():
         "ruby_drop",
         "use_flask",
         "refill_flask",
+        "card_tails:0",
+        "card_tails:1",
+        "card_tails:2",
+        "card_tails:3",
+        "card_swap:green_1",
+        "card_swap:blue_1",
+        "card_swap:red_1",
+        "card_swap:yellow_1",
+        "card_swap:orange_1",
+        "card_swap:white_1",
+        "card_swap_no",
+        "card_points",
+        "card_remove_white",
+        "card_chip4:green_4",
+        "card_chip4:blue_4",
+        "card_chip4:red_4",
+        "card_chip4:yellow_4",
+        "card_tail_points",
     ]
-    assert len(names) == 42
+    assert len(names) == 60
     assert buy("blue_2") == "buy:blue_2"
     assert {buy(i.id) for i in RS.shop} <= set(names)
 

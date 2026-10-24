@@ -1,4 +1,5 @@
 from quack_rl.components import get_component
+from quack_rl.engine.board import calculate_rat_tails
 from quack_rl.engine.state import GameState, Phase, PlayerState, Status
 from quack_rl.rules import ChipSpec, Ruleset, ShopItem
 
@@ -19,6 +20,17 @@ CARD_PURPLE = "card_purple"  # card 6: a purple 1 chip
 CARD_BLACK = "card_black"  # card 5: a black 1 chip
 CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
 CARD_RUBIES = "card_rubies"  # card 5: 3 rubies
+CARD_TAILS_PREFIX = "card_tails:"  # card 8: give up 1 to 3 rat tails for rubies; `card_tails:0` declines
+CARD_TAILS_MAX = 3
+CARD_SWAP_PREFIX = "card_swap:"  # card 12: a ruby for a value-1 chip, by id
+CARD_SWAP_NO = "card_swap_no"  # card 12: decline
+CARD_SWAP_COLOURS = ("green", "blue", "red", "yellow", "orange", "white")
+CARD_POINTS = "card_points"  # card 14: 4 points
+CARD_REMOVE_WHITE = "card_remove_white"  # card 14: a white 1 chip leaves the bag for good
+CARD_POINTS_AMOUNT = 4
+CARD_CHIP4_PREFIX = "card_chip4:"  # card 19: a value-4 chip, by id
+CARD_TAIL_POINTS = "card_tail_points"  # card 19: points equal to the rat tail entitlement
+CARD_CHIP4_COLOURS = ("green", "blue", "red", "yellow")
 RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
 USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
 REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
@@ -53,7 +65,7 @@ def action_names(rs: Ruleset) -> list[str]:
     pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
-    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP, USE_FLASK, REFILL_FLASK]
+    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP, USE_FLASK, REFILL_FLASK, *_late_card_actions(rs)]
 
 
 def _card_actions(rs: Ruleset) -> list[str]:
@@ -67,6 +79,31 @@ def _card_actions(rs: Ruleset) -> list[str]:
     if "choice_black_or_value2_or_rubies" in effects:
         chips = (f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs))
         names += [CARD_BLACK, *chips, CARD_RUBIES]
+    return names
+
+
+def swap_chips(rs: Ruleset) -> list[str]:
+    """Card 12: the value-1 chips of the allowed colours, in the order of CARD_SWAP_COLOURS."""
+    return [c.id for col in CARD_SWAP_COLOURS for c in rs.chips if c.colour == col and c.value == 1]
+
+
+def chip4_chips(rs: Ruleset) -> list[str]:
+    """Card 19: the value-4 chips of the allowed colours, in the order of CARD_CHIP4_COLOURS."""
+    return [c.id for col in CARD_CHIP4_COLOURS for c in rs.chips if c.colour == col and c.value == 4]
+
+
+def _late_card_actions(rs: Ruleset) -> list[str]:
+    """The actions of cards 8, 12, 14 and 19, appended after the flask actions."""
+    effects = {rs.card(c.id).effect for c in rs.cards}
+    names: list[str] = []
+    if "rat_tails_for_rubies" in effects:
+        names += [f"{CARD_TAILS_PREFIX}{n}" for n in range(CARD_TAILS_MAX + 1)]
+    if "ruby_for_chip" in effects:
+        names += [*(f"{CARD_SWAP_PREFIX}{c}" for c in swap_chips(rs)), CARD_SWAP_NO]
+    if "points_or_remove_white" in effects:
+        names += [CARD_POINTS, CARD_REMOVE_WHITE]
+    if "chip4_or_tail_points" in effects:
+        names += [*(f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)), CARD_TAIL_POINTS]
     return names
 
 
@@ -90,6 +127,38 @@ def _can_use_flask(p: PlayerState, rs: Ruleset) -> bool:
     return p.flask_full and rs.chip(p.placed[-1]).colour == "white"
 
 
+def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | None:
+    """The options of the cards 8, 12, 14 and 19 for one seat ([WAIT] when it is not asked);
+    None for any other card."""
+    if state.card is None:
+        return None
+    effect = rs.card(state.card).effect
+    p = state.players[seat]
+    if effect == "rat_tails_for_rubies":
+        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]
+        if entitlement == 0:
+            return [WAIT]
+        return [f"{CARD_TAILS_PREFIX}{n}" for n in range(min(entitlement, CARD_TAILS_MAX) + 1)]
+    if effect == "ruby_for_chip":
+        if p.rubies < 1:
+            return [WAIT]
+        return [*(f"{CARD_SWAP_PREFIX}{c}" for c in swap_chips(rs)), CARD_SWAP_NO]
+    if effect == "points_or_remove_white":
+        if p.bag.get(white_one(rs), 0) < 1:
+            return [WAIT]
+        return [CARD_POINTS, CARD_REMOVE_WHITE]
+    if effect == "chip4_or_tail_points":
+        chips = [f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)]
+        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]
+        return [*chips, CARD_TAIL_POINTS] if entitlement > 0 else chips
+    return None
+
+
+def white_one(rs: Ruleset) -> str:
+    """The white chip of value 1 (card 14)."""
+    return next(c.id for c in rs.chips if c.colour == "white" and c.value == 1)
+
+
 def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
     p = state.players[seat]
     if state.phase is Phase.BREW:
@@ -102,6 +171,9 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         flask = [USE_FLASK] if _can_use_flask(p, rs) else []
         return [DRAW, STOP, *flask]
     if state.phase is Phase.CARD_CHOICE:
+        late = late_card_choice(state, rs, seat)
+        if late is not None:
+            return late
         if state.card is not None and rs.card(state.card).effect == "choice_drop2_or_purple":
             return [CARD_DROP_2, CARD_PURPLE]
         chips = [f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs)]

@@ -110,8 +110,8 @@ def test_same_seed_same_game_different_seed_differs(version):
 
     # same actions (always draw, else wait/done), different seed
     def fixed(seed):
-        env.reset(seed=seed)
-        first = env.step({s: 1 for s in SEATS})  # draw, draw
+        obs, _ = env.reset(seed=seed)
+        first = (obs,)
         while env.agents:
             obs = first[0]
             acts = {a: int(np.flatnonzero(obs[a]["action_mask"])[0]) for a in env.agents}
