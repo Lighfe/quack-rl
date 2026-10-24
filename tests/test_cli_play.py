@@ -616,5 +616,8 @@ def test_board_shows_rubies_flask_and_the_card_line_but_no_hidden_hand():
     text = board(s)
     assert "rubies 3" in text and "rubies 0" in text
     assert "flask full" in text and "flask empty" in text
-    assert "card: card_14 (" in text and "deck:" in text
+    from quack_rl.rules.cards import get_card_effect
+
+    description = get_card_effect(RS.card("card_14").effect).description
+    assert description and f"card: card_14 ({description})" in text and "deck:" in text
     assert "hand" not in text and "Y2" not in text
