@@ -61,6 +61,22 @@ def test_with_rounds_refuses_more_rounds_than_cards():
     assert with_rounds(RS, 20).rounds == 20
 
 
+@pytest.mark.parametrize("change", ["remove_10", "count_2", "rename", "add"])
+def test_the_model_refuses_a_deck_that_is_not_the_20_cards_one_of_each(change):
+    data = RS.model_dump()
+    cards = data["cards"]
+    if change == "remove_10":
+        data["cards"] = [c for c in cards if c["id"] != "card_10"]
+    elif change == "count_2":
+        next(c for c in cards if c["id"] == "card_17")["count"] = 2
+    elif change == "rename":
+        cards[0]["id"] = "card_99"
+    else:
+        cards.append({"id": "card_21", "effect": "ruby_extra", "count": 1})
+    with pytest.raises(ValueError, match="one of each"):
+        Ruleset.model_validate(data)
+
+
 # --- the rat tail function ----------------------------------------------------
 
 

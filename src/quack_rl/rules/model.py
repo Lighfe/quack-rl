@@ -39,6 +39,9 @@ class DieFace(_Frozen):
     points: int = 0
 
 
+DECK_SIZE = 20
+
+
 class CardSpec(_Frozen):
     id: str
     # The name of a registered card effect (`quack_rl.rules.cards`).
@@ -143,6 +146,11 @@ class Ruleset(_Frozen):
             raise ValueError(
                 f"the deck has {sum(c.count for c in self.cards)} cards, fewer than the "
                 f"{self.rounds} rounds: one card is drawn per round"
+            )
+        deck = {c.id: c.count for c in self.cards}
+        if deck != {f"card_{n}": 1 for n in range(1, DECK_SIZE + 1)}:
+            raise ValueError(
+                f"cards: the deck is the {DECK_SIZE} cards card_1 to card_{DECK_SIZE}, one of each"
             )
         for entry in [*self.shop, *self.die]:
             _check_kind_fields(entry)

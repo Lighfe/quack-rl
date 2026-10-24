@@ -22,7 +22,7 @@ from quack_rl.engine.actions import DONE, USE_CARD_17, action_names
 from quack_rl.engine.chance import IllegalChance
 from quack_rl.engine.state import SEATS, Phase, Status
 from quack_rl.rl import QuackEnv
-from quack_rl.rules import Ruleset
+from quack_rl.rules import CardSpec, Ruleset
 
 PLAY0 = "play:0"
 
@@ -293,11 +293,10 @@ def test_the_new_actions_are_at_the_end_of_the_list():
 
 
 def _only(*cards):
-    data = RS.model_dump()
-    data["cards"] = [
-        {"id": c, "effect": RS.card(c).effect, "count": 5} for c in cards
-    ]
-    return Ruleset.model_validate(data)
+    # model_copy skips the validation: the model only accepts the full 20-card deck.
+    return RS.model_copy(
+        update={"cards": [CardSpec(id=c, effect=RS.card(c).effect, count=5) for c in cards]}
+    )
 
 
 def test_the_mask_equals_legal_actions_in_games_with_only_cards_10_and_17():
