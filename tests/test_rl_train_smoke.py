@@ -55,3 +55,17 @@ def test_check_env_sb3():
     from stable_baselines3.common.env_checker import check_env
 
     check_env(QuackEnv(), warn=False, skip_render_check=True)
+
+
+def test_policy_bot_plays_a_seat_of_the_runner():
+    from sb3_contrib import MaskablePPO
+
+    from quack_rl.engine import GameState, Phase, RngChance
+    from quack_rl.rules import load_ruleset
+    from quack_rl.runner import play_game
+
+    rs = load_ruleset("v2.1")
+    env = QuackEnv(rules=rs)
+    bot = PolicyBot(MaskablePPO("MlpPolicy", env, device="cpu", seed=0), rs)
+    final = play_game(rs, {"p1": bot, "p2": RandomBot(1)}, RngChance(2))
+    assert isinstance(final, GameState) and final.phase is Phase.GAME_OVER
