@@ -115,7 +115,7 @@ def test_round_start_order_chips_then_card_then_rat_tails():
     assert kinds[-1] == "rat_tail"
 
 
-def test_the_rat_tail_bonus_is_calculated_on_the_points_after_the_card():
+def test_the_rat_tails_are_calculated_on_the_points_after_the_card():
     # card 18: p1 rolls +2 points (and p2 nothing) before the bonus is calculated, once
     s = new_game(RS)
     s.players["p1"].points = 8
