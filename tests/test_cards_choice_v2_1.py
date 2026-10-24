@@ -52,31 +52,33 @@ def test_card_8_only_the_trailing_player_is_asked_up_to_the_entitlement():
     assert legal_actions(out.state, RS, "p2") == [WAIT]
 
 
+def test_card_8_entitlement_two_offers_up_to_two():
+    out = start("card_8", 0, 5)
+    assert entitlement({"p1": 0, "p2": 5})["p1"] == 2
+    assert legal_actions(out.state, RS, "p1") == ["card_tails:0", "card_tails:1", "card_tails:2"]
+    done = choose(out, "card_tails:2", WAIT)
+    assert done.state.players["p1"].rat_tail == 0
+    assert done.state.players["p1"].rubies == RS.start_rubies + 2
+
+
 def test_card_8_gives_up_three_of_five_and_keeps_two():
-    out = start("card_8", 0, 24)
-    assert entitlement({"p1": 0, "p2": 24})["p1"] >= 5
-    base = start("card_1", 0, 24)  # no card choice: the standard bonus
+    out = start("card_8", 0, 13)
+    assert entitlement({"p1": 0, "p2": 13})["p1"] == 5
     assert legal_actions(out.state, RS, "p1") == ["card_tails:0", "card_tails:1", "card_tails:2", "card_tails:3"]
     done = choose(out, "card_tails:3", WAIT)
     p1 = done.state.players["p1"]
     assert p1.rat_tail_adjust == 3
-    assert p1.rat_tail == base.state.players["p1"].rat_tail - 3
+    assert p1.rat_tail == 2
     assert p1.rubies == RS.start_rubies + 3
     assert done.state.phase is Phase.BREW
 
 
-def test_card_8_exactly_two_of_five():
-    out = start("card_8", 0, 24)
-    done = choose(out, "card_tails:2", WAIT)
-    assert done.state.players["p1"].rat_tail == entitlement({"p1": 0, "p2": 24})["p1"] - 2
-
-
 def test_card_8_decline_changes_nothing():
-    out = start("card_8", 0, 24)
+    out = start("card_8", 0, 13)
     done = choose(out, "card_tails:0", WAIT)
     p1 = done.state.players["p1"]
     assert p1.rat_tail_adjust == 0 and p1.rubies == RS.start_rubies
-    assert p1.rat_tail == entitlement({"p1": 0, "p2": 24})["p1"]
+    assert p1.rat_tail == 5
 
 
 def test_card_8_more_than_the_entitlement_is_illegal():
@@ -169,32 +171,42 @@ def test_card_19_entitlement_zero_only_the_value_four_chips():
 
 
 def test_card_19_entitlement_five_gives_five_points_and_the_bonus_uses_them():
-    out = start("card_19", 0, 24)
-    e = entitlement({"p1": 0, "p2": 24})["p1"]
-    assert e >= 5
+    out = start("card_19", 0, 13)
+    assert entitlement({"p1": 0, "p2": 13})["p1"] == 5
     assert CARD_TAIL_POINTS in legal_actions(out.state, RS, "p1")
     assert CARD_TAIL_POINTS not in legal_actions(out.state, RS, "p2")
     done = choose(out, CARD_TAIL_POINTS, "card_chip4:green_4")
-    assert done.state.players["p1"].points == e
-    assert done.state.players["p1"].rat_tail == entitlement({"p1": e, "p2": 24})["p1"]
+    assert done.state.players["p1"].points == 5
+    # the bonus is calculated on the new points: 5 vs 13
+    assert done.state.players["p1"].rat_tail == entitlement({"p1": 5, "p2": 13})["p1"] == 3
 
 
-def test_card_19_two_passes_the_entitlements_are_read_before_any_reward_is_paid():
+def test_card_19_two_passes_the_entitlements_are_read_before_any_reward_is_paid(monkeypatch):
+    from quack_rl.engine import cards
     from quack_rl.engine.cards import _apply_late_choice
 
     s = new_game(RS)
     s.card = "card_19"
     s.phase = Phase.CARD_CHOICE
-    s.players["p2"].points = 24
-    e1 = entitlement({"p1": 0, "p2": 24})["p1"]
-    # both choose (B) (the engine takes the choices as given): p1 gets its entitlement, and p2 gets
-    # 0 (its entitlement before the rewards), not the tails to p1's new points
+    s.players["p2"].points = 13
+    seen = []
+    real = cards.calculate_rat_tails
+
+    def spy(points, rs):
+        seen.append(dict(points))
+        return real(points, rs)
+
+    monkeypatch.setattr(cards, "calculate_rat_tails", spy)
+    # both choose (B) (the engine takes the choices as given): p1 gets its entitlement of 5, and
+    # p2 gets 0 (its entitlement before the rewards)
     _apply_late_choice(s, RS, {"p1": CARD_TAIL_POINTS, "p2": CARD_TAIL_POINTS}, [])
-    assert s.players["p1"].points == e1
-    assert s.players["p2"].points == 24
+    # the entitlements are read once, from the points before any reward is paid
+    assert seen == [{"p1": 0, "p2": 13}]
+    assert s.players["p1"].points == 5
+    assert s.players["p2"].points == 13
     assert s.phase is Phase.BREW
     # the standard bonus step ran once, on the new points
-    assert s.players["p1"].rat_tail == entitlement({"p1": e1, "p2": 24})["p1"]
+    assert s.players["p1"].rat_tail == 3
 
 
 # --- the action list -------------------------------------------------------------
