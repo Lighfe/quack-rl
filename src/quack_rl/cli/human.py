@@ -8,7 +8,7 @@ from quack_rl.cli.render import chip_text, hand_text, render_board
 from quack_rl.engine import (
     BUY_PREFIX,
     CARD_DROP_2,
-    CARD_DROP_END,
+    CARD_RUBIES,
     CONTINUE,
     DONE,
     DRAW,
@@ -132,8 +132,8 @@ class HumanSeat:
             return f"a {chip_text(self._card_chip('purple', 1), self.rs).plain} chip into the bag"
         if action == CARD_DROP_2:
             return "drop +2 now"
-        if action == CARD_DROP_END:
-            return "drop +1.5 at round end"
+        if action == CARD_RUBIES:
+            return "3 rubies"
         if action.startswith(CARD_CHIP_PREFIX):
             chip_id = action.removeprefix(CARD_CHIP_PREFIX)
             return f"a {chip_text(chip_id, self.rs).plain} chip into the bag"

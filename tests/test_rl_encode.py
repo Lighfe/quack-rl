@@ -32,7 +32,7 @@ VERSIONS = ["v2.1"]
 
 def brew_game(rs):
     """A new game after the first card (a card without effect), at the first brew step."""
-    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
+    return step(new_game(rs), rs, None, ScriptedChance(["card_16"])).state
 
 
 def random_game(rs, seed):

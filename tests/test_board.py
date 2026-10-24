@@ -1,6 +1,6 @@
 import pytest
 
-from quack_rl.engine import board_position, has_50pts, rat_tail_bonus, tails_between
+from quack_rl.engine import board_position, has_50pts, calculate_rat_tails, tails_between
 from quack_rl.rules import load_ruleset
 
 RS = load_ruleset("v2.1")
@@ -18,7 +18,7 @@ RS = load_ruleset("v2.1")
 )
 def test_worked_examples(a, b, bonus_a, bonus_b):
     # (a, b) are the totals; the bonus goes to the lower player. 8/1: the 1 player is lower.
-    got = rat_tail_bonus({"a": a, "b": b}, RS)
+    got = calculate_rat_tails({"a": a, "b": b}, RS)
     if a == 8:
         assert got == {"a": 0, "b": 3}
     else:
@@ -27,11 +27,11 @@ def test_worked_examples(a, b, bonus_a, bonus_b):
 
 @pytest.mark.parametrize("total", [0, 7, 50, 100])
 def test_equal_totals_give_zero(total):
-    assert rat_tail_bonus({"a": total, "b": total}, RS) == {"a": 0, "b": 0}
+    assert calculate_rat_tails({"a": total, "b": total}, RS) == {"a": 0, "b": 0}
 
 
 def test_three_seats_tie_for_lead():
-    assert rat_tail_bonus({"a": 10, "b": 10, "c": 0}, RS) == {"a": 0, "b": 0, "c": 3}
+    assert calculate_rat_tails({"a": 10, "b": 10, "c": 0}, RS) == {"a": 0, "b": 0, "c": 3}
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 from quack_rl.engine.actions import (
     BUY_PREFIX,
     CARD_DROP_2,
-    CARD_DROP_END,
+    CARD_RUBIES,
     CONTINUE,
     DONE,
     DRAW,
@@ -25,9 +25,10 @@ from quack_rl.engine.actions import (
 )
 from quack_rl.engine.board import (
     add_points,
+    apply_die_face,
     board_position,
     has_50pts,
-    rat_tail_bonus,
+    calculate_rat_tails,
     set_rat_tails,
     tails_between,
 )
@@ -64,7 +65,7 @@ __all__ = [
     "CARD_SEAT",
     "BUY_PREFIX",
     "CARD_DROP_2",
-    "CARD_DROP_END",
+    "CARD_RUBIES",
     "CONTINUE",
     "RUBY_DROP",
     "USE_FLASK",
@@ -95,8 +96,10 @@ __all__ = [
     "StepResult",
     "action_names",
     "add_points",
+    "apply_die_face",
     "board_position",
     "buy",
+    "calculate_rat_tails",
     "card_effect",
     "explosion_limit",
     "has_50pts",
@@ -104,7 +107,6 @@ __all__ = [
     "legal_actions",
     "needs_actions",
     "play",
-    "rat_tail_bonus",
     "set_rat_tails",
     "new_game",
     "refill_all_flasks",

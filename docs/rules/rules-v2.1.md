@@ -269,24 +269,28 @@ These are candidate changes for later versions. They are also test cases for the
 
 In round 6, at the card step and before the round card is drawn, both players get one white 1 chip (`white_1`) into the bag, first p1, then p2 (event `round_chip`). The chip stays in the bag for the rest of the game, like any chip. The rule is the ruleset table `round_chips` (entries `round` and `chip`); v2.1 has one entry, round 6 with `white_1`. A game with fewer rounds never reaches round 6 and has no round chip.
 
-### Round-start cards (unchanged from v1.11)
+### Round cards
 
-At the start of every round, one card is drawn at random from the cards not yet drawn in this game (without replacement). The 9 rounds use 9 of the 12 cards. Each entry of the deck has an `id`, an `effect` (the name of a card effect) and a `count`. The effect names are in the ruleset file.
+**Round start order (fixed):** (1) the round chips, (2) the round card is drawn and its effect and choices are resolved, (3) the rat tail bonus is calculated once, on the points after the card, and the pots move to their start fields. No card has a special order. A card is an extra effect on top of the standard rules.
+
+One card is drawn per round, at random from the cards not yet drawn in this game (without replacement). The deck has 12 cards (cards 1 to 7, 9, 13, 15, 16, 18), one of each; the ruleset needs at least as many cards as rounds. Each entry of the deck has an `id`, an `effect` (the name of a card effect) and a `count`. Cards 8, 10, 11, 12, 14, 17, 19 and 20 of the 20-card list are added by later issues. The effects are per player.
 
 | Card id | Effect name | Effect | Count |
 |---|---|---|---|
-| card_1 | ruby_extra | a ruby field gives 1 ruby more (2 in total) | 1 |
+| card_1 | ruby_extra | a ruby field gives 1 ruby more this round | 1 |
 | card_2 | restart_after_5 | restart option after 5 chips | 1 |
-| card_3 | drop_all_1 | every drop +1 | 1 |
+| card_3 | drop_all_1 | every drop +1 at round start | 1 |
 | card_4 | explosion_limit_plus_2 | explosion limit +2 this round | 1 |
-| card_5 | choice_black_or_value2_or_drop | choice: black 1 chip, or any value-2 chip, or drop +1.5 at round end | 1 |
+| card_5 | choice_black_or_value2_or_rubies | each player chooses: a black 1 chip into the bag, or any value-2 chip into the bag, or 3 rubies | 1 |
 | card_6 | choice_drop2_or_purple | choice: drop +2, or purple 1 chip | 1 |
 | card_7 | fewest_points_green | fewest points get a green 1 chip | 1 |
-| card_8_to_12 | no_effect | no effect | 5 |
+| card_9 | die_twice | a player who rolls the bonus die in Resolve rolls it a second time on top of the standard roll; both rewards apply in order, each roll is a chance event | 1 |
+| card_13 | fewest_rubies_ruby | the player(s) with the fewest rubies get 1 ruby (a tie: all tied players) | 1 |
+| card_15 | ruby_field_points | a player whose scoring field is a ruby field gets +2 points on top of the ruby, also after an explosion | 1 |
+| card_16 | refill_flasks | at the end of the round (after Resolve, before the shop) all flasks are refilled | 1 |
+| card_18 | everyone_rolls | at the card step every player rolls the bonus die once (p1, then p2) and gets the reward at once; separate from the standard roll in Resolve | 1 |
 
-The deck has 12 cards, 5 of them without an effect.
-
-**Status of the engine:** the ruleset file and the card effect names exist, but the engine does not draw or play the cards yet (later issues of the same stage). Until then a v2.1 game plays as v1.10. This document states the intended rules; the full card text is in `archive/docs/specs/2026-10-19-ruleset-v1-11.md`.
+**Rat tail function:** `calculate_rat_tails(points, rs)` returns for each seat the number of rat tails between the seat and the leader (0 for the leader), not capped. A card lowers a bonus with `PlayerState.rat_tail_adjust` (a positive number that is subtracted, reset every round): `rat_tail = max(0, calculate_rat_tails(...)[seat] - rat_tail_adjust)`.
 
 Points per field (the real values of the physical board):
 

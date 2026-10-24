@@ -7,7 +7,7 @@ from quack_rl.components import get_component
 from quack_rl.engine import (
     BUY_PREFIX,
     CARD_DROP_2,
-    CARD_DROP_END,
+    CARD_RUBIES,
     CONTINUE,
     DONE,
     DRAW,
@@ -151,7 +151,7 @@ class HeuristicBot:
             action = self._shop(state, seat, legal)
             return action if action in legal else DONE if DONE in legal else legal[0]
         if state.phase is Phase.CARD_CHOICE:
-            wanted = CARD_DROP_2 if CARD_DROP_2 in legal else CARD_DROP_END
+            wanted = CARD_DROP_2 if CARD_DROP_2 in legal else CARD_RUBIES
             return wanted if wanted in legal else legal[0]
         if state.phase is Phase.RESTART:
             return RESTART if self._restart(state, seat) and RESTART in legal else (

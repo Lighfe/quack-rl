@@ -21,7 +21,7 @@ def board(state, rs):
     return text_of(render_board(state, rs, False), 2000)
 
 
-def test_board_shows_the_rat_tail_bonus():
+def test_board_shows_the_calculate_rat_tails():
     s = new_game(RS)
     s.players["p1"].rat_tail = 2
     text = board(s, RS)
@@ -38,7 +38,7 @@ def test_rat_tail_event_prints_generically():
     s = new_game(RS)
     s.players["p1"].points = 0
     s.players["p2"].points = 10
-    result = step(s, RS, None, ScriptedChance(["card_8_to_12"]))
+    result = step(s, RS, None, ScriptedChance(["card_16"]))
     out = render_step(result, RS)
     assert "kind=rat_tail bonus=3" in out
 

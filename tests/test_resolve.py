@@ -167,7 +167,9 @@ def test_resolve_does_not_change_field_or_bag_except_orange_face():
 
 
 def test_events_kinds_and_one_money_event_per_seat():
-    r = auto(brewed(19, 11, p1_placed=("white_1", "green_1")), "droplet_1")
+    s = brewed(19, 11, p1_placed=("white_1", "green_1"))
+    s.card = "card_4"  # a card with no ruby or round end effect
+    r = auto(s, "droplet_1")
     assert r.events == [
         {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1},
         {"seat": "p1", "kind": "round_end_bonus", "chip": "green_1", "halves": 1},

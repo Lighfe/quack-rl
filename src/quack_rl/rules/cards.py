@@ -1,6 +1,6 @@
 """Round-start card effects (v1.11): a registry of the effect names a ruleset `cards` entry may use.
 
-This registers names only. The engine does not play the cards yet (issues #143 and #144).
+The engine plays them in `engine/cards.py`, `engine/resolve.py` and `engine/shop.py`.
 """
 
 from dataclasses import dataclass
@@ -39,13 +39,18 @@ def registered_card_effects() -> dict[str, CardEffect]:
     return dict(_EFFECTS)
 
 
-register_card_effect("ruby_extra", "a ruby field gives 1 ruby more")
+register_card_effect("ruby_extra", "a ruby field gives 1 ruby more this round")
 register_card_effect("restart_after_5", "restart option after 5 chips")
 register_card_effect("drop_all_1", "every drop +1")
 register_card_effect("explosion_limit_plus_2", "explosion limit +2 this round")
 register_card_effect(
-    "choice_black_or_value2_or_drop", "choice: black 1 chip, or any value-2 chip, or drop +1.5 at round end"
+    "choice_black_or_value2_or_rubies",
+    "choice: black 1 chip, or any value-2 chip, or 3 rubies",
 )
 register_card_effect("choice_drop2_or_purple", "choice: drop +2, or purple 1 chip")
 register_card_effect("fewest_points_green", "fewest points get a green 1 chip")
-register_card_effect("no_effect", "no effect")
+register_card_effect("die_twice", "a player who rolls the bonus die in Resolve rolls it twice")
+register_card_effect("fewest_rubies_ruby", "the player(s) with the fewest rubies get 1 ruby")
+register_card_effect("ruby_field_points", "a scoring ruby field gives +2 points on top of the ruby")
+register_card_effect("refill_flasks", "at the end of the round all flasks are refilled")
+register_card_effect("everyone_rolls", "at the card step every player rolls the bonus die once")

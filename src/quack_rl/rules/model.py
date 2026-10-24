@@ -139,6 +139,11 @@ class Ruleset(_Frozen):
         _check_unique_ids("cards", [c.id for c in self.cards])
         for card in self.cards:
             get_card_effect(card.effect)  # raises for an unregistered effect name
+        if sum(c.count for c in self.cards) < self.rounds:
+            raise ValueError(
+                f"the deck has {sum(c.count for c in self.cards)} cards, fewer than the "
+                f"{self.rounds} rounds: one card is drawn per round"
+            )
         for entry in [*self.shop, *self.die]:
             _check_kind_fields(entry)
         self._check_components()

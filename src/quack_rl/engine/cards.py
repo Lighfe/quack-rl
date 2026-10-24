@@ -1,9 +1,14 @@
-"""Round-start cards (v1.11): the draw and the immediate effects.
+"""Round cards (v2.1): the draw and the effects. A card is an extra on top of the standard rules.
 
-The card effects that matter later in the round are read through `card_effect`: card 1 in
-`resolve.py` (the ruby step: card 1 gives one more ruby) and card 4 in every place that reads the explosion limit
-(`explosion_limit`). Cards 5 and 6 open `Phase.CARD_CHOICE` (one joint choice, `apply_card_choice`);
-card 2 opens `Phase.RESTART` in the brew (`apply_restart`, triggered in `brew.py`).
+The round start has a fixed order: (1) the round chips, (2) the card is drawn and its effect and
+choices are resolved, (3) the rat tail bonus is calculated once (`set_rat_tails`) and the pots move
+to their start fields. No card has a special order.
+
+The effects that matter later in the round are hooks that the standard rule calls and that read
+the card here: `explosion_limit` (card 4), `card_ruby_field_extras` (cards 1 and 15, the ruby step),
+`card_rolls_twice` (card 9, the bonus die in Resolve) and `card_round_end` (card 16). Cards 5 and 6
+open `Phase.CARD_CHOICE` (one joint choice, `apply_card_choice`); card 2 opens `Phase.RESTART` in
+the brew (`apply_restart`, triggered in `brew.py`).
 """
 
 from typing import Any
@@ -12,13 +17,13 @@ from quack_rl.engine.actions import (
     CARD_BLACK,
     CARD_CHIP_PREFIX,
     CARD_DROP_2,
-    CARD_DROP_END,
     CARD_PURPLE,
+    CARD_RUBIES,
     RESTART,
 )
-from quack_rl.engine.board import set_rat_tails
+from quack_rl.engine.board import apply_die_face, set_rat_tails
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.state import SEATS, GameState, Phase, start_field
+from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, refill_all_flasks, start_field
 from quack_rl.rules import Ruleset
 
 
@@ -32,6 +37,32 @@ def explosion_limit(state: GameState, rs: Ruleset) -> int:
     return rs.explosion_limit + (2 if card_effect(state, rs) == "explosion_limit_plus_2" else 0)
 
 
+def card_ruby_field_extras(state: GameState, rs: Ruleset) -> tuple[int, int]:
+    """What the card adds to a scoring ruby field: (extra rubies, extra points).
+
+    Card 1: 1 ruby more. Card 15: +2 points on top of the ruby."""
+    effect = card_effect(state, rs)
+    return (1 if effect == "ruby_extra" else 0, 2 if effect == "ruby_field_points" else 0)
+
+
+def card_rolls_twice(state: GameState, rs: Ruleset) -> bool:
+    """Card 9: a player who rolls the bonus die in Resolve rolls it a second time."""
+    return card_effect(state, rs) == "die_twice"
+
+
+def card_round_end(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """Card 16: at the end of the round (after the Resolve step, before the shop) all flasks are
+    refilled."""
+    if card_effect(state, rs) == "refill_flasks":
+        refill_all_flasks(state)
+        events.append({"seat": None, "kind": "card_refill_flasks"})
+
+
+def _give_rubies(p: PlayerState, seat: str, amount: int, events: list[dict[str, Any]]) -> None:
+    p.rubies += amount
+    events.append({"seat": seat, "kind": "ruby", "rubies": amount, "total": p.rubies})
+
+
 def _chip_of(rs: Ruleset, colour: str, value: int) -> str:
     for chip in rs.chips:
         if chip.colour == colour and chip.value == value:
@@ -43,7 +74,8 @@ def _green_one(rs: Ruleset) -> str:
     return _chip_of(rs, "green", 1)
 
 
-_CHOICE_EFFECTS = ("choice_drop2_or_purple", "choice_black_or_value2_or_drop")
+_CHOICE_EFFECTS = ("choice_drop2_or_purple", "choice_black_or_value2_or_rubies")
+CARD_RUBIES_AMOUNT = 3  # card 5, option C
 
 
 def apply_card(
@@ -68,6 +100,17 @@ def apply_card(
             p.droplet_halves += 2
             p.field = start_field(p, rs)
             events.append({"seat": seat, "kind": "card_drop", "halves": 2})
+    elif effect == "fewest_rubies_ruby":
+        fewest = min(state.players[s].rubies for s in SEATS)
+        for seat in SEATS:
+            p = state.players[seat]
+            if p.rubies == fewest:
+                _give_rubies(p, seat, 1, events)
+    elif effect == "everyone_rolls":
+        for seat in SEATS:
+            face = chance.roll_die(seat)
+            apply_die_face(state.players[seat], face, rs)
+            events.append({"seat": seat, "kind": "die", "face": face.id})
     elif effect == "fewest_points_green":
         fewest = min(state.players[s].points for s in SEATS)
         chip_id = _green_one(rs)
@@ -88,7 +131,7 @@ def apply_card_choice(
 ) -> None:
     """Cards 5 and 6: both players choose at the same moment; the choices resolve together.
 
-    A chip goes into the bag at once, a drop at once (card 6) or at round end (card 5)."""
+    A chip goes into the bag at once, a drop (card 6) or the rubies (card 5) at once."""
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
@@ -104,8 +147,8 @@ def apply_card_choice(
             chip_id = _chip_of(rs, "black", 1)
         elif action.startswith(CARD_CHIP_PREFIX):
             chip_id = action.removeprefix(CARD_CHIP_PREFIX)
-        elif action == CARD_DROP_END:
-            p.round_end_halves += 3
+        elif action == CARD_RUBIES:
+            _give_rubies(p, seat, CARD_RUBIES_AMOUNT, events)
         if chip_id is not None:
             p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
             events.append({"seat": seat, "kind": "card_chip", "chip": chip_id})

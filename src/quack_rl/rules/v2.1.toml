@@ -528,7 +528,8 @@ kind = "points"
 points = 2
 
 # Deck of round-start cards: one card is drawn per round, without replacement. `effect` is the name
-# of a registered card effect (quack_rl.rules.cards). The engine does not play the cards yet.
+# of a registered card effect (quack_rl.rules.cards). The deck lists only the cards the engine plays;
+# it needs at least as many cards as rounds.
 [[cards]]
 id = "card_1"
 effect = "ruby_extra"
@@ -551,7 +552,7 @@ count = 1
 
 [[cards]]
 id = "card_5"
-effect = "choice_black_or_value2_or_drop"
+effect = "choice_black_or_value2_or_rubies"
 count = 1
 
 [[cards]]
@@ -565,9 +566,29 @@ effect = "fewest_points_green"
 count = 1
 
 [[cards]]
-id = "card_8_to_12"
-effect = "no_effect"
-count = 5
+id = "card_9"
+effect = "die_twice"
+count = 1
+
+[[cards]]
+id = "card_13"
+effect = "fewest_rubies_ruby"
+count = 1
+
+[[cards]]
+id = "card_15"
+effect = "ruby_field_points"
+count = 1
+
+[[cards]]
+id = "card_16"
+effect = "refill_flasks"
+count = 1
+
+[[cards]]
+id = "card_18"
+effect = "everyone_rolls"
+count = 1
 
 # The points board: fields 0..fields, two laps (at most fields * laps points). A rat tail after
 # field f lies at total f and at total f + fields. All values are integers.

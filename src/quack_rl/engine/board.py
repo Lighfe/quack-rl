@@ -3,7 +3,7 @@
 from typing import Any
 
 from quack_rl.engine.state import SEATS, GameState, PlayerState, start_field
-from quack_rl.rules import Ruleset
+from quack_rl.rules import DieFace, Ruleset
 
 
 def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
@@ -15,6 +15,16 @@ def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
     added = total - p.points
     p.points = total
     return added
+
+
+def apply_die_face(p: PlayerState, face: DieFace, rs: Ruleset) -> None:
+    """Apply a bonus die face to a player."""
+    if face.kind == "droplet":
+        p.droplet_halves += face.halves
+    elif face.kind == "chip" and face.chip is not None:
+        p.bag[face.chip] = p.bag.get(face.chip, 0) + 1
+    elif face.kind == "points":
+        add_points(p, face.points, rs)
 
 
 def board_position(points: int, rs: Ruleset) -> int:
@@ -39,8 +49,10 @@ def tails_between(low: int, high: int, rs: Ruleset) -> int:
     )
 
 
-def rat_tail_bonus(points: dict[str, int], rs: Ruleset) -> dict[str, int]:
-    """Bonus per seat: 0 for every seat with the top total, else the tails up to the leader."""
+def calculate_rat_tails(points: dict[str, int], rs: Ruleset) -> dict[str, int]:
+    """Rat tails per seat: 0 for the leader, else the tails between the seat and the leader.
+
+    Not capped. A card changes the bonus with `PlayerState.rat_tail_adjust`, not here."""
     lead = max(points.values())
     return {
         seat: 0 if total == lead else tails_between(total, lead, rs)
@@ -49,11 +61,12 @@ def rat_tail_bonus(points: dict[str, int], rs: Ruleset) -> dict[str, int]:
 
 
 def set_rat_tails(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
-    """Round start: set `rat_tail` from the points and move each pot to its boosted start field."""
-    bonus = rat_tail_bonus({seat: state.players[seat].points for seat in SEATS}, rs)
+    """Round start, once and after the card: set `rat_tail` from the points (less the card
+    adjustment, never below 0) and move each pot to its boosted start field."""
+    bonus = calculate_rat_tails({seat: state.players[seat].points for seat in SEATS}, rs)
     for seat in SEATS:
         p = state.players[seat]
-        p.rat_tail = bonus[seat]
+        p.rat_tail = max(0, bonus[seat] - p.rat_tail_adjust)
         p.field = start_field(p, rs)
-        if bonus[seat] > 0:
-            events.append({"seat": seat, "kind": "rat_tail", "bonus": bonus[seat]})
+        if p.rat_tail > 0:
+            events.append({"seat": seat, "kind": "rat_tail", "bonus": p.rat_tail})

@@ -22,7 +22,7 @@ runner = CliRunner()
 
 def brew_state(bag, white_total, placed=("white_1",)):
     # v2.1 opens with the card step; a card without effect leads to the first brew step
-    state = step(new_game(RS), RS, None, ScriptedChance(["card_8_to_12"])).state
+    state = step(new_game(RS), RS, None, ScriptedChance(["card_16"])).state
     p = state.players["p1"]
     p.bag = dict(bag)
     p.white_total = white_total
@@ -614,7 +614,7 @@ PICK_LEGAL = ["play:0", "play:1", "put_back_draw", "put_back_stop"]
 
 
 def pick_state(hand, bag=None, white_total=0, field=0, placed=(), pot_field=None):
-    state = step(new_game(RS), RS, None, ScriptedChance(["card_8_to_12"])).state
+    state = step(new_game(RS), RS, None, ScriptedChance(["card_16"])).state
     p = state.players["p1"]
     p.hand = list(hand)
     p.bag = dict(bag or {})

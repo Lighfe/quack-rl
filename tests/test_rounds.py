@@ -21,7 +21,7 @@ def sim(out: Path, *extra: str):
 
 
 def play(out: Path, monkeypatch, *extra: str):
-    keys = iter("ds0" * 5000)
+    keys = iter("ds10" * 5000)
     monkeypatch.setattr(human, "default_read_key", lambda: next(keys))
     return runner.invoke(app, ["play", "--seed", "4", "--out", str(out), *extra])
 

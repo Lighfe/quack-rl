@@ -16,4 +16,4 @@ def auto(state, *chance):
 
 def brew_start(rs=RS):
     """A new game after the first card (a card without effect), at the first brew step."""
-    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
+    return step(new_game(rs), rs, None, ScriptedChance(["card_16"])).state

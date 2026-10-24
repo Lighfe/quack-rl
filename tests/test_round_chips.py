@@ -13,7 +13,7 @@ from quack_rl.runner import play_game
 RS = load_ruleset("v2.1")
 
 
-def card_step(round_no, card="card_8_to_12", rs=RS, state=None):
+def card_step(round_no, card="card_16", rs=RS, state=None):
     s = state if state is not None else new_game(rs)
     s.round = round_no
     out = step(s, rs, None, ScriptedChance([card]))
@@ -70,7 +70,7 @@ def test_the_chip_stays_in_rounds_7_to_9():
     for n in (6, 7, 8, 9):
         s.round = n
         events = []
-        apply_card(s, RS, ChanceLog(ScriptedChance(["card_8_to_12"]), RS), events)
+        apply_card(s, RS, ChanceLog(ScriptedChance([s.deck[0]]), RS), events)
         assert white_1(s, "p1") == base + 1
         assert sum(e["kind"] == "round_chip" for e in events) == (2 if n == 6 else 0)
 

@@ -85,7 +85,7 @@ def test_action_names_v2_1():
         "card_chip:blue_2",
         "card_chip:red_2",
         "card_chip:yellow_2",
-        "card_drop_end",
+        "card_rubies",
         "ruby_drop",
         "use_flask",
         "refill_flask",

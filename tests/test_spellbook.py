@@ -28,7 +28,7 @@ def _data(spellbook=None):
 
 def _brew_game(rs):
     """A new game after the first card (a card without effect), at the first brew step."""
-    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
+    return step(new_game(rs), rs, None, ScriptedChance(["card_16"])).state
 
 
 @pytest.fixture

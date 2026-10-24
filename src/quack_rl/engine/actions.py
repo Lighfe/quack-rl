@@ -18,7 +18,7 @@ CARD_DROP_2 = "card_drop_2"  # card 6: drop +2 at once
 CARD_PURPLE = "card_purple"  # card 6: a purple 1 chip
 CARD_BLACK = "card_black"  # card 5: a black 1 chip
 CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
-CARD_DROP_END = "card_drop_end"  # card 5: drop +1.5 at round end
+CARD_RUBIES = "card_rubies"  # card 5: 3 rubies
 RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
 USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
 REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
@@ -64,9 +64,9 @@ def _card_actions(rs: Ruleset) -> list[str]:
         names += [CONTINUE, RESTART]
     if "choice_drop2_or_purple" in effects:
         names += [CARD_DROP_2, CARD_PURPLE]
-    if "choice_black_or_value2_or_drop" in effects:
+    if "choice_black_or_value2_or_rubies" in effects:
         chips = (f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs))
-        names += [CARD_BLACK, *chips, CARD_DROP_END]
+        names += [CARD_BLACK, *chips, CARD_RUBIES]
     return names
 
 
@@ -105,7 +105,7 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if state.card is not None and rs.card(state.card).effect == "choice_drop2_or_purple":
             return [CARD_DROP_2, CARD_PURPLE]
         chips = [f"{CARD_CHIP_PREFIX}{c.id}" for c in value_two_chips(rs)]
-        return [CARD_BLACK, *chips, CARD_DROP_END]
+        return [CARD_BLACK, *chips, CARD_RUBIES]
     if state.phase is Phase.RESTART:
         return [CONTINUE, RESTART] if p.restart_pending else [WAIT]
     if state.phase is Phase.CHOICE:

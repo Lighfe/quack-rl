@@ -1,21 +1,11 @@
 from typing import Any
 
 from quack_rl.components import get_component, pot_effects
-from quack_rl.engine.board import add_points
-from quack_rl.engine.cards import card_effect
+from quack_rl.engine.board import add_points, apply_die_face
+from quack_rl.engine.cards import card_rolls_twice, card_ruby_field_extras, card_round_end
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, Status, scoring_field
-from quack_rl.rules import DieFace, Ruleset
-
-
-def _apply_face(p: PlayerState, face: DieFace, rs: Ruleset) -> None:
-    """Apply a bonus die face."""
-    if face.kind == "droplet":
-        p.droplet_halves += face.halves
-    elif face.kind == "chip" and face.chip is not None:
-        p.bag[face.chip] = p.bag.get(face.chip, 0) + 1
-    elif face.kind == "points":
-        add_points(p, face.points, rs)
+from quack_rl.engine.state import SEATS, GameState, Phase, Status, scoring_field
+from quack_rl.rules import Ruleset
 
 
 def _apply_pot_effects(
@@ -51,9 +41,13 @@ def apply_resolve(
         p = state.players[seat]
         assert p.final_field is not None
         if rs.fields[scoring_field(p.final_field, rs)].ruby:
-            gained = 1 + (1 if card_effect(state, rs) == "ruby_extra" else 0)
+            extra_rubies, extra_points = card_ruby_field_extras(state, rs)
+            gained = 1 + extra_rubies
             p.rubies += gained
             events.append({"seat": seat, "kind": "ruby", "rubies": gained, "total": p.rubies})
+            if extra_points:
+                added = add_points(p, extra_points, rs)
+                events.append({"seat": seat, "kind": "card_points", "points": added})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
             halves = get_component(rs.component_name(chip)).round_end_droplet_halves(
@@ -77,9 +71,10 @@ def apply_resolve(
         for seat in eligible:
             p = state.players[seat]
             if scoring_field(p.final_field or 0, rs) == best:
-                face = chance.roll_die(seat)
-                _apply_face(p, face, rs)
-                events.append({"seat": seat, "kind": "die", "face": face.id})
+                for _ in range(2 if card_rolls_twice(state, rs) else 1):
+                    face = chance.roll_die(seat)
+                    apply_die_face(p, face, rs)
+                    events.append({"seat": seat, "kind": "die", "face": face.id})
     choosing = False
     for seat in SEATS:
         p = state.players[seat]
@@ -100,4 +95,5 @@ def apply_resolve(
             money = 0
         p.money = money
         events.append({"seat": seat, "kind": "money", "amount": p.money})
+    card_round_end(state, rs, events)
     state.phase = Phase.CHOICE if choosing else Phase.SHOP

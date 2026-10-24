@@ -6,7 +6,7 @@ from quack_rl.rules import load_ruleset
 
 def brew_game(rs=RS):
     """A new game after the first card (no effect), at the first brew step."""
-    return step(new_game(rs), rs, None, ScriptedChance(["card_8_to_12"])).state
+    return step(new_game(rs), rs, None, ScriptedChance(["card_16"])).state
 
 
 def test_placed_fields_follow_every_draw():
