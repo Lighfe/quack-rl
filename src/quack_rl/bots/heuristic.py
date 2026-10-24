@@ -196,8 +196,10 @@ class HeuristicBot:
             action = self._card_choice(state, seat, legal)
             return action if action in legal else legal[0]
         if state.phase is Phase.RESTART:
-            return RESTART if self._restart(state, seat) and RESTART in legal else (
-                CONTINUE if CONTINUE in legal else legal[0]
+            return (
+                RESTART
+                if self._restart(state, seat) and RESTART in legal
+                else (CONTINUE if CONTINUE in legal else legal[0])
             )
         if state.phase is Phase.CHOICE:
             action = TAKE_POINTS if state.round >= self.points_round else TAKE_MONEY

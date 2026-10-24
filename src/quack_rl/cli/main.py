@@ -37,7 +37,9 @@ from quack_rl.tournament import (
     write_run,
 )
 
-PLAY_SEAT_HELP = "Seat {}: human, bot:random or bot:draw<percent>-pts<round>-<strategy> (see above)."
+PLAY_SEAT_HELP = (
+    "Seat {}: human, bot:random or bot:draw<percent>-pts<round>-<strategy> (see above)."
+)
 
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
 

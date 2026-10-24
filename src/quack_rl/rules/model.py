@@ -166,7 +166,9 @@ class Ruleset(_Frozen):
                 raise ValueError(f"{entry.id}: unknown chip {entry.chip}")
         for rc in self.round_chips:
             if not 1 <= rc.round <= self.rounds:
-                raise ValueError(f"round_chips: round {rc.round} is not between 1 and {self.rounds}")
+                raise ValueError(
+                    f"round_chips: round {rc.round} is not between 1 and {self.rounds}"
+                )
             if rc.chip not in chip_ids:
                 raise ValueError(f"round_chips: unknown chip {rc.chip}")
         return self

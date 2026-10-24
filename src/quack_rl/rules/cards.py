@@ -55,25 +55,30 @@ register_card_effect("ruby_field_points", "a scoring ruby field gives +2 points 
 register_card_effect("refill_flasks", "at the end of the round all flasks are refilled")
 register_card_effect("everyone_rolls", "at the card step every player rolls the bonus die once")
 register_card_effect(
-    "rat_tails_for_rubies", "a player may give up 1 to 3 rat tails of the bonus for the same number of rubies"
+    "rat_tails_for_rubies",
+    "a player may give up 1 to 3 rat tails of the bonus for the same number of rubies",
 )
 register_card_effect("ruby_for_chip", "a player may swap one ruby for a value-1 chip")
 register_card_effect(
-    "points_or_remove_white", "choice: 4 points, or a white 1 chip leaves the bag for the rest of the game"
+    "points_or_remove_white",
+    "choice: 4 points, or a white 1 chip leaves the bag for the rest of the game",
 )
 register_card_effect(
     "chip4_or_tail_points", "choice: a value-4 chip, or points equal to the rat tail entitlement"
 )
 register_card_effect(
-    "draw4_upgrade", "each player draws 4 chips and upgrades one of them to the next higher value of its colour"
+    "draw4_upgrade",
+    "each player draws 4 chips and upgrades one of them to the next higher value of its colour",
 )
 register_card_effect(
-    "draw5_lowest", "each player draws 5 chips; the lowest sum gets a blue 2 chip, the others 1 ruby"
+    "draw5_lowest",
+    "each player draws 5 chips; the lowest sum gets a blue 2 chip, the others 1 ruby",
 )
 register_card_effect(
     "draw5_choose_place",
     "a player who stopped without exploding draws 5 chips, places one of them and puts the rest back",
 )
 register_card_effect(
-    "first_white_back", "the first white chip a player places this round can go back into the bag, free"
+    "first_white_back",
+    "the first white chip a player places this round can go back into the bag, free",
 )

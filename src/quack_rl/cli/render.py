@@ -62,7 +62,9 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
         scoring = scoring_field(p.field, rs)
         ruby = "yes" if rs.fields[scoring].ruby else "no"
         gain = f" +{rs.fields[scoring].points}pt"
-        field_text = f"field {p.field}\nscore {scoring} ${rs.fields[scoring].money}{gain}\nruby: {ruby}"
+        field_text = (
+            f"field {p.field}\nscore {scoring} ${rs.fields[scoring].money}{gain}\nruby: {ruby}"
+        )
         tail = f" (rat tail +{p.rat_tail})" if p.rat_tail > 0 else ""
         table.add_row(
             seat,

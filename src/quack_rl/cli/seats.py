@@ -24,7 +24,9 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
     known = f"known: {', '.join(KNOWN_SEATS)}, {BOT_FORM}"
     reason = ""
     if spec.startswith("policy:"):
-        raise typer.BadParameter(f"unknown seat {spec!r}: policy: seats are not supported ({known})")
+        raise typer.BadParameter(
+            f"unknown seat {spec!r}: policy: seats are not supported ({known})"
+        )
     if spec.startswith("bot:"):
         try:
             parse_bot_name(spec.removeprefix("bot:"))

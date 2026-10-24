@@ -144,9 +144,15 @@ class HumanSeat:
             return f"refill flask: {self.rs.ruby_cost} rubies"
         if action.startswith(CARD_TAILS_PREFIX):
             n = int(action.removeprefix(CARD_TAILS_PREFIX))
-            return f"card 8: {n} rat tail{'s' * (n != 1)} for rubies" if n else "card 8: keep my rat tails"
+            return (
+                f"card 8: {n} rat tail{'s' * (n != 1)} for rubies"
+                if n
+                else "card 8: keep my rat tails"
+            )
         if action.startswith(CARD_PLACE_PREFIX):
-            return f"card 10: place {chip_text(action.removeprefix(CARD_PLACE_PREFIX), self.rs).plain}"
+            return (
+                f"card 10: place {chip_text(action.removeprefix(CARD_PLACE_PREFIX), self.rs).plain}"
+            )
         if action.startswith(CARD_UPGRADE_PREFIX):
             return f"card 11: upgrade {chip_text(action.removeprefix(CARD_UPGRADE_PREFIX), self.rs).plain}"
         if action.startswith(CARD_SWAP_PREFIX):
@@ -158,7 +164,9 @@ class HumanSeat:
         if action == CARD_REMOVE_WHITE:
             return "card 14: remove a white 1 from the bag"
         if action.startswith(CARD_CHIP4_PREFIX):
-            return f"card 19: a {self._colour(action.removeprefix(CARD_CHIP4_PREFIX))} 4 into the bag"
+            return (
+                f"card 19: a {self._colour(action.removeprefix(CARD_CHIP4_PREFIX))} 4 into the bag"
+            )
         if action == CARD_TAIL_POINTS:
             return "card 19: points for rat tails"
         if action == CONTINUE:

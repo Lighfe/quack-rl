@@ -40,7 +40,9 @@ class PlayerState:
     chip_purchases: int = 0  # shop items of kind chip bought this round
     chip_colours: list[str] = dataclasses.field(default_factory=list)  # their colours, in buy order
     shop_done: bool = False
-    hand: list[str] = dataclasses.field(default_factory=list)  # blue chip hand: out of the bag, hidden
+    hand: list[str] = dataclasses.field(
+        default_factory=list
+    )  # blue chip hand: out of the bag, hidden
     final_field: int | None = None
     # v1.11: card 2 (restart offered this round, waiting for the answer), card 5 (drop at round end)
     restart_offered: bool = False
@@ -48,9 +50,15 @@ class PlayerState:
     round_end_halves: int = 0
     rubies: int = 0  # the ruby currency: earned on ruby fields, spent in the shop (ruby_drop)
     rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
-    rat_tail_adjust: int = 0  # a card lowers the rat tail bonus by this (positive); reset every round
-    card_draw: list[str] = dataclasses.field(default_factory=list)  # cards 10 and 11: the chips drawn, hidden; the chips stay in the bag
-    card_place_done: bool = False  # card 10: the draw-and-place step is over for this player this round
+    rat_tail_adjust: int = (
+        0  # a card lowers the rat tail bonus by this (positive); reset every round
+    )
+    card_draw: list[str] = dataclasses.field(
+        default_factory=list
+    )  # cards 10 and 11: the chips drawn, hidden; the chips stay in the bag
+    card_place_done: bool = (
+        False  # card 10: the draw-and-place step is over for this player this round
+    )
     first_white_placed: bool = False  # card 17: the first white chip of the round has been placed
     first_white_open: bool = False  # card 17: the last placed chip is that chip, still on the track
     flask_full: bool = True  # the flask: use_flask puts a white chip back, refill_flask fills it

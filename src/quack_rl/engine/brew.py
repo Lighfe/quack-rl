@@ -60,7 +60,13 @@ def _take_back_last(
     p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
     p.first_white_open = False
     events.append(
-        {"seat": seat, "kind": kind, "chip": chip_id, "field": p.field, "white_total": p.white_total}
+        {
+            "seat": seat,
+            "kind": kind,
+            "chip": chip_id,
+            "field": p.field,
+            "white_total": p.white_total,
+        }
     )
 
 

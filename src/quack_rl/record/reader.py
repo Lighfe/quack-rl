@@ -8,7 +8,13 @@ from typing import IO
 
 from pydantic import ValidationError
 
-from quack_rl.record.schema import LINE_ADAPTER, RECORD_SCHEMA_VERSION, FooterLine, HeaderLine, StepLine
+from quack_rl.record.schema import (
+    LINE_ADAPTER,
+    RECORD_SCHEMA_VERSION,
+    FooterLine,
+    HeaderLine,
+    StepLine,
+)
 
 
 class RecordFormatError(ValueError):

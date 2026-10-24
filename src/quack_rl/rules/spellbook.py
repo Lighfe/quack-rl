@@ -54,4 +54,3 @@ register_spellbook(
         "purple": "purple@1",
     },
 )
-

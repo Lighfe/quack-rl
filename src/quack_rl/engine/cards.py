@@ -36,7 +36,14 @@ from quack_rl.engine.actions import (
 )
 from quack_rl.engine.board import add_points, apply_die_face, calculate_rat_tails, set_rat_tails
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.state import SEATS, GameState, Phase, PlayerState, refill_all_flasks, start_field
+from quack_rl.engine.state import (
+    SEATS,
+    GameState,
+    Phase,
+    PlayerState,
+    refill_all_flasks,
+    start_field,
+)
 from quack_rl.rules import Ruleset
 
 
@@ -102,9 +109,7 @@ CARD_LOWEST_DRAW = 5  # card 20: chips drawn by each player
 CARD_LOWEST_CHIP = ("blue", 2)  # card 20: the reward of the lowest sum
 
 
-def draw_chips(
-    p: PlayerState, seat: str, n: int, chance: ChanceLog
-) -> list[str]:
+def draw_chips(p: PlayerState, seat: str, n: int, chance: ChanceLog) -> list[str]:
     """Draw `n` chips from the bag of one player without replacement. Each chip is one `draw_chip`
     outcome, checked against the bag minus the chips already drawn in this draw. The chips go back
     into the bag at the end, so the bag is unchanged."""
@@ -120,12 +125,17 @@ def draw_chips(
     return drawn
 
 
-def _card_20(state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]) -> None:
+def _card_20(
+    state: GameState, rs: Ruleset, chance: ChanceLog, events: list[dict[str, Any]]
+) -> None:
     """Card 20: both players draw 5 chips (p1, then p2) and add the values; the lowest sum (all
     tied players) gets a blue 2 chip, every other player 1 ruby. The draws are done before any
     reward."""
     sums = {
-        seat: sum(rs.chip(c).value for c in draw_chips(state.players[seat], seat, CARD_LOWEST_DRAW, chance))
+        seat: sum(
+            rs.chip(c).value
+            for c in draw_chips(state.players[seat], seat, CARD_LOWEST_DRAW, chance)
+        )
         for seat in SEATS
     }
     lowest = min(sums.values())
@@ -184,7 +194,9 @@ def apply_card(
         _card_20(state, rs, chance, events)
     elif effect == "draw4_upgrade":
         for seat in SEATS:
-            state.players[seat].card_draw = draw_chips(state.players[seat], seat, CARD_DRAW_COUNT, chance)
+            state.players[seat].card_draw = draw_chips(
+                state.players[seat], seat, CARD_DRAW_COUNT, chance
+            )
     if effect in _CHOICE_EFFECTS:
         state.phase = Phase.CARD_CHOICE
     elif effect in _LATE_CHOICE_EFFECTS:

@@ -33,7 +33,8 @@ class QuackEnv(gym.Env):
         reward_fn: Callable[[GameState, str], float] = reward,
     ):
         """`seat` is "p1", "p2" or "random" (per episode). `opponent` has `choose(state, seat,
-        legal)`; None means a `RandomBot`, seeded from the env on each reset."""
+        legal)`; None means a `RandomBot`, seeded from the env on each reset. If the opponent has a
+        `reset()` method, it is called at the start of each episode."""
         if seat not in (*SEATS, "random"):
             raise ValueError(f"seat must be 'p1', 'p2' or 'random', not {seat!r}")
         self._env = QuackParallelEnv(rules=rules, reward_fn=reward_fn)
@@ -126,6 +127,8 @@ class QuackEnv(gym.Env):
             self.agent_seat = SEATS[int(self.np_random.integers(len(SEATS)))]
         if self._default_opponent:
             self.opponent = RandomBot(int(self.np_random.integers(2**32)))
+        elif hasattr(self.opponent, "reset"):  # e.g. a pool that picks a checkpoint per episode
+            self.opponent.reset()
         chance_seed = int(self.np_random.integers(2**32))
         self._env.reset(seed=chance_seed)
         self._ended = False

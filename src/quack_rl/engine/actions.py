@@ -20,7 +20,9 @@ CARD_PURPLE = "card_purple"  # card 6: a purple 1 chip
 CARD_BLACK = "card_black"  # card 5: a black 1 chip
 CARD_CHIP_PREFIX = "card_chip:"  # card 5: a chip with value 2, by id
 CARD_RUBIES = "card_rubies"  # card 5: 3 rubies
-CARD_TAILS_PREFIX = "card_tails:"  # card 8: give up 1 to 3 rat tails for rubies; `card_tails:0` declines
+CARD_TAILS_PREFIX = (
+    "card_tails:"  # card 8: give up 1 to 3 rat tails for rubies; `card_tails:0` declines
+)
 CARD_TAILS_MAX = 3
 CARD_SWAP_PREFIX = "card_swap:"  # card 12: a ruby for a value-1 chip, by id
 CARD_SWAP_NO = "card_swap_no"  # card 12: decline
@@ -31,7 +33,9 @@ CARD_POINTS_AMOUNT = 4
 CARD_CHIP4_PREFIX = "card_chip4:"  # card 19: a value-4 chip, by id
 CARD_TAIL_POINTS = "card_tail_points"  # card 19: points equal to the rat tail entitlement
 CARD_CHIP4_COLOURS = ("green", "blue", "red", "yellow")
-CARD_UPGRADE_PREFIX = "card_upgrade:"  # card 11: a drawn chip becomes the next higher value of its colour
+CARD_UPGRADE_PREFIX = (
+    "card_upgrade:"  # card 11: a drawn chip becomes the next higher value of its colour
+)
 CARD_DRAW_COUNT = 4  # card 11: chips drawn by each player
 CARD_NO_UPGRADE = ("white", "orange")  # colours card 11 cannot upgrade
 CARD_PLACE_PREFIX = "card_place:"  # card 10: the drawn chip that is placed, by id
@@ -68,10 +72,26 @@ def _appended(item: ShopItem, rs: Ruleset) -> bool:
 
 def action_names(rs: Ruleset) -> list[str]:
     choice = [TAKE_MONEY, TAKE_POINTS]
-    pick = [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
+    pick = (
+        [*(play(i) for i in range(MAX_HAND)), PUT_BACK_DRAW, PUT_BACK_STOP] if has_hand(rs) else []
+    )
     early = [buy(item.id) for item in rs.shop if not _appended(item, rs)]
     late = [buy(item.id) for item in rs.shop if _appended(item, rs)]
-    return [WAIT, DRAW, STOP, DONE, *choice, *early, *pick, *late, *_card_actions(rs), RUBY_DROP, USE_FLASK, REFILL_FLASK, *_late_card_actions(rs)]
+    return [
+        WAIT,
+        DRAW,
+        STOP,
+        DONE,
+        *choice,
+        *early,
+        *pick,
+        *late,
+        *_card_actions(rs),
+        RUBY_DROP,
+        USE_FLASK,
+        REFILL_FLASK,
+        *_late_card_actions(rs),
+    ]
 
 
 def _card_actions(rs: Ruleset) -> list[str]:
@@ -95,7 +115,9 @@ def swap_chips(rs: Ruleset) -> list[str]:
 
 def chip4_chips(rs: Ruleset) -> list[str]:
     """Card 19: the value-4 chips of the allowed colours, in the order of CARD_CHIP4_COLOURS."""
-    return [c.id for col in CARD_CHIP4_COLOURS for c in rs.chips if c.colour == col and c.value == 4]
+    return [
+        c.id for col in CARD_CHIP4_COLOURS for c in rs.chips if c.colour == col and c.value == 4
+    ]
 
 
 def upgrade_target(rs: Ruleset, chip_id: str) -> str | None:
@@ -173,7 +195,9 @@ def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | No
     effect = rs.card(state.card).effect
     p = state.players[seat]
     if effect == "rat_tails_for_rubies":
-        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]
+        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[
+            seat
+        ]
         if entitlement == 0:
             return [WAIT]
         return [f"{CARD_TAILS_PREFIX}{n}" for n in range(min(entitlement, CARD_TAILS_MAX) + 1)]
@@ -194,7 +218,9 @@ def late_card_choice(state: GameState, rs: Ruleset, seat: str) -> list[str] | No
         return [f"{CARD_PLACE_PREFIX}{c}" for c in drawn] or [WAIT]
     if effect == "chip4_or_tail_points":
         chips = [f"{CARD_CHIP4_PREFIX}{c}" for c in chip4_chips(rs)]
-        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[seat]
+        entitlement = calculate_rat_tails({s: state.players[s].points for s in state.players}, rs)[
+            seat
+        ]
         return [*chips, CARD_TAIL_POINTS] if entitlement > 0 else chips
     return None
 

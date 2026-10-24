@@ -27,7 +27,9 @@ def with_rounds(rs: Ruleset, rounds: int) -> Ruleset:
         raise ValueError(f"rounds must be at least 1, got {rounds}")
     deck = sum(c.count for c in rs.cards)
     if deck < rounds:
-        raise ValueError(f"the deck has {deck} cards, fewer than the {rounds} rounds: one card is drawn per round")
+        raise ValueError(
+            f"the deck has {deck} cards, fewer than the {rounds} rounds: one card is drawn per round"
+        )
     return rs.model_copy(update={"rounds": rounds})
 
 
