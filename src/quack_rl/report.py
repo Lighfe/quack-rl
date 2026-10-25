@@ -271,7 +271,8 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - an exploded potion does not roll the die and takes the points of its field;
     - points: pot effects, die points, field points, and in the last round money divided by
       `last_round_money_divisor`; the total stops at `max_points`;
-    - the droplet moves by green chips and die faces; the die chip faces add chips
+    - the droplet moves by the pot effects (black, purple) and die faces; rubies are not
+      spent (no ruby drop, no flask refill); the die chip faces add chips
       to the bag;
     - the explosion limit of a round is the ruleset limit, or +2 with card 4, weighted by
       the share of card 4 in the deck. The other card effects are not in the number.

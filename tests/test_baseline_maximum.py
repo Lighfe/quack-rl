@@ -10,9 +10,12 @@ chips), one draw limit after the other, and compares the averages with it:
 - (b) the best simulated average is at most the calculation times (1 + CARD_MARGIN)
 
 The calculation has no card effects (only the explosion limit of card 4), and cards cannot be
-removed from the deck, so the simulation is above it. One measurement gave about 22% more; the
-margin is CARD_MARGIN. Since the bots spend rubies on droplets (issue #190) the simulation is
-about 43% above it. The number is not an upper bound of the real baseline bot.
+removed from the deck, so the simulation is above it; the margin is CARD_MARGIN. The calculation
+does not spend rubies either, so the bot under test keeps its rubies (`KeepRubiesBot`: no
+`ruby_drop`, no `refill_flask`), in line with "the baseline never buys chips". Since v2.1 has
+no droplet half steps (issue #201), green, purple and black chips and the bonus die give rubies,
+and a bot that spends them on droplets is too far above the calculation. The number is not an
+upper bound of the real baseline bot.
 
 The opponent is `draw100-pts9-points`: it draws until it explodes, so it never rolls the bonus
 die and the bot under test always rolls it when it does not explode, as the calculation assumes.
@@ -27,7 +30,7 @@ from concurrent.futures import ProcessPoolExecutor
 import pytest
 
 from quack_rl.bots.heuristic import HeuristicBot
-from quack_rl.engine import RngChance
+from quack_rl.engine import DONE, RngChance
 from quack_rl.report import baseline_maximum, realistic_baseline_maximum
 from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.runner import play_game
@@ -40,6 +43,13 @@ OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 RS = with_rounds(load_ruleset("v2.1"), 9).model_copy(update={"shop": []})
 
 
+class KeepRubiesBot(HeuristicBot):
+    """The `points` bot that never spends rubies: the shop is empty, so it only says done."""
+
+    def _shop(self, state, seat, legal):
+        return DONE
+
+
 CHUNK = 125  # games per task, so the pool (at most 4 workers) keeps its workers busy
 
 
@@ -48,7 +58,7 @@ def play_chunk(draw_limit: int, first: int) -> list[int]:
     points = []
     for game in range(first, first + CHUNK):
         seats = {
-            "p1": HeuristicBot(RS, draw_limit, 1, "points", seed=2 * game + 1),
+            "p1": KeepRubiesBot(RS, draw_limit, 1, "points", seed=2 * game + 1),
             "p2": HeuristicBot(RS, seed=2 * game + 2, **OPPONENT),
         }
         final = play_game(RS, seats, RngChance(game))
