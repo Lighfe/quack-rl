@@ -439,20 +439,6 @@ def test_new_actions_get_distinct_keys():
     assert len(key_map(shop)) == len(shop)
 
 
-@pytest.mark.parametrize(
-    "action",
-    [
-        "use_flask", "use_card_17", "ruby_drop", "refill_flask", "card_tails:2", "card_tails:0",
-        "card_place:blue_2", "card_upgrade:green_1", "card_swap:green_1", "card_swap_no",
-        "card_points", "card_remove_white", "card_chip4:red_4", "card_tail_points",
-    ],
-)
-def test_describe_new_actions_is_short_text(action):
-    seat, _ = seat_with("")
-    text = seat._describe(action)
-    assert text != action and 0 < len(text) <= 45
-
-
 def test_play_help_names_the_three_seat_forms():
     out = runner.invoke(app, ["play", "--help"]).output
     out = " ".join(out.split())

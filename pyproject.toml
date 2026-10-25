@@ -26,12 +26,18 @@ dev = [
     "ruff>=0.6",
     "pyright[nodejs]>=1.1.380",
     "polars>=2.0.0",
+    "httpx>=0.27",
 ]
 # RL training (scripts/train_ppo.py); the engine and the default install do not need it
 rl = [
     "torch>=2.2",
     "stable-baselines3>=2.3",
     "sb3-contrib>=2.3",
+]
+# the local game service for the browser (`quack-rl serve`)
+web = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [build-system]
