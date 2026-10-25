@@ -369,3 +369,18 @@ def play(
     points = ", ".join(f"{s} {final.players[s].points}" for s in ("p1", "p2"))
     console.print(f"winner: {final.winner}  points: {points}", markup=False, highlight=False)
     console.print(f"record: {path}", markup=False, highlight=False, soft_wrap=True)
+
+
+@app.command()
+def serve(
+    port: Annotated[int, typer.Option(help="Port of the game service.")] = 8000,
+    host: Annotated[str, typer.Option(help="Host to bind (local only by default).")] = "127.0.0.1",
+) -> None:
+    """Start the local game service for the browser (needs the dependency group `web`)."""
+    try:
+        import uvicorn
+
+        from quack_rl.web.app import create_app
+    except ImportError as e:
+        _fail(f"the web service needs the group web (uv run --group web quack-rl serve): {e}")
+    uvicorn.run(create_app(), host=host, port=port)

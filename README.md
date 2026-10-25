@@ -73,6 +73,18 @@ Keys: `d` draw, `s` stop, `0` done shopping, `1`-`9` and letters buy. Your key i
 
 Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
 
+## Web service
+
+A local HTTP JSON service for the browser frontend (ruleset `v2.1`, games in memory, CORS for `http://localhost:<port>`):
+
+    uv run --group web quack-rl serve              # port 8000; --port to change
+
+- `POST /games` with `{"p1": "human", "p2": "bot:random", "rounds": 9, "seed": null}` returns `{"game_id": ...}`. Seat specs as in `quack-rl play`.
+- `GET /games/{id}/view?seat=p1` returns the view of one seat: `game`, `you`, `to_act`, `seats`, `window`, `chips`, `legal`, `hand`, `card_draw`, `log`. Another seat's hand, card draw and pending action are hidden.
+- `POST /games/{id}/actions` with `{"seat": "p1", "action": "draw", "revision": 12}` returns the new view of that seat. An illegal action gives 400 `{"error": "illegal_action", "legal": [...]}`; an old revision or a second action for the same revision gives 409 `{"error": "stale_revision", "revision": n}`.
+
+The service steps the game by itself (card and resolve phases, `wait`-only seats, bots) until a human must act or the game is over.
+
 ## RL environment
 
 Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the training scripts are in "Training" below. The reward is `reward(final_state, seat)`: +1 for more points, -1 for fewer, 0 for a draw, given once at the end of the game. Both take `reward_fn` to replace it.

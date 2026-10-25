@@ -1,0 +1,353 @@
+import pytest
+
+pytest.importorskip("fastapi")
+
+from fastapi.testclient import TestClient  # noqa: E402
+from helpers import RS, brew_start  # noqa: E402
+from typer.testing import CliRunner  # noqa: E402
+
+from quack_rl.cli.main import app as cli_app  # noqa: E402
+from quack_rl.engine import ScriptedChance, explosion_limit  # noqa: E402
+from quack_rl.rl.encode import observe  # noqa: E402
+from quack_rl.rules.cards import get_card_effect  # noqa: E402
+from quack_rl.web.app import create_app  # noqa: E402
+from quack_rl.web.view import event_text  # noqa: E402
+
+# A seed whose round-1 card asks no choice before the brew (human vs bot:random).
+HUMAN_SEED = 12
+HUMAN_SEED_CARD = "card_16"
+
+
+@pytest.fixture
+def client():
+    return TestClient(create_app())
+
+
+def create(client, p1="human", p2="human", **extra) -> str:
+    r = client.post("/games", json={"p1": p1, "p2": p2, **extra})
+    assert r.status_code == 200, r.text
+    return r.json()["game_id"]
+
+
+def view(client, gid, seat="p1") -> dict:
+    r = client.get(f"/games/{gid}/view", params={"seat": seat})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def post(client, gid, seat, action, revision=None):
+    if revision is None:
+        revision = view(client, gid, seat)["game"]["revision"]
+    return client.post(
+        f"/games/{gid}/actions", json={"seat": seat, "action": action, "revision": revision}
+    )
+
+
+def session_of(client, gid):
+    return client.app.state.games[gid]
+
+
+def scripted(client, gid, state, chance):
+    """Put a prepared state and scripted chance into the session of a two-human game."""
+    session = session_of(client, gid)
+    session.state = state
+    session.chance = ScriptedChance(chance)
+    session.pending = {}
+    return session
+
+
+def joint(client, gid, p1, p2):
+    rev = view(client, gid)["game"]["revision"]
+    assert post(client, gid, "p1", p1, rev).status_code == 200
+    r = post(client, gid, "p2", p2, rev)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def seat_entry(v, seat):
+    return next(s for s in v["seats"] if s["id"] == seat)
+
+
+# --- serve and CORS -------------------------------------------------------------------
+
+
+def test_serve_help_shows_port_with_default_8000():
+    out = CliRunner().invoke(cli_app, ["serve", "--help"]).output
+    assert "--port" in out
+    assert "8000" in out
+
+
+def test_cors_allows_localhost_only(client):
+    ok = client.get("/games/x/view?seat=p1", headers={"Origin": "http://localhost:8080"})
+    assert ok.headers.get("access-control-allow-origin") == "http://localhost:8080"
+    other = client.get("/games/x/view?seat=p1", headers={"Origin": "http://example.com"})
+    assert "access-control-allow-origin" not in other.headers
+
+
+# --- errors ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"p1": "nobody", "p2": "human"},
+        {"p1": "human", "p2": "bot:xyz"},
+        {"p1": "human", "p2": "policy:foo"},
+        {"p1": "human", "p2": "human", "rounds": 0},
+    ],
+)
+def test_bad_new_game_is_rejected(client, body):
+    assert client.post("/games", json=body).status_code in (400, 422)
+
+
+def test_unknown_game_gives_404(client):
+    assert client.get("/games/nope/view", params={"seat": "p1"}).status_code == 404
+    r = client.post("/games/nope/actions", json={"seat": "p1", "action": "draw", "revision": 1})
+    assert r.status_code == 404
+
+
+def test_unknown_seat_is_rejected(client):
+    gid = create(client)
+    assert client.get(f"/games/{gid}/view", params={"seat": "p3"}).status_code in (400, 422)
+    r = client.post(f"/games/{gid}/actions", json={"seat": "p3", "action": "draw", "revision": 1})
+    assert r.status_code in (400, 422)
+
+
+def test_illegal_action_gives_400_with_legal_list(client):
+    gid = create(client, seed=5)
+    r = post(client, gid, "p1", "take_money")
+    assert r.status_code == 400
+    assert r.json() == {"error": "illegal_action", "legal": ["draw"]}
+
+
+def test_action_after_game_over_gives_400_with_empty_legal(client):
+    gid = create(client, "bot:random", "bot:random", rounds=1, seed=2)
+    v = view(client, gid)
+    assert v["game"]["phase"] == "game_over"
+    r = post(client, gid, "p1", "draw", v["game"]["revision"])
+    assert r.status_code == 400
+    assert r.json() == {"error": "illegal_action", "legal": []}
+
+
+def test_stale_revision_gives_409(client):
+    gid = create(client, seed=5)
+    rev = view(client, gid)["game"]["revision"]
+    r = post(client, gid, "p1", "draw", rev - 1)
+    assert r.status_code == 409
+    assert r.json() == {"error": "stale_revision", "revision": rev}
+
+
+def test_duplicate_draw_is_rejected_and_draws_once(client):
+    gid = create(client, "human", "bot:random", seed=HUMAN_SEED)
+    before = view(client, gid)
+    rev = before["game"]["revision"]
+    chips = len(seat_entry(before, "p1")["pot"])
+    first = post(client, gid, "p1", "draw", rev)
+    second = post(client, gid, "p1", "draw", rev)
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.json()["error"] == "stale_revision"
+    assert second.json()["revision"] == view(client, gid)["game"]["revision"]
+    assert len(seat_entry(view(client, gid), "p1")["pot"]) == chips + 1
+
+
+def test_second_action_of_a_seat_for_the_same_revision_gives_409(client):
+    gid = create(client, seed=5)
+    rev = view(client, gid)["game"]["revision"]
+    assert post(client, gid, "p1", "draw", rev).status_code == 200
+    r = post(client, gid, "p1", "draw", rev)
+    assert r.status_code == 409
+    assert r.json() == {"error": "stale_revision", "revision": rev}
+
+
+# --- advancement ----------------------------------------------------------------------
+
+
+def test_two_bot_game_ends_with_a_winner(client):
+    gid = create(client, "bot:random", "bot:random", seed=11)
+    g = view(client, gid)["game"]
+    assert g["phase"] == "game_over"
+    assert g["winner"] in ("p1", "p2", "draw")
+    assert g["round"] == g["rounds"] == 9
+
+
+def test_heuristic_bot_seat_plays(client):
+    gid = create(client, "bot:draw20-pts6-blue", "bot:random", rounds=2, seed=4)
+    v = view(client, gid)
+    assert v["game"]["phase"] == "game_over"
+    assert seat_entry(v, "p2")["kind"] == "random"
+    assert seat_entry(v, "p1")["kind"] != "human"
+
+
+def test_new_human_game_waits_at_first_decision(client):
+    gid = create(client, "human", "bot:random", seed=HUMAN_SEED)
+    v = view(client, gid)
+    assert v["game"]["card"]["id"] == HUMAN_SEED_CARD
+    assert v["to_act"] == ["p1"]
+    assert v["game"]["phase"] == "brew"
+    assert [a["id"] for a in v["legal"]] == ["draw"]
+    assert v["game"]["revision"] >= 1
+
+
+def test_bot_brews_on_after_human_stops(client):
+    gid = create(client, "human", "bot:random", seed=HUMAN_SEED)
+    v = post(client, gid, "p1", "draw").json()
+    while "stop" not in [a["id"] for a in v["legal"]]:
+        assert v["hand"], "only an open hand keeps p1 from stopping"
+        v = post(client, gid, "p1", "play:0").json()
+    v = post(client, gid, "p1", "stop").json()
+    assert v["you"] == "p1"
+    # The bot brewed on to the end of its brew: p2 is not brewing, or the game is past the
+    # round-1 brew (an idle shop closes by itself, so the next round may have started).
+    past_brew = v["game"]["phase"] != "brew" or v["game"]["round"] > 1
+    assert seat_entry(v, "p2")["status"] != "brewing" or past_brew
+    p2_end = [e["kind"] for e in v["log"]["events"] if e.get("seat") == "p2"]
+    assert {"stop", "explode", "bag_empty"} & set(p2_end)
+
+
+def test_revision_increases_with_each_step(client):
+    gid = create(client, seed=5)
+    rev = view(client, gid)["game"]["revision"]
+    v = joint(client, gid, "draw", "draw")
+    assert v["game"]["revision"] == rev + 1
+
+
+def test_accepted_seat_is_not_in_to_act(client):
+    gid = create(client, seed=5)
+    v = post(client, gid, "p1", "draw").json()
+    assert v["to_act"] == ["p2"]
+    assert v["legal"] == []
+
+
+# --- view contract ---------------------------------------------------------------------
+
+
+def test_view_has_the_fixed_fields(client):
+    gid = create(client, "human", "bot:random", seed=HUMAN_SEED)
+    v = view(client, gid)
+    assert set(v) == {
+        "game", "you", "to_act", "seats", "window", "chips", "legal", "hand", "card_draw", "log",
+    }
+    g = v["game"]
+    session = session_of(client, gid)
+    assert g["rounds"] == 9 and g["round"] == 1
+    assert g["explosion_limit"] == explosion_limit(session.state, RS)
+    card = RS.card(HUMAN_SEED_CARD)
+    assert g["card"] == {
+        "id": card.id, "effect": card.effect, "text": get_card_effect(card.effect).description,
+    }
+    assert g["winner"] is None
+    assert v["you"] == "p1"
+    assert [s["id"] for s in v["seats"]] == ["p1", "p2"]
+    p1 = seat_entry(v, "p1")
+    assert set(p1) == {
+        "id", "kind", "status", "points", "money", "rubies", "flask_full", "white_total",
+        "droplet", "start_field", "rat_tail", "bag", "pot",
+    }
+    assert p1["kind"] == "human" and seat_entry(v, "p2")["kind"] == "random"
+    assert p1["bag"] == dict(RS.start_bag)
+    assert v["chips"] == [{"id": c.id, "colour": c.colour, "value": c.value} for c in RS.chips]
+    assert v["legal"] == [{"id": "draw", "label": "draw"}]
+    assert v["hand"] == [] and v["card_draw"] == []
+    assert set(v["log"]) == {"lines", "events"}
+    assert any(e["kind"] == "card_draw" for e in v["log"]["events"])
+
+
+def test_window_matches_ahead_near_the_track_end(client):
+    gid = create(client)
+    state = brew_start()
+    state.players["p1"].field = 50
+    session = scripted(client, gid, state, [])
+    v = view(client, gid)
+    assert [w["field"] for w in v["window"]] == [51, 52] + [53] * 9
+    ahead = observe(session.state, RS, "p1")["ahead"]
+    assert [{k: w[k] for k in ("money", "points", "ruby")} for w in v["window"]] == ahead
+
+
+def test_pot_entries_from_and_landing(client):
+    gid = create(client)
+    state = brew_start()
+    start = state.players["p1"].field
+    state.players["p1"].bag = {"white_1": 4, "green_1": 1, "yellow_1": 1}
+    state.players["p2"].bag = {"white_1": 6}
+    scripted(client, gid, state, ["white_1", "white_1"] * 2 + ["green_1", "white_1"])
+    joint(client, gid, "draw", "draw")  # p1 white_1
+    v = joint(client, gid, "draw", "draw")  # p1 white_1
+    pot = seat_entry(v, "p1")["pot"]
+    assert [e["order"] for e in pot] == [1, 2]
+    assert pot[0]["from"] == start + 1
+    assert pot[1]["from"] == pot[0]["landing"] + 1
+    assert [e["landing"] for e in pot] == session_of(client, gid).state.players["p1"].placed_fields
+    assert pot[0] == {
+        "order": 1, "chip": "white_1", "colour": "white", "value": 1,
+        "from": start + 1, "landing": start + 1,
+    }
+    session = session_of(client, gid)
+    session.chance = ScriptedChance(["yellow_1", "white_1"])
+    removed_landing = pot[1]["landing"]
+    v = joint(client, gid, "draw", "draw")  # p1 yellow_1: the white chip before it goes back
+    pot = seat_entry(v, "p1")["pot"]
+    assert [e["chip"] for e in pot] == ["white_1", "yellow_1"]
+    assert [e["order"] for e in pot] == [1, 2]
+    assert pot[1]["from"] == removed_landing + 1
+    assert pot[1]["landing"] == session.state.players["p1"].placed_fields[-1]
+
+
+def test_pot_entry_at_the_track_end(client):
+    gid = create(client)
+    state = brew_start()
+    p1 = state.players["p1"]
+    p1.bag = {"white_1": 1, "green_1": 2}
+    p1.placed, p1.placed_fields, p1.field = ["green_1"], [53], 53
+    state.players["p2"].bag = {"white_1": 6}
+    scripted(client, gid, state, ["green_1", "white_1"])
+    v = joint(client, gid, "draw", "draw")
+    entry = seat_entry(v, "p1")["pot"][-1]
+    assert entry["from"] == entry["landing"] == 53
+
+
+# --- hidden information -----------------------------------------------------------------
+
+
+def test_hand_and_card_draw_are_hidden_from_the_other_seat(client):
+    gid = create(client)
+    state = brew_start()
+    state.players["p1"].bag = {"blue_2": 1, "white_1": 4}
+    state.players["p2"].bag = {"white_1": 6}
+    session = scripted(client, gid, state, ["blue_2", "white_1", "white_1", "white_1"])
+    joint(client, gid, "draw", "draw")
+    session.state.players["p1"].card_draw = ["white_1", "white_1"]
+    own, other = view(client, gid, "p1"), view(client, gid, "p2")
+    assert own["hand"] == ["white_1", "white_1"]
+    assert own["card_draw"] == ["white_1", "white_1"]
+    assert other["hand"] == [] and other["card_draw"] == []
+    assert seat_entry(own, "p1")["bag"] == {"white_1": 2}
+    assert seat_entry(other, "p1")["bag"] == {"white_1": 4}
+    session.chance = ScriptedChance(["white_1"])
+    joint(client, gid, "play:0", "draw")  # the rest of the hand goes back
+    own, other = view(client, gid, "p1"), view(client, gid, "p2")
+    own_kinds = [(e.get("seat"), e["kind"]) for e in own["log"]["events"]]
+    assert ("p1", "hand") in own_kinds and ("p1", "put_back") in own_kinds
+    for e in other["log"]["events"]:
+        assert not (e.get("seat") == "p1" and e["kind"] in ("hand", "put_back"))
+        assert "value" not in e  # no chance outcome
+    for v in (own, other):
+        assert v["log"]["lines"] == [event_text(e) for e in v["log"]["events"]]
+
+
+def test_pending_action_is_not_in_the_other_view(client):
+    views = []
+    for action in ("draw", "stop"):
+        gid = create(client, seed=5)
+        joint(client, gid, "draw", "draw")
+        assert post(client, gid, "p1", action).status_code == 200
+        views.append(view(client, gid, "p2"))
+    assert views[0] == views[1]
+    assert views[0]["to_act"] == ["p2"]
+
+
+def test_explosion_limit_includes_card_4(client):
+    gid = create(client, "human", "bot:random", seed=14)  # round-1 card: card_4
+    g = view(client, gid)["game"]
+    assert g["card"]["id"] == "card_4"
+    assert g["explosion_limit"] == RS.explosion_limit + 2
