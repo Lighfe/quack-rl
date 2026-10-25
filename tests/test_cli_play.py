@@ -154,7 +154,7 @@ def test_render_step_bonus_die_lines_one_per_roller():
     ("face", "effect"),
     [
         ("droplet_1", "+1 droplet"),
-        ("droplet_half", "+0.5 droplet"),
+        ("ruby_1", "+1 ruby"),
         ("orange_1", "+1 orange_1 chip"),
     ],
 )

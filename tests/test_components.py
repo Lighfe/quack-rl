@@ -59,15 +59,15 @@ def test_only_blue_has_a_place_bonus(chip_id):
     assert comp(chip_id).place_bonus(rs.chip(chip_id), rs.chip("white_2")) == 0
 
 
-# rules 4.3: each green chip among the last two placed chips: droplet +0.5 (one half step)
-@pytest.mark.parametrize(("position_from_end", "halves"), [(0, 1), (1, 1), (2, 0)])
-def test_green_round_end_bonus(position_from_end, halves):
-    assert comp("green_1").round_end_droplet_halves(rs.chip("green_1"), position_from_end) == halves
+# rules 4.3: each green chip among the last two placed chips: 1 ruby
+@pytest.mark.parametrize(("position_from_end", "rubies"), [(0, 1), (1, 1), (2, 0)])
+def test_green_round_end_bonus(position_from_end, rubies):
+    assert comp("green_1").round_end_rubies(rs.chip("green_1"), position_from_end) == rubies
 
 
 @pytest.mark.parametrize("chip_id", ["blue_1", "white_1"])
 def test_non_green_has_no_round_end_bonus(chip_id):
-    assert comp(chip_id).round_end_droplet_halves(rs.chip(chip_id), 0) == 0
+    assert comp(chip_id).round_end_rubies(rs.chip(chip_id), 0) == 0
 
 
 @pytest.mark.parametrize(

@@ -23,7 +23,7 @@ The ruleset names a **spellbook** (`spellbook = 1`). The spellbook says what eac
 |---|---|---|
 | ⚪ White | 1, 2, 3 | Advance by its value. Add its value to the explosion total. |
 | 🟠 Orange | 1, 6 | Advance by its value. No other effect. |
-| 🟢 Green | 1, 2, 4 | Advance by its value. At round end, each green chip among the last two placed chips advances the droplet by 0.5 (see 4.3). |
+| 🟢 Green | 1, 2, 4 | Advance by its value. At round end, each green chip among the last two placed chips gives 1 ruby (see 4.3). |
 | 🔵 Blue | 1, 2, 4 | Advance by its value, then draw hand chips and pick (see "Blue" below). No placement bonus. |
 | 🔴 Red | 1, 2, 4 | Advance by its value, plus an extra for the orange chips placed this round (see "Red" below). |
 | ⚫ Black | 1 | Advance by its value. At round end, a droplet effect that compares the black chips of both pots (see "Black" below). |
@@ -39,7 +39,7 @@ When a red chip is placed, it counts the orange chips already placed this round 
 At round end, when both players have stopped, count the black chips in each player's pot (an exploded pot counts). Let `a` be the count of one player and `b` the count of the other:
 
 - `a` is at least 1 and `a == b`: each of the two players advances the droplet by 1.
-- `a > b` (so `a` is at least 1): the player with the larger count advances the droplet by 1.5. The other player gets nothing.
+- `a > b` (so `a` is at least 1): the player with the larger count gets 3 rubies. The other player gets nothing.
 - Otherwise nothing.
 
 The effect fires once per player, however many black chips there are.
@@ -53,10 +53,10 @@ A yellow chip advances by its value. Then, if the chip placed just before it in 
 At round end, count the purple chips in the player's pot (an exploded pot counts):
 
 - exactly 1: 1 point.
-- exactly 2: 1 point and the droplet advances by 0.5.
+- exactly 2: 1 point and 1 ruby.
 - 3 or more: 2 points and the droplet advances by 1.
 
-Purple chips are not used up. Droplet values are in half steps.
+Purple chips are not used up.
 
 #### Blue
 
@@ -100,7 +100,7 @@ A tail after field `f` lies at total `f` and at total `f + 50`. It counts for a 
 
 ### Droplet
 
-The droplet marks the start field of each round. It moves in half steps. The start field of a round is the droplet position rounded down.
+The droplet marks the start field of each round. It moves in whole steps. The start field of a round is the droplet position.
 
 ### Bag
 
@@ -114,7 +114,7 @@ A player's chips are either in the bag or placed on the track in the current rou
 |---|---|---|
 | orange_1 | 1/6 | Receive 1 Orange 1 chip (into the bag) |
 | droplet_1 | 1/6 | Droplet +1 |
-| droplet_half | 1/6 | Droplet +0.5 |
+| ruby_1 | 1/6 | +1 ruby |
 | point_1 | 2/6 | +1 victory point |
 | point_2 | 1/6 | +2 victory points |
 
@@ -145,7 +145,7 @@ A shop item can be bought only in a round that is at least its minimum round. An
 
 The shop has no "Remove one White 1" item. Orange 6 is only in the shop; the bonus die gives Orange 1.
 
-The shop has no droplet item, no victory points item and no remove item. The droplet moves only by rubies, green chips, black chips, purple chips and the bonus die.
+The shop has no droplet item, no victory points item and no remove item. The droplet moves only by rubies (the ruby drop), black chips, purple chips and the bonus die.
 
 ## 2. Setup
 
@@ -200,7 +200,7 @@ In the shop, a player with an empty flask and at least 2 rubies (`ruby_cost = 2`
 In this order, for each player:
 
 1. **Ruby:** if the scoring field is a ruby field, the player gets 1 ruby. This also applies after an explosion. Rubies are a currency (see "Rubies" below); the droplet does not move for a ruby field.
-2. **Green chips:** for each green chip among the last two placed chips, the droplet advances by 0.5. Two green chips give 1. This also applies after an explosion.
+2. **Green chips:** for each green chip among the last two placed chips, the player gets 1 ruby. Two green chips give 2. This also applies after an explosion.
 2a. **Black and purple chips:** the round-end effects of the black and purple chips in the pot (see "Black" and "Purple"), black first, then purple. They also apply after an explosion.
 3. **Bonus die:** the player with the furthest scoring field whose potion did not explode rolls the bonus die. If players are tied for furthest scoring field, each tied player rolls. A player whose potion exploded never rolls.
 4. **Money and points:** a potion that did not explode gives the money and the points of the scoring field. The bonus die gives points, never money. There is no last-round money factor (`last_round_money_percent = 100`). The `money` event in the game record carries the amount.
@@ -261,6 +261,7 @@ These are candidate changes for later versions. They are also test cases for the
 - **Bonus die:** the +1 money face (weight 2) became +1 point (weight 2), the old +1 point face (weight 1) became +2 points (weight 1).
 - **Rubies:** a currency instead of the automatic droplet +0.5 of a ruby field, see "Rubies" above. Card 1 is `ruby_extra`.
 - **Round chip:** at the start of round 6 each player gets one white 1 chip into the bag, see "Round chip" below.
+- **No half steps:** the droplet moves in whole steps. Every former half step (green chip +0.5, purple pair +0.5, black larger count +1.5, bonus die +0.5) became rubies, one per half step.
 - Everything else is as in v1.11.
 
 ### Round chip

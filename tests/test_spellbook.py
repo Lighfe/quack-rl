@@ -172,14 +172,3 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
 
     assert halves(Ruleset.model_validate(_data())) == []
     assert len(halves(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats
-
-
-def test_report_reads_component_through_spellbook(green_blue_book):
-    from quack_rl.report import _brew_outcomes
-
-    def green_halves(rs):
-        out = _brew_outcomes(rs, (("blue_4", 1), ("blue_2", 1)), 100)
-        return {key[2] for key in out}
-
-    assert green_halves(Ruleset.model_validate(_data())) == {0}
-    assert green_halves(Ruleset.model_validate(_data(green_blue_book))) == {2}

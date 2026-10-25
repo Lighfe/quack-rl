@@ -602,7 +602,7 @@ def test_rubies_column_matches_the_ruby_events_of_the_game_record(tmp_path):
             total = {"p1": 0, "p2": 0}
             for step in game.steps:
                 for e in step.events:
-                    if e["kind"] in ("ruby", "ruby_drop", "refill_flask", "card_swap"):
+                    if e["kind"] in ("ruby", "ruby_drop", "refill_flask", "card_swap", "round_end_bonus", "pot_round_end"):
                         total[e["seat"]] = e["total"]  # every event that changes rubies carries the balance
             for s in table:
                 if s["seed"] == game.header.seed:

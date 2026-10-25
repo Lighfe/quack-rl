@@ -7,10 +7,11 @@ from quack_rl.rules import ChipSpec
 
 @dataclass(frozen=True)
 class PotRoundEnd:
-    """What a component gives at round end for a whole pot: points and droplet half steps."""
+    """What a component gives at round end for a whole pot: points, droplet half steps, rubies."""
 
     points: int = 0
     droplet_halves: int = 0
+    rubies: int = 0
 
 
 class Component:
@@ -36,8 +37,8 @@ class Component:
         """Chips the player draws into a hand when this chip is placed (0: none)."""
         return 0
 
-    def round_end_droplet_halves(self, chip: ChipSpec, position_from_end: int) -> int:
-        """Droplet half steps at round end; position_from_end 0 = last placed chip."""
+    def round_end_rubies(self, chip: ChipSpec, position_from_end: int) -> int:
+        """Rubies at round end; position_from_end 0 = last placed chip."""
         return 0
 
     def pot_round_end(self, pot: Sequence[ChipSpec], other_pot: Sequence[ChipSpec]) -> PotRoundEnd:

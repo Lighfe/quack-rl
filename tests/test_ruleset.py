@@ -197,13 +197,13 @@ def test_shop_prices_match_rules_doc():
 
 def test_die_faces():
     rs = load_ruleset("v2.1")
-    assert [f.id for f in rs.die] == ["orange_1", "droplet_1", "droplet_half", "point_1", "point_2"]
+    assert [f.id for f in rs.die] == ["orange_1", "droplet_1", "ruby_1", "point_1", "point_2"]
     faces = {f.id: f for f in rs.die}
     assert sum(f.weight for f in rs.die) == 6
     d1 = faces["droplet_1"]
     assert (d1.kind, d1.halves, d1.weight) == ("droplet", 2, 1)
-    dh = faces["droplet_half"]
-    assert (dh.kind, dh.halves, dh.weight) == ("droplet", 1, 1)
+    r1 = faces["ruby_1"]
+    assert (r1.kind, r1.rubies, r1.weight) == ("rubies", 1, 1)
     o1 = faces["orange_1"]
     assert (o1.kind, o1.chip, o1.weight) == ("chip", "orange_1", 1)
     p1 = faces["point_1"]

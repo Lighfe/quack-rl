@@ -66,13 +66,13 @@ def test_site_pot_round_end_effect_stops_at_100():
     out = step(s, RS, None, ScriptedChance(["point_1"])).state
     assert out.players["p1"].points == CAP
     s = state_for(RS, Phase.RESOLVE, p1_points=99, final_field=0, placed=["purple_1"] * 3)
-    out = step(s, RS, None, ScriptedChance(["droplet_half"])).state
+    out = step(s, RS, None, ScriptedChance(["ruby_1"])).state
     assert out.players["p1"].points == CAP  # 3 purple give +2: 101 would be over
 
 
 def test_site_round_end_table_stops_at_100():
     s = state_for(RS, Phase.RESOLVE, final_field=30)
-    out = step(s, RS, None, ScriptedChance(["droplet_half"])).state
+    out = step(s, RS, None, ScriptedChance(["ruby_1"])).state
     assert RS.fields[31].points >= 2
     assert out.players["p1"].points == CAP
 
@@ -82,10 +82,10 @@ def test_site_last_round_conversion_stops_at_100():
     s = state_for(rs, Phase.RESOLVE, final_field=30)
     s.round = rs.rounds
     s.players["p1"].points = 80
-    out = step(s, rs, None, ScriptedChance(["droplet_half"])).state
+    out = step(s, rs, None, ScriptedChance(["ruby_1"])).state
     assert out.players["p1"].points == 80 + RS.fields[31].points + RS.fields[31].money // 5
     s.players["p1"].points = 99
-    out = step(s, rs, None, ScriptedChance(["droplet_half"])).state
+    out = step(s, rs, None, ScriptedChance(["ruby_1"])).state
     assert out.players["p1"].points == CAP
 
 

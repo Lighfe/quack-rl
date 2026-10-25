@@ -22,7 +22,7 @@ class Orange(Component):
 class Green(Component):
     name = "green@1"
 
-    def round_end_droplet_halves(self, chip: ChipSpec, position_from_end: int) -> int:
+    def round_end_rubies(self, chip: ChipSpec, position_from_end: int) -> int:
         return 1 if position_from_end in (0, 1) else 0
 
 
@@ -55,7 +55,7 @@ def _count(pot: Sequence[ChipSpec], colour: str) -> int:
 
 @register
 class Black(Component):
-    """Black: at round end, drop +1 each on equal counts (1 or more), +1.5 for the larger."""
+    """Black: at round end, drop +1 each on equal counts (1 or more), 3 rubies for the larger."""
 
     name = "black@1"
     round_end_order = 1
@@ -65,7 +65,7 @@ class Black(Component):
         if mine >= 1 and mine == theirs:
             return PotRoundEnd(droplet_halves=2)
         if mine > theirs:
-            return PotRoundEnd(droplet_halves=3)
+            return PotRoundEnd(rubies=3)
         return PotRoundEnd()
 
 
@@ -81,7 +81,7 @@ class Yellow(Component):
 
 @register
 class Purple(Component):
-    """Purple: at round end, 1 chip: 1 point; 2: 1 point, drop +0.5; 3 or more: 2 points, drop +1."""
+    """Purple: at round end, 1 chip: 1 point; 2: 1 point, 1 ruby; 3 or more: 2 points, drop +1."""
 
     name = "purple@1"
     round_end_order = 2
@@ -93,5 +93,5 @@ class Purple(Component):
         if count == 1:
             return PotRoundEnd(points=1)
         if count == 2:
-            return PotRoundEnd(points=1, droplet_halves=1)
+            return PotRoundEnd(points=1, rubies=1)
         return PotRoundEnd(points=2, droplet_halves=2)

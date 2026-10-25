@@ -26,11 +26,11 @@ def test_v2_loads():
 def test_v2_die_weights():
     faces = {f.id: f for f in RS.die}
     assert {k: f.weight for k, f in faces.items()} == {
-        "orange_1": 1, "droplet_1": 1, "droplet_half": 1, "point_1": 2, "point_2": 1,
+        "orange_1": 1, "droplet_1": 1, "ruby_1": 1, "point_1": 2, "point_2": 1,
     }  # fmt: skip
     assert sum(f.weight for f in RS.die) == 6
     assert faces["orange_1"].kind == "chip" and faces["orange_1"].chip == "orange_1"
-    assert faces["droplet_1"].halves == 2 and faces["droplet_half"].halves == 1
+    assert faces["droplet_1"].halves == 2 and faces["ruby_1"].rubies == 1
     assert (faces["point_1"].kind, faces["point_1"].points) == ("points", 1)
     assert (faces["point_2"].kind, faces["point_2"].points) == ("points", 2)
 
@@ -79,7 +79,7 @@ def test_rules_doc_agrees_with_the_file():
         reward = {
             "orange_1": "Receive 1 Orange 1 chip (into the bag)",
             "droplet_1": "Droplet +1",
-            "droplet_half": "Droplet +0.5",
+            "ruby_1": "+1 ruby",
             "point_1": "+1 victory point",
             "point_2": "+2 victory points",
         }[face.id]

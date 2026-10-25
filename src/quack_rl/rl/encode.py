@@ -170,10 +170,7 @@ def observe(state: GameState, rs: Ruleset, seat: str, k_max: int = LOOKAHEAD) ->
         "derived": derived(state, rs, seat),
         "ahead": _ahead(state.players[seat], rs, k_max),
     }
-    # the card and the deck are open; the drop of card 5 at round end is open once the
-    # choice has resolved (the choice phase is over); a pending choice is not stored
-    own["round_end_halves"] = state.players[seat].round_end_halves
-    opponent["round_end_halves"] = state.players[other_seat(seat)].round_end_halves
+    # the card and the deck are open
     obs["card"] = card_effect(state, rs)
     obs["deck"] = _deck_counts(state, rs)
     obs["restart_available"] = _restart_available(state, rs, seat)
@@ -233,8 +230,6 @@ def _card_names(rs: Ruleset) -> list[str]:
         *(f"card.{k}" for k in kinds),
         *(f"deck.{k}" for k in kinds),
         "restart.available",
-        "own.round_end_halves",
-        "opponent.round_end_halves",
     ]
 
 
@@ -244,8 +239,6 @@ def _card_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
         *(obs["card"] == k for k in kinds),
         *(obs["deck"][k] for k in kinds),
         obs["restart_available"],
-        obs["own"]["round_end_halves"],
-        obs["opponent"]["round_end_halves"],
     ]
 
 
@@ -433,7 +426,7 @@ def observation_bounds(rs: Ruleset, k_max: int = LOOKAHEAD) -> tuple[np.ndarray,
     shop_high = [float(rs.rounds), 1.0] * len(rs.shop)
     kinds = _card_kinds(rs)
     per_kind = [sum(c.count for c in rs.cards if c.effect == k) for k in kinds]
-    card_high = [*[1.0] * len(kinds), *map(float, per_kind), 1.0, inf, inf]
+    card_high = [*[1.0] * len(kinds), *map(float, per_kind), 1.0]
     pb = rs.point_board
     one_side = [*[1.0] * (pb.fields + 1), 1.0, float(pb.laps * len(pb.rat_tails))]
     board_high = [*one_side, *one_side, *[1.0] * pb.fields]

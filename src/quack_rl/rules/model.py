@@ -33,10 +33,11 @@ class ShopItem(_Frozen):
 class DieFace(_Frozen):
     id: str
     weight: int = PydField(ge=1)
-    kind: Literal["droplet", "chip", "points"]
+    kind: Literal["droplet", "chip", "points", "rubies"]
     chip: str | None = None
     halves: int = 0
     points: int = 0
+    rubies: int = 0
 
 
 DECK_SIZE = 20
@@ -83,6 +84,7 @@ def _check_kind_fields(entry: "ShopItem | DieFace") -> None:
     needed = {
         "droplet": "halves",
         "points": "points",
+        "rubies": "rubies",
     }.get(entry.kind)
     if needed is not None and getattr(entry, needed, 1) < 1:
         raise ValueError(f"{entry.id}: kind {entry.kind} needs {needed} of at least 1")

@@ -76,8 +76,9 @@ def _brew_outcomes(
     first chip is always drawn; then it stops when the chance to explode is more than the draw
     limit. A brew also ends on an explosion or an empty bag. The advance is the sum of the chip
     advances (blue bonus included), so the final field is `min(start field + advance, track_end)`.
-    The halves are the round-end droplet halves of the last two placed chips (green) plus the
-    halves of the pot effects (black, purple); the points are the pot effects' points.
+    The halves are the droplet halves of the pot effects (black, purple); the points are the pot
+    effects' points. Rubies (green, black, purple) do not move the droplet, so the chain ignores
+    them.
 
     The hooks get the inputs the engine gives them: `puts_back_previous(chip, previous)` at each
     placement (a put-back chip returns to the bag and its explosion weight leaves the total, as
@@ -101,8 +102,6 @@ def _brew_outcomes(
 
     def end_bonus(pot: tuple[str, ...]) -> tuple[int, int]:
         halves = points = 0
-        for position, chip_id in enumerate(reversed(pot[-2:])):
-            halves += parts[chip_id].round_end_droplet_halves(chips[chip_id], position)
         if tracked:
             for _, effect in pot_effects(rs, pot, ()):
                 halves += effect.droplet_halves

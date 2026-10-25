@@ -109,7 +109,7 @@ PREFIX = [
     "deck.fewest_rubies_ruby", "deck.points_or_remove_white", "deck.ruby_field_points",
     "deck.refill_flasks", "deck.first_white_back", "deck.everyone_rolls",
     "deck.chip4_or_tail_points", "deck.draw5_lowest", "restart.available",
-    "own.round_end_halves", "opponent.round_end_halves", "own.board.marker.0",
+    "own.board.marker.0",
     "own.board.marker.1", "own.board.marker.2", "own.board.marker.3", "own.board.marker.4",
     "own.board.marker.5", "own.board.marker.6", "own.board.marker.7", "own.board.marker.8",
     "own.board.marker.9", "own.board.marker.10", "own.board.marker.11", "own.board.marker.12",
@@ -194,7 +194,7 @@ def test_layout_number_and_pinned_names():
         for k in (*(f"colour.{c}" for c in colours), "value", "order")
     ]
     assert names[sl] == [n.format(f=f) for f in range(RS.track_end + 1) for n in cell]
-    assert len(names) == 1530 == len(PREFIX) + (RS.track_end + 1) * map_channels(RS)
+    assert len(names) == 1528 == len(PREFIX) + (RS.track_end + 1) * map_channels(RS)
     assert len(set(names)) == len(names)
 
 

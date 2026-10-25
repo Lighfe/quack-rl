@@ -1,7 +1,7 @@
 from typing import Any
 
 from quack_rl.components import get_component, pot_effects
-from quack_rl.engine.board import add_points, apply_die_face
+from quack_rl.engine.board import add_points, apply_die_face, die_events
 from quack_rl.engine.cards import card_rolls_twice, card_ruby_field_extras, card_round_end
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import SEATS, GameState, Phase, Status, scoring_field
@@ -15,9 +15,10 @@ def _apply_pot_effects(
     p = state.players[seat]
     other = state.players[SEATS[1] if seat == SEATS[0] else SEATS[0]]
     for component, effect in pot_effects(rs, p.placed, other.placed):
-        if effect.points or effect.droplet_halves:
+        if effect.points or effect.droplet_halves or effect.rubies:
             add_points(p, effect.points, rs)
             p.droplet_halves += effect.droplet_halves
+            p.rubies += effect.rubies
             events.append(
                 {
                     "seat": seat,
@@ -25,6 +26,8 @@ def _apply_pot_effects(
                     "component": component.name,
                     "points": effect.points,
                     "halves": effect.droplet_halves,
+                    "rubies": effect.rubies,
+                    "total": p.rubies,
                 }
             )
 
@@ -50,21 +53,21 @@ def apply_resolve(
                 events.append({"seat": seat, "kind": "card_points", "points": added})
         for position_from_end, chip_id in enumerate(reversed(p.placed[-2:])):
             chip = rs.chip(chip_id)
-            halves = get_component(rs.component_name(chip)).round_end_droplet_halves(
+            rubies = get_component(rs.component_name(chip)).round_end_rubies(
                 chip, position_from_end
             )
-            if halves:
-                p.droplet_halves += halves
+            if rubies:
+                p.rubies += rubies
                 events.append(
-                    {"seat": seat, "kind": "round_end_bonus", "chip": chip_id, "halves": halves}
+                    {
+                        "seat": seat,
+                        "kind": "round_end_bonus",
+                        "chip": chip_id,
+                        "rubies": rubies,
+                        "total": p.rubies,
+                    }
                 )
         _apply_pot_effects(state, rs, seat, events)
-        if p.round_end_halves:
-            p.droplet_halves += p.round_end_halves
-            events.append(
-                {"seat": seat, "kind": "card_round_end_drop", "halves": p.round_end_halves}
-            )
-            p.round_end_halves = 0
     eligible = [s for s in SEATS if state.players[s].status is not Status.EXPLODED]
     if eligible:
         best = max(scoring_field(state.players[s].final_field or 0, rs) for s in eligible)
@@ -74,7 +77,7 @@ def apply_resolve(
                 for _ in range(2 if card_rolls_twice(state, rs) else 1):
                     face = chance.roll_die(seat)
                     apply_die_face(p, face, rs)
-                    events.append({"seat": seat, "kind": "die", "face": face.id})
+                    events.extend(die_events(seat, p, face))
     choosing = False
     for seat in SEATS:
         p = state.players[seat]

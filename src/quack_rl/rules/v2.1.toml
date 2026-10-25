@@ -510,10 +510,10 @@ kind = "droplet"
 halves = 2
 
 [[die]]
-id = "droplet_half"
+id = "ruby_1"
 weight = 1
-kind = "droplet"
-halves = 1
+kind = "rubies"
+rubies = 1
 
 [[die]]
 id = "point_1"

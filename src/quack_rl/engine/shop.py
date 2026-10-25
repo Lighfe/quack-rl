@@ -57,7 +57,6 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.shop_done = False
         p.restart_offered = False
         p.restart_pending = False
-        p.round_end_halves = 0
         p.rat_tail = 0
         p.rat_tail_adjust = 0
         p.card_draw = []

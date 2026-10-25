@@ -17,10 +17,21 @@ def add_points(p: PlayerState, amount: int, rs: Ruleset) -> int:
     return added
 
 
+def die_events(seat: str, p: PlayerState, face: DieFace) -> list[dict[str, Any]]:
+    """The events of a rolled face, after `apply_die_face`: the `die` event, and for a ruby face
+    a `ruby` event with the balance."""
+    events: list[dict[str, Any]] = [{"seat": seat, "kind": "die", "face": face.id}]
+    if face.kind == "rubies":
+        events.append({"seat": seat, "kind": "ruby", "rubies": face.rubies, "total": p.rubies})
+    return events
+
+
 def apply_die_face(p: PlayerState, face: DieFace, rs: Ruleset) -> None:
     """Apply a bonus die face to a player."""
     if face.kind == "droplet":
         p.droplet_halves += face.halves
+    elif face.kind == "rubies":
+        p.rubies += face.rubies
     elif face.kind == "chip" and face.chip is not None:
         p.bag[face.chip] = p.bag.get(face.chip, 0) + 1
     elif face.kind == "points":

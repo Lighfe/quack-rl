@@ -11,8 +11,8 @@ from quack_rl.record import read_games, verify_game, verify_seed
 GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_1_random_seed7.jsonl"
 
 # Stored result of the game (the footer of the record)
-FINAL_POINTS = {"p1": 18, "p2": 15}
-FINAL_FIELDS = {"p1": 8, "p2": 7}
+FINAL_POINTS = {"p1": 18, "p2": 9}
+FINAL_FIELDS = {"p1": 9, "p2": 4}
 
 
 def golden():

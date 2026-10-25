@@ -34,7 +34,13 @@ from quack_rl.engine.actions import (
     upgrade_target,
     white_one,
 )
-from quack_rl.engine.board import add_points, apply_die_face, calculate_rat_tails, set_rat_tails
+from quack_rl.engine.board import (
+    add_points,
+    apply_die_face,
+    calculate_rat_tails,
+    die_events,
+    set_rat_tails,
+)
 from quack_rl.engine.chance import ChanceLog
 from quack_rl.engine.state import (
     SEATS,
@@ -181,7 +187,7 @@ def apply_card(
         for seat in SEATS:
             face = chance.roll_die(seat)
             apply_die_face(state.players[seat], face, rs)
-            events.append({"seat": seat, "kind": "die", "face": face.id})
+            events.extend(die_events(seat, state.players[seat], face))
     elif effect == "fewest_points_green":
         fewest = min(state.players[s].points for s in SEATS)
         chip_id = _green_one(rs)

@@ -46,10 +46,10 @@ def test_both_exploded_nobody_rolls():
 
 
 def test_tied_furthest_both_roll():
-    r = auto(brewed(10, 10), "droplet_1", "droplet_half")
+    r = auto(brewed(10, 10), "droplet_1", "ruby_1")
     assert [c["seat"] for c in r.chance] == ["p1", "p2"]
     assert r.state.players["p1"].droplet_halves == 2
-    assert r.state.players["p2"].droplet_halves == 1
+    assert r.state.players["p2"].rubies == RS.start_rubies + 1
 
 
 def test_ruby_field_gives_one_ruby_also_after_explosion():
@@ -87,11 +87,13 @@ def test_card_ruby_extra_gives_two_rubies():
     assert r.state.players["p2"].rubies == RS.start_rubies  # field 3 is no ruby field
 
 
-def test_green_in_last_two_gives_half_step_each():
+def test_green_in_last_two_gives_a_ruby_each():
+    start = RS.start_rubies
     r = auto(brewed(3, 2, p1_placed=("green_1", "orange_1", "green_2")), "point_1")
-    assert r.state.players["p1"].droplet_halves == 1  # only green_2 is in the last two
+    assert r.state.players["p1"].rubies == start + 1  # only green_2 is in the last two
     r = auto(brewed(3, 2, p1_placed=("white_1", "green_1", "green_2")), "point_1")
-    assert r.state.players["p1"].droplet_halves == 2
+    assert r.state.players["p1"].rubies == start + 2
+    assert r.state.players["p1"].droplet_halves == 0
 
 
 def test_die_orange_chip_goes_into_the_bag():
@@ -137,8 +139,9 @@ def test_field_53_exploded_waits_for_the_choice():
 def test_die_faces_apply():
     r = auto(brewed(3, 2), "droplet_1")
     assert r.state.players["p1"].droplet_halves == 2
-    r = auto(brewed(3, 2), "droplet_half")
-    assert r.state.players["p1"].droplet_halves == 1
+    r = auto(brewed(3, 2), "ruby_1")
+    assert r.state.players["p1"].rubies == RS.start_rubies + 1
+    assert r.state.players["p1"].droplet_halves == 0
     r = auto(brewed(3, 2), "point_2")
     assert r.state.players["p1"].points == 2
     r = auto(brewed(3, 2), "point_1")
@@ -148,7 +151,6 @@ def test_die_faces_apply():
 
 def test_green_third_from_last_gives_nothing():
     r = auto(brewed(3, 2, p1_placed=("green_1", "white_1", "orange_1")), "point_1")
-    assert r.state.players["p1"].droplet_halves == 0
     assert not [e for e in r.events if e["kind"] == "round_end_bonus"]
 
 
@@ -172,7 +174,7 @@ def test_events_kinds_and_one_money_event_per_seat():
     r = auto(s, "droplet_1")
     assert r.events == [
         {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1},
-        {"seat": "p1", "kind": "round_end_bonus", "chip": "green_1", "halves": 1},
+        {"seat": "p1", "kind": "round_end_bonus", "chip": "green_1", "rubies": 1, "total": RS.start_rubies + 2},
         {"seat": "p1", "kind": "die", "face": "droplet_1"},
         {"seat": "p1", "kind": "money", "amount": 17},
         {"seat": "p2", "kind": "money", "amount": 12},

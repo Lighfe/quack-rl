@@ -105,6 +105,8 @@ def _die_effect(face_id: str, rs: Ruleset) -> str:
             return f"+{face.points} point" + ("s" if face.points != 1 else "")
         case "droplet":
             return f"+{face.halves / 2:g} droplet"
+        case "rubies":
+            return f"+{face.rubies} ruby" + ("s" if face.rubies != 1 else "")
         case _:
             return f"+1 {face.chip} chip"
 
