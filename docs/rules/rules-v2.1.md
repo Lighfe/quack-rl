@@ -158,6 +158,8 @@ The shop has no droplet item, no victory points item and no remove item. The dro
 
 Brew → Resolve → Shop → Reset (all placed chips go back into the bag)
 
+The last round (round 9) has no shop and no reset: Brew → Resolve (→ explosion choice) → game end (section 5).
+
 ## 4. Round in detail
 
 ### 4.1 Brew
@@ -187,7 +189,7 @@ The **scoring field** is the first free field after the last placed chip: `min(f
 
 ### Rubies
 
-Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent. A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5). The game record shows the balance: the events `ruby` and `ruby_drop` carry `total`, the ruby count after the event.
+Rubies are a currency. Each player has a ruby count (`PlayerState.rubies`). It starts at 1 (`start_rubies = 1`), carries over from round to round and stays until it is spent; at game end the rubies left become points (section 5). A ruby field gives 1 ruby in Resolve (also after an explosion). Card 1 (`ruby_extra`) adds 1 ruby on top of that standard ruby. In the shop, 2 rubies (`ruby_cost = 2`) buy a droplet +1 with the action `ruby_drop`, as often as the player can pay. There is no automatic droplet step for a ruby field (v1.11 and v2 had +0.5). The game record shows the balance: the events `ruby` and `ruby_drop` carry `total`, the ruby count after the event.
 
 ### Flask
 
@@ -205,7 +207,7 @@ In this order, for each player:
 3. **Bonus die:** the player with the furthest scoring field whose potion did not explode rolls the bonus die. If players are tied for furthest scoring field, each tied player rolls. A player whose potion exploded never rolls.
 4. **Money and points:** a potion that did not explode gives the money and the points of the scoring field. The bonus die gives points, never money. There is no last-round money factor (`last_round_money_percent = 100`). The `money` event in the game record carries the amount.
 5. **Exploded potion:** an exploded potion gives nothing yet and nothing is halved. The player chooses in the explosion choice step (4.3a).
-6. **Last round (round 9):** all money a player receives in round 9 (field money or the money of `take_money`) becomes `money // 5` points at once (`last_round_money_divisor = 5`), and the player keeps no money. Points from the field (or `take_points`) are added as in other rounds. The shop of round 9 then has no money to spend.
+6. **Last round (round 9):** all money a player receives in round 9 (field money or the money of `take_money`) becomes `money // 5` points at once (`last_round_money_divisor = 5`), and the player keeps no money. Points from the field (or `take_points`) are added as in other rounds. Round 9 has no shop: the game ends after Resolve (and the explosion choice), see section 5.
 
 ### 4.3a Explosion choice
 
@@ -216,7 +218,7 @@ A step between Resolve and Shop, only when at least one potion exploded (`explos
 - The ruby and the green droplet bonus after an explosion still apply.
 - In round 9, `take_money` gives `money // 5` points and `take_points` gives the points of the scoring field.
 
-Droplet changes take effect from the next round.
+Droplet changes take effect from the next round. In round 9 the game ends after this step (no shop).
 
 ### 4.4 Shop
 
@@ -241,7 +243,9 @@ Shopping ends when no player shops anymore.
 
 ## 5. Game end
 
-The game ends after the shop of round 9.
+The game ends after Resolve of round 9, or after the explosion choice of round 9 when a potion exploded. Round 9 has no shop.
+
+Before the winner is decided, each player's rubies become `rubies // 2` points (`last_round_ruby_divisor = 2`; the points board stops at 100). The rubies are then gone (1 ruby gives 0 points and is lost too). The game record has one event `ruby_points` per player (p1, then p2, also with 0 rubies) with `rubies` (spent), `points` (added) and `total` (the ruby count after the event: 0), before `game_end`. The points of `game_end` include them.
 
 1. The player with the most victory points wins
 2. On a tie: the player with the furthest scoring field in round 9 (4.2) wins
@@ -262,6 +266,7 @@ These are candidate changes for later versions. They are also test cases for the
 - **Rubies:** a currency instead of the automatic droplet +0.5 of a ruby field, see "Rubies" above. Card 1 is `ruby_extra`.
 - **Round chip:** at the start of round 6 each player gets one white 1 chip into the bag, see "Round chip" below.
 - **No half steps:** the droplet moves in whole steps. Every former half step (green chip +0.5, purple pair +0.5, black larger count +1.5, bonus die +0.5) became rubies, one per half step.
+- **Last round:** round 9 has no shop; at game end rubies become `rubies // 2` points (`last_round_ruby_divisor`), see section 5.
 - Everything else is as in v1.11.
 
 ### Round chip

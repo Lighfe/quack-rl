@@ -14,8 +14,10 @@ removed from the deck, so the simulation is above it; the margin is CARD_MARGIN.
 does not spend rubies either, so the bot under test keeps its rubies (`KeepRubiesBot`: no
 `ruby_drop`, no `refill_flask`), in line with "the baseline never buys chips". Since v2.1 has
 no droplet half steps (issue #201), green, purple and black chips and the bonus die give rubies,
-and a bot that spends them on droplets is too far above the calculation. The number is not an
-upper bound of the real baseline bot.
+and a bot that spends them on droplets is too far above the calculation. The calculation has
+no end-of-game ruby points either (rubies // `last_round_ruby_divisor`, issue #202), so the test
+ruleset turns them off: `last_round_ruby_divisor` is set to NO_RUBY_POINTS, far above any ruby
+count. The number is not an upper bound of the real baseline bot.
 
 The opponent is `draw100-pts9-points`: it draws until it explodes, so it never rolls the bonus
 die and the bot under test always rolls it when it does not explode, as the calculation assumes.
@@ -40,7 +42,12 @@ GAMES = 1000
 DRAW_LIMITS = (0, 10, 20, 30, 40, 50)
 OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 
-RS = with_rounds(load_ruleset("v2.1"), 9).model_copy(update={"shop": []})
+# No end-of-game ruby points (issue #202): the divisor is far above any ruby count, so the
+# rubies the bot keeps give 0 points, as in the calculation.
+NO_RUBY_POINTS = 10**6
+RS = with_rounds(load_ruleset("v2.1"), 9).model_copy(
+    update={"shop": [], "last_round_ruby_divisor": NO_RUBY_POINTS}
+)
 
 
 class KeepRubiesBot(HeuristicBot):

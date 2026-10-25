@@ -274,6 +274,8 @@ def realistic_baseline_maximum(rs: Ruleset) -> float:
     - the droplet moves by the pot effects (black, purple) and die faces; rubies are not
       spent (no ruby drop, no flask refill); the die chip faces add chips
       to the bag;
+    - rubies give no points: the end-of-game ruby points (rubies // `last_round_ruby_divisor`)
+      are not in the number. `tests/test_baseline_maximum.py` turns them off in its ruleset;
     - the explosion limit of a round is the ruleset limit, or +2 with card 4, weighted by
       the share of card 4 in the deck. The other card effects are not in the number.
     """

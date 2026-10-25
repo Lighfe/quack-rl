@@ -30,14 +30,22 @@ def games_of(out: Path):
     return [g for p in sorted(out.glob("**/*.jsonl")) for g in read_games(p)]
 
 
-def last_shop_step(game):
-    return [s for s in game.steps if s.phase == "shop"][-1]
+def ends_in_round_without_shop(game, rnd):
+    """The last step is the Resolve or the explosion choice of round `rnd`, with `game_end`;
+    round `rnd` has no shop step (issue #202)."""
+    last = game.steps[-1]
+    return (
+        last.round == rnd
+        and last.phase in ("resolve", "choice")
+        and last.events[-1]["kind"] == "game_end"
+        and not [s for s in game.steps if s.round == rnd and s.phase == "shop"]
+    )
 
 
 # --- criterion 1: simulate and play use the number of rounds ------------------
 
 
-def test_simulate_rounds_4_ends_after_the_shop_of_round_4(tmp_path):
+def test_simulate_rounds_4_ends_in_round_4_without_a_shop(tmp_path):
     result = sim(tmp_path, "--rounds", "4")
     assert result.exit_code == 0, result.output
     games = games_of(tmp_path)
@@ -46,17 +54,17 @@ def test_simulate_rounds_4_ends_after_the_shop_of_round_4(tmp_path):
         assert g.header.rounds == 4
         assert g.footer is not None
         assert {s.round for s in g.steps} == {1, 2, 3, 4}
-        assert g.steps[-1] is last_shop_step(g) and g.steps[-1].round == 4
+        assert ends_in_round_without_shop(g, 4)
 
 
-def test_play_rounds_4_ends_after_the_shop_of_round_4(tmp_path, monkeypatch):
+def test_play_rounds_4_ends_in_round_4_without_a_shop(tmp_path, monkeypatch):
     result = play(tmp_path, monkeypatch, "--rounds", "4")
     assert result.exit_code == 0, result.output
     (game,) = games_of(tmp_path)
     assert game.header.rounds == 4
     assert game.footer is not None
     assert max(s.round for s in game.steps) == 4
-    assert game.steps[-1] is last_shop_step(game) and game.steps[-1].round == 4
+    assert ends_in_round_without_shop(game, 4)
     assert "Round 4/4" in result.output
 
 
@@ -113,13 +121,13 @@ def test_verify_seed_check_and_replay_accept_a_4_round_record(tmp_path):
 # --- criterion 5: one round ---------------------------------------------------------
 
 
-def test_one_round_applies_the_multiplier_and_ends_after_its_shop(tmp_path):
+def test_one_round_applies_the_multiplier_and_ends_without_a_shop(tmp_path):
     result = sim(tmp_path, "--rounds", "1")
     assert result.exit_code == 0, result.output
     for g in games_of(tmp_path):
         assert g.footer is not None
         assert {s.round for s in g.steps} == {1}
-        assert g.steps[-1].phase == "shop"
+        assert ends_in_round_without_shop(g, 1)
         # the last round turns money into points: resolve events show it
         resolve = [s for s in g.steps if s.phase == "resolve"]
         assert resolve

@@ -24,7 +24,9 @@ def test_v2_1_sets_the_ruby_divisor_to_2():
     assert RS.last_round_ruby_divisor == 2
 
 
-def last_round_state(rs=RS, phase=Phase.RESOLVE, p1_status=Status.STOPPED, p2_status=Status.STOPPED):
+def last_round_state(
+    rs=RS, phase=Phase.RESOLVE, p1_status=Status.STOPPED, p2_status=Status.STOPPED
+):
     s = new_game(rs)
     s.round = rs.rounds
     s.phase = phase
@@ -118,9 +120,7 @@ def test_last_round_take_money_gives_money_points_then_the_game_ends():
 
 
 def test_both_explode_in_the_last_round_then_the_game_ends():
-    s = last_round_state(
-        phase=Phase.CHOICE, p1_status=Status.EXPLODED, p2_status=Status.EXPLODED
-    )
+    s = last_round_state(phase=Phase.CHOICE, p1_status=Status.EXPLODED, p2_status=Status.EXPLODED)
     res = step(s, RS, {"p1": TAKE_MONEY, "p2": TAKE_MONEY}, ScriptedChance([]))
     assert res.state.phase is Phase.GAME_OVER
 

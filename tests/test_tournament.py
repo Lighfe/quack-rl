@@ -592,6 +592,17 @@ def test_rubies_column_is_last_and_equals_the_final_ruby_count():
     assert (p1["rubies"], p2["rubies"]) == (3, 0)
 
 
+RUBY_TOTAL_EVENTS = (
+    "ruby",
+    "ruby_drop",
+    "refill_flask",
+    "card_swap",
+    "round_end_bonus",
+    "pot_round_end",
+    "ruby_points",
+)
+
+
 def test_rubies_column_matches_the_ruby_events_of_the_game_record(tmp_path):
     assert tour(tmp_path, "--keep-records", games="6").exit_code == 0
     (run,) = runs(tmp_path)
@@ -602,13 +613,15 @@ def test_rubies_column_matches_the_ruby_events_of_the_game_record(tmp_path):
             total = {"p1": 0, "p2": 0}
             for step in game.steps:
                 for e in step.events:
-                    if e["kind"] in ("ruby", "ruby_drop", "refill_flask", "card_swap", "round_end_bonus", "pot_round_end"):
+                    if e["kind"] in RUBY_TOTAL_EVENTS:
                         total[e["seat"]] = e["total"]  # every event that changes rubies carries the balance
+                    if e["kind"] == "ruby_points":
+                        checked += e["rubies"] > 0
             for s in table:
                 if s["seed"] == game.header.seed:
-                    assert s["rubies"] == total[s["seat"]]
-                    checked += s["rubies"] > 0
-    assert checked, "no seat ended with a ruby in 6 games"
+                    # v2.1 (issue #202): the rubies become points at game end, so the column is 0
+                    assert s["rubies"] == total[s["seat"]] == 0
+    assert checked, "no seat had a ruby to turn into points in 6 games"
 
 
 def test_money_matches_the_money_events_of_the_game_record(tmp_path):
