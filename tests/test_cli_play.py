@@ -115,6 +115,17 @@ def test_board_past_last_ruby_shows_scoring_field_53_and_money_35():
         assert "score 53 $35" in text
 
 
+def test_board_last_round_banner_says_no_shop_and_names_both_conversions():
+    s = new_game(RS)
+    s.round = RS.rounds
+    expected = (
+        "Round 9: no shop; money becomes points (money // 5), rubies become points (rubies // 2)"
+    )
+    assert expected in board(s, width=200)
+    s.round = RS.rounds - 1
+    assert "no shop" not in board(s, width=200)
+
+
 def test_board_full_v1_values_fit_in_80_columns():
     s = new_game(RS)
     s.round = 9

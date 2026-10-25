@@ -81,7 +81,9 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
     if state.round == rs.rounds:
         parts.append(
             Text(
-                f"Round {rs.rounds}: money becomes points (money // {rs.last_round_money_divisor})"
+                f"Round {rs.rounds}: no shop; money becomes points "
+                f"(money // {rs.last_round_money_divisor}), rubies become points "
+                f"(rubies // {rs.last_round_ruby_divisor})"
             )
         )
     if bag_assist:

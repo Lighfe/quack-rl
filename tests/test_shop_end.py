@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from helpers import RS, brew_start, play
 
@@ -15,6 +17,7 @@ from quack_rl.engine import (
     new_game,
     step,
 )
+from quack_rl.engine.shop import end_game
 
 
 def shop_state(p1_money=20, p2_money=0):
@@ -111,11 +114,16 @@ def test_unspent_money_is_lost():
 
 
 def last_round(p1_points, p2_points, p1_final, p2_final):
+    """The end of the last round (it has no shop): `end_game` on a state with no rubies."""
     s = shop_state()
     s.round = RS.rounds
     s.players["p1"].points, s.players["p2"].points = p1_points, p2_points
     s.players["p1"].final_field, s.players["p2"].final_field = p1_final, p2_final
-    return s
+    for p in s.players.values():
+        p.rubies = 0
+    events = []
+    end_game(s, RS, events)
+    return SimpleNamespace(state=s, events=events)
 
 
 @pytest.mark.parametrize(
@@ -123,14 +131,14 @@ def last_round(p1_points, p2_points, p1_final, p2_final):
     [(10, 8, 3, 30, "p1"), (8, 8, 20, 12, "p1"), (8, 8, 12, 20, "p2"), (8, 8, 12, 12, "draw")],
 )
 def test_game_end_winner(p1_points, p2_points, p1_final, p2_final, winner):
-    r = play(last_round(p1_points, p2_points, p1_final, p2_final), DONE, DONE)
+    r = last_round(p1_points, p2_points, p1_final, p2_final)
     assert r.state.phase is Phase.GAME_OVER
     assert r.state.winner == winner
     assert r.events[-1]["kind"] == "game_end" and r.events[-1]["winner"] == winner
 
 
 def test_game_end_event_and_no_reset_after_the_last_round():
-    r = play(last_round(10, 8, 3, 30), DONE, DONE)
+    r = last_round(10, 8, 3, 30)
     assert r.events[-1] == {
         "seat": None,
         "kind": "game_end",
@@ -147,13 +155,13 @@ def test_game_end_event_and_no_reset_after_the_last_round():
 
 
 def test_step_after_game_over_raises():
-    r = play(last_round(1, 0, 3, 3), DONE, DONE)
+    r = last_round(1, 0, 3, 3)
     with pytest.raises(GameOver):
         step(r.state, RS, {"p1": WAIT, "p2": WAIT}, RngChance(0))
 
 
 def test_tie_break_compares_scoring_fields_so_52_and_53_draw():
-    r = play(last_round(8, 8, 52, 53), DONE, DONE)
+    r = last_round(8, 8, 52, 53)
     assert r.state.winner == "draw"
     assert r.events[-1]["final_fields"] == {"p1": 52, "p2": 53}
 

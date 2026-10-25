@@ -1,6 +1,7 @@
 from typing import Any
 
 from quack_rl.engine.actions import BUY_PREFIX, DONE, REFILL_FLASK, RUBY_DROP
+from quack_rl.engine.board import add_points
 from quack_rl.engine.state import (
     SEATS,
     GameState,
@@ -28,20 +29,35 @@ def decide_winner(state: GameState, rs: Ruleset) -> str:
     return "p1" if key1 > key2 else "p2"
 
 
-def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
-    if state.round >= rs.rounds:
-        state.winner = decide_winner(state, rs)
-        state.phase = Phase.GAME_OVER
+def end_game(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """Rule 5: the game ends after Resolve (and the explosion choice) of the last round.
+
+    Every player's rubies become rubies // last_round_ruby_divisor points (event `ruby_points`,
+    seats p1, p2, also with 0 rubies), then the winner is decided (event `game_end`).
+    """
+    for seat in SEATS:
+        p = state.players[seat]
+        rubies = p.rubies
+        added = add_points(p, rubies // rs.last_round_ruby_divisor, rs)
+        p.rubies = 0
         events.append(
-            {
-                "seat": None,
-                "kind": "game_end",
-                "winner": state.winner,
-                "points": {s: state.players[s].points for s in SEATS},
-                "final_fields": {s: state.players[s].final_field for s in SEATS},
-            }
+            {"seat": seat, "kind": "ruby_points", "rubies": rubies, "points": added, "total": 0}
         )
-        return
+    state.winner = decide_winner(state, rs)
+    state.phase = Phase.GAME_OVER
+    events.append(
+        {
+            "seat": None,
+            "kind": "game_end",
+            "winner": state.winner,
+            "points": {s: state.players[s].points for s in SEATS},
+            "final_fields": {s: state.players[s].final_field for s in SEATS},
+        }
+    )
+
+
+def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """The round reset after the shop; the last round has no shop (see `end_game`)."""
     for p in state.players.values():
         for chip_id in p.placed:
             p.bag[chip_id] = p.bag.get(chip_id, 0) + 1
@@ -73,7 +89,7 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
 def apply_shop(
     state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.4, 4.5 and 5: purchases, then the round reset or the game end."""
+    """Rules 4.4 and 4.5: purchases, then the round reset (the last round has no shop)."""
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]

@@ -125,8 +125,7 @@ class HeuristicBot:
     """Draw or Stop by the chance to explode; buy points from a round on, then by strategy.
 
     Explosion choice: after an explosion take money before the points round and points from it
-    on; the shop has no points items and the bot buys no item in the last round (rubies still
-    go to the droplet and the refill).
+    on; the shop has no points items.
 
     Cards: the explosion look-ahead uses the explosion limit of the round (card 4).
     Card 6 and card 5: take the drop (card 6 `card_drop_2`, card 5 `card_drop_end`), which
@@ -282,8 +281,6 @@ class HeuristicBot:
             return REFILL_FLASK
         if RUBY_DROP in legal:
             return RUBY_DROP
-        if state.round >= self._rs.rounds:
-            return DONE  # money of the last round buys nothing
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
         # Items of the list that the shop lacks are never legal, so they are skipped here.
         for item_id in self._strategy.ranked():

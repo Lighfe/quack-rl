@@ -567,11 +567,11 @@ def v18_shop_state(money, rnd):
     return state
 
 
-def test_v18_shop_never_buys_points_and_passes_in_the_last_round():
+def test_v18_shop_never_buys_points():
     shop_ids = {i.id for i in RS.shop}
     for strategy in STRATEGIES:
         bot = HeuristicBot(RS, 20, 1, strategy, seed=1)
-        for rnd in range(1, RS.rounds + 1):
+        for rnd in range(1, RS.rounds):  # the last round has no shop
             for money in range(0, 40):
                 state = v18_shop_state(money, rnd)
                 legal = legal_actions(state, RS, "p1")
@@ -580,8 +580,6 @@ def test_v18_shop_never_buys_points_and_passes_in_the_last_round():
                 if action.startswith("buy:"):
                     assert action.removeprefix("buy:") in shop_ids
                     assert RS.shop_item(action.removeprefix("buy:")).kind != "points"
-                if rnd == RS.rounds:
-                    assert action == DONE
 
 
 @pytest.mark.parametrize("strategy", sorted(STRATEGIES))

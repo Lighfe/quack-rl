@@ -2,6 +2,7 @@ from typing import Any
 
 from quack_rl.engine.actions import TAKE_MONEY, TAKE_POINTS
 from quack_rl.engine.board import add_points
+from quack_rl.engine.shop import end_game
 from quack_rl.engine.state import SEATS, GameState, Phase, scoring_field
 from quack_rl.rules import Ruleset
 
@@ -11,7 +12,8 @@ def apply_choice(
 ) -> None:
     """An exploded player takes the money or the points of the scoring field, in full.
 
-    In the last round the money becomes points at once (money // last_round_money_divisor).
+    In the last round the money becomes points at once (money // last_round_money_divisor), and
+    the game ends after the choice (`end_game`: no shop in the last round).
     """
     for seat in SEATS:
         action = actions[seat]
@@ -30,4 +32,7 @@ def apply_choice(
         else:
             gained = add_points(p, rs.fields[fld].points, rs)
             events.append({"seat": seat, "kind": "take_points", "amount": gained})
-    state.phase = Phase.SHOP
+    if state.round == rs.rounds:
+        end_game(state, rs, events)
+    else:
+        state.phase = Phase.SHOP

@@ -4,6 +4,7 @@ from quack_rl.components import get_component, pot_effects
 from quack_rl.engine.board import add_points, apply_die_face, die_events
 from quack_rl.engine.cards import card_rolls_twice, card_ruby_field_extras, card_round_end
 from quack_rl.engine.chance import ChanceLog
+from quack_rl.engine.shop import end_game
 from quack_rl.engine.state import SEATS, GameState, Phase, Status, scoring_field
 from quack_rl.rules import Ruleset
 
@@ -38,7 +39,8 @@ def apply_resolve(
     """Rules 4.3: ruby (scoring field: 1 ruby), green bonus, bonus die, then money (seats p1, p2).
 
     The field gives money and points. An exploded potion waits for the CHOICE phase. In the last
-    round the money becomes points (money // last_round_money_divisor).
+    round the money becomes points (money // last_round_money_divisor), and without an
+    explosion the game ends here (`end_game`: no shop in the last round).
     """
     for seat in SEATS:
         p = state.players[seat]
@@ -99,4 +101,9 @@ def apply_resolve(
         p.money = money
         events.append({"seat": seat, "kind": "money", "amount": p.money})
     card_round_end(state, rs, events)
-    state.phase = Phase.CHOICE if choosing else Phase.SHOP
+    if choosing:
+        state.phase = Phase.CHOICE
+    elif state.round == rs.rounds:
+        end_game(state, rs, events)
+    else:
+        state.phase = Phase.SHOP

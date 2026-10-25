@@ -120,6 +120,8 @@ class Ruleset(_Frozen):
     explosion_choice: Literal[True]
     # In the last round, money // this becomes points.
     last_round_money_divisor: int = PydField(ge=1)
+    # At game end (after the last round, which has no shop), rubies // this become points.
+    last_round_ruby_divisor: int = PydField(ge=1, strict=True)
     # Rubies are a currency: every player starts with `start_rubies`; `ruby_cost` rubies buy a droplet +1.
     start_rubies: int = PydField(ge=0)
     ruby_cost: int = PydField(ge=1)

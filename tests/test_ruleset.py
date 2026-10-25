@@ -332,6 +332,10 @@ BOUNDARY_CASES: dict[
     # the round chip of round 6 must fit the rounds, so the valid case drops the table
     "rounds_0": (_top("rounds", 0), lambda d: d.update(rounds=1, round_chips=[])),
     "explosion_limit_0": (_top("explosion_limit", 0), _top("explosion_limit", 1)),
+    "last_round_ruby_divisor_0": (
+        _top("last_round_ruby_divisor", 0),
+        _top("last_round_ruby_divisor", 1),
+    ),
     "track_end_0": (_track_end(0), _track_end(1)),
     "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),
     "chip_value_0": (_chip("white_1", "value", 0), _chip("white_1", "value", 1)),
@@ -366,7 +370,15 @@ def test_boundary_value_validates(case: str):
 
 @pytest.mark.parametrize(
     "field",
-    ["fields", "spellbook", "point_board", "cards", "explosion_choice", "last_round_money_divisor"],
+    [
+        "fields",
+        "spellbook",
+        "point_board",
+        "cards",
+        "explosion_choice",
+        "last_round_money_divisor",
+        "last_round_ruby_divisor",
+    ],
 )
 def test_field_without_old_safe_default_is_required(field: str):
     data = _v2_1_data()
@@ -379,6 +391,7 @@ def test_v2_1_values_of_the_required_fields():
     rs = load_ruleset("v2.1")
     assert rs.explosion_choice is True
     assert rs.last_round_money_divisor == 5
+    assert rs.last_round_ruby_divisor == 2
     assert len(rs.fields) == rs.track_end + 1
     assert rs.point_board.max_points == 100
     assert len(rs.cards) > 0

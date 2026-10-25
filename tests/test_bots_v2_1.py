@@ -191,10 +191,6 @@ def test_refill_only_with_an_empty_flask_and_two_rubies_left_over():
     assert shop_choice(shop_state(3, flask_full=False)) == "ruby_drop"
 
 
-def test_rubies_are_spent_in_the_last_round_too():
-    assert shop_choice(shop_state(2, rnd=RS.rounds)) == "ruby_drop"
-
-
 def card_state(card, **points):
     state = new_game(RS)
     state.phase, state.card = Phase.CARD_CHOICE, card
