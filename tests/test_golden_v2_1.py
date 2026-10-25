@@ -11,8 +11,8 @@ from quack_rl.record import read_games, verify_game, verify_seed
 GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_1_random_seed7.jsonl"
 
 # Stored result of the game (the footer of the record)
-FINAL_POINTS = {"p1": 19, "p2": 10}
-FINAL_FIELDS = {"p1": 9, "p2": 4}
+FINAL_POINTS = {"p1": 17, "p2": 10}
+FINAL_FIELDS = {"p1": 10, "p2": 8}
 
 
 def golden():
@@ -41,6 +41,21 @@ def test_stored_game_has_six_cards_a_flask_use_and_a_ruby_drop():
     assert len(cards) >= 6
     kinds = event_kinds(game)
     assert {"card_draw", "use_flask", "ruby_drop"} <= kinds
+
+
+def test_stored_game_closes_idle_shops_without_asking():
+    """Issue #203: an idle seat gets an automatic done and then only `wait` in the shop."""
+    game = golden()
+    autos = [
+        (s, e) for s in game.steps for e in s.events if e["kind"] == "done" and e.get("auto")
+    ]
+    assert autos
+    for s, e in autos:
+        if s.phase == "shop":  # closed after a shop step: the seat was not asked for done
+            assert s.actions[e["seat"]] != "done"
+        later = [x for x in game.steps if x.n > s.n and x.round == s.round and x.phase == "shop"]
+        for x in later:
+            assert x.legal[e["seat"]] == ["wait"] and x.actions[e["seat"]] == "wait"
 
 
 def test_a_changed_rule_number_changes_the_outcome():

@@ -188,7 +188,9 @@ def test_events_kinds_and_one_money_event_per_seat():
 
 def test_landing_on_field_1_gives_money_of_field_2():
     r = auto(brewed(1, 0), "point_1")
-    assert r.state.players["p1"].money == RS.fields[2].money == 2
+    # read from the event: with nothing to buy both shops close at once and the round ends (#203)
+    assert {"seat": "p1", "kind": "money", "amount": 2} in r.events
+    assert RS.fields[2].money == 2
 
 
 def test_landing_on_4_gives_the_ruby_of_field_5():

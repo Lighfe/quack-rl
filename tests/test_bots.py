@@ -391,6 +391,7 @@ def shop_state11(money, rnd, rs=RS):
     state.phase = Phase.SHOP
     state.round = rnd
     state.players["p1"].money = money
+    state.players["p2"].rubies = rs.ruby_cost  # p2 keeps a ruby drop, so p2's shop stays open
     return state
 
 
@@ -401,23 +402,26 @@ def legal11(state, rs=RS):
 
 
 def apply11(state, action, rs=RS):
-    """Apply one shop action of p1 with the engine (p2 waits, so the round does not end)."""
+    """Apply one shop action of p1 with the engine (p2 waits and keeps its shop open, so the
+    round does not end)."""
     from quack_rl.engine.shop import apply_shop
 
     apply_shop(state, rs, {"p1": action, "p2": "wait"}, [])
 
 
 def play_shop(bot, state, rs=RS, limit=20):
-    """The bot's actions until `done`, each checked against the legal list of its step."""
+    """The bot's actions until p1's shop is closed, each checked against the legal list of its
+    step. The shop closes with the bot's `done`, or without asking once nothing but `done` is
+    left (issue #203)."""
     actions = []
     for _ in range(limit):
         legal = legal11(state, rs)
         action = bot.choose(state, "p1", legal)
         assert action in legal, (action, legal)
         actions.append(action)
-        if action == DONE:
-            return actions
         apply11(state, action, rs)
+        if state.players["p1"].shop_done:
+            return actions
     raise AssertionError(f"no done after {limit} actions: {actions}")
 
 
@@ -454,8 +458,10 @@ def test_v1_1_items_not_in_the_shop_are_skipped(strategy, rnd):
 def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
     for money in range(0, 41):
         bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
-        actions = play_shop(bot, shop_state11(money, rnd=rnd))
-        assert actions[-1] == DONE and len(actions) <= 20
+        state = shop_state11(money, rnd=rnd)
+        actions = play_shop(bot, state)
+        assert state.phase is Phase.SHOP and state.players["p1"].shop_done
+        assert DONE not in actions[:-1] and len(actions) <= 20
 
 
 
