@@ -18,6 +18,7 @@ Hooks of the agent-graph-kit plugin check the handoff calls (see `docs/process.m
 - `gh issue close <number>` - close an issue: the orchestrator closes a task issue after `## QA: PASS` (see `docs/team/orchestrator.md`), and the planner closes a finished stage issue (all its sub-issues closed) at stage set-up (see `docs/team/planner.md`)
 
 Test command: uv run --with pytest pytest. Never report tests as passed if no test ran.
+QA groups: rl
 
 Fast subset for the inner loop: `uv run --with pytest pytest -m "not slow"`. It skips the tests marked `slow` and is not the "done" gate: only the full command above is. The engineer runs the fast subset while working and the full command once before `## Engineer: DONE`.
 
