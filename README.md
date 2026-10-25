@@ -75,7 +75,7 @@ Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
 
 ## RL environment
 
-Two environments over the same engine (`quack_rl.rl`). The reward is `reward(final_state, seat)`: +1 for more points, -1 for fewer, 0 for a draw, given once at the end of the game. Both take `reward_fn` to replace it.
+Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the training scripts are in "Training" below. The reward is `reward(final_state, seat)`: +1 for more points, -1 for fewer, 0 for a draw, given once at the end of the game. Both take `reward_fn` to replace it.
 
     from quack_rl.rl import QuackEnv, QuackParallelEnv
 
@@ -104,7 +104,41 @@ Two environments over the same engine (`quack_rl.rl`). The reward is `reward(fin
 
 ## Training
 
-There is no training in the repo now. The training stack (trainers, self-play, offline and replay code, the dataset builder, the evaluator and `PolicyBot`) is in `archive/` with its tests and scripts, and nothing imports it. Training is rebuilt on ruleset v2.1.
+The training stack is in the repo again, on ruleset v2.1 and observation layout 8: `PolicyBot` (`quack_rl.rl.policy_bot`, a trained model as a bot), the trainers (`quack_rl.rl.train`, `selfplay`, `offline`), the dataset builder (`dataset`) and the evaluator (`evaluate`). The scripts in `scripts/` call them. What is not ported is listed in `archive/README.md`. How to run them and what they showed: "Testing the RL environment" below.
+
+## Testing the RL environment
+
+Three tests of the env, each with a script. The training scripts need the `rl` dependency group (`--group rl`); the dataset builder does not. The budgets are the defaults of the scripts; the run times are those of the full runs in `docs/analysis/` (`2026-10-rl-vs-bots.md`, `2026-10-selfplay.md`, `2026-10-offline-rl.md`). The results and the verdict are in `docs/analysis/2026-10-rl-env-test.md`. Run data goes to `data/` (not committed). A full run takes minutes to half an hour, so check a command first with a tiny budget (for example `--steps 512 --eval-games 10`).
+
+(a) PPO against the random bot and against a heuristic bot. Default budget `--steps 200000 --eval-games 500 --seed 0`; about 24 min (random bot) and 32 min (heuristic bot), peak 0.8 GB:
+
+    uv run --group rl python scripts/train_ppo.py --opponent bot:random --out data/runs/ppo-vs-random
+    uv run --group rl python scripts/train_ppo.py --opponent bot:draw20-pts1-points --out data/runs/ppo-vs-draw20-pts1-points
+
+(b) Self-play against a pool of earlier checkpoints. Default budget `--rounds 5 --steps-per-round 20000 --pool-size 4 --eval-games 500 --seed 0`; about 23 min, peak 0.85 GB:
+
+    uv run --group rl python scripts/train_selfplay.py --out data/runs/selfplay
+
+(c) Dataset, behaviour cloning and offline RL (CQL). The dataset default is 2000 games of `bot:draw20-pts1-points` against `bot:random` plus 2000 mirror games (about 28 min, peak 6.6 GB, a 5.4 GB file; give it a memory cap). Then BC with the default `--epochs 5` (about 10 min) and CQL with the default `--steps 20000` (about 12 min), each with `--eval-games 500`, peak 5.9 GB:
+
+    uv run python scripts/build_dataset.py --out data/datasets/draw20
+    uv run --group rl python scripts/train_offline.py --dataset data/datasets/draw20/dataset.npz --method bc --out data/runs/bc
+    uv run --group rl python scripts/train_offline.py --dataset data/datasets/draw20/dataset.npz --method cql --out data/runs/cql
+
+The test line for the whole RL code (also needs the `rl` group):
+
+    uv run --group rl --with pytest pytest
+
+Entry points for a marimo notebook:
+
+| Name | Module |
+|---|---|
+| `PolicyBot` | `quack_rl.rl.policy_bot` |
+| `evaluate` | `quack_rl.rl.evaluate` |
+| `train_ppo`, `run_ppo_experiment` | `quack_rl.rl.train` |
+| `run_selfplay` | `quack_rl.rl.selfplay` |
+| `build_dataset`, `Dataset` | `quack_rl.rl.dataset` |
+| `train_bc`, `train_cql`, `run_offline_experiment` | `quack_rl.rl.offline` |
 
 ## Simulate, replay, verify
 

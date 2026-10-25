@@ -4,7 +4,28 @@ Code and data from before ruleset v2 and the old training stack: the marimo note
 
 The files are moved, not deleted, so they can be recycled later. Nothing imports, tests or checks them, and they are not maintained.
 
-It also holds the old training stack (`src/`, `scripts/`, `tests/`): the trainers, self-play, the offline and replay code, the dataset builder, the evaluator and the `policy:` seat (`PolicyBot`), with the tests of each. Each file keeps its old path below `archive/`, so it can be recycled when training is rebuilt on ruleset v2.1. It is moved, not deleted, and nothing imports, tests or checks it.
+It also holds the old training stack (`src/`, `scripts/`, `tests/`): the trainers, self-play, the offline and replay code, the dataset builder, the evaluator and the `policy:` seat (`PolicyBot`), with the tests of each. Each file keeps its old path below `archive/`, so it could be recycled. It is moved, not deleted, and nothing imports, tests or checks it. Part of it is ported to ruleset v2.1 (issues #194 to #196); the table below says which.
+
+## Training stack: ported and not ported
+
+Ported (old path -> new path):
+
+| Old path | New path |
+|---|---|
+| `archive/src/quack_rl/rl/train.py` | `src/quack_rl/rl/train.py` |
+| `archive/src/quack_rl/rl/selfplay.py` | `src/quack_rl/rl/selfplay.py` |
+| `archive/src/quack_rl/rl/dataset.py` | `src/quack_rl/rl/dataset.py` |
+| `archive/src/quack_rl/rl/offline.py` | `src/quack_rl/rl/offline.py` |
+| `archive/src/quack_rl/rl/evaluate.py` | `src/quack_rl/rl/evaluate.py` |
+| `archive/src/quack_rl/rl/policy_bot.py` | `src/quack_rl/rl/policy_bot.py` |
+| `archive/src/quack_rl/rl/derive.py` | `src/quack_rl/rl/derive.py` |
+| `archive/src/quack_rl/rl/encode.py` | `src/quack_rl/rl/encode.py` |
+| `archive/scripts/train.py` | `scripts/train_ppo.py` |
+| `archive/scripts/train_selfplay.py` | `scripts/train_selfplay.py` |
+| `archive/scripts/build_dataset.py` | `scripts/build_dataset.py` |
+| `archive/scripts/train_offline.py` | `scripts/train_offline.py` |
+
+Not ported: `archive/src/quack_rl/rl/finetune.py`, `replay_dqn.py`, `runs.py`, `policy_layout.py`, the layout 7 files (`derive_layout7.py`, `encode_layout7.py`), and the archived tests of the ported files (the new tests are in `tests/test_rl_*.py`).
 
 ## Ruleset v2
 
