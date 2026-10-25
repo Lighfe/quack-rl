@@ -632,3 +632,29 @@ def test_board_shows_rubies_flask_and_the_card_line_but_no_hidden_hand():
     description = get_card_effect(RS.card("card_14").effect).description
     assert description and f"card: card_14 ({description})" in text and "deck:" in text
     assert "hand" not in text and "Y2" not in text
+
+
+# --- shop menu order (issue #203) ------------------------------------------------
+
+
+def test_shop_menu_lists_buys_before_ruby_drop_and_refill():
+    from quack_rl.cli.human import key_map
+
+    legal = ["done", "buy:orange_1", "buy:blue_1", "ruby_drop", "refill_flask"]
+    assert list(key_map(legal).items()) == [
+        ("0", "done"),
+        ("1", "buy:orange_1"),
+        ("2", "buy:blue_1"),
+        ("k", "ruby_drop"),
+        ("l", "refill_flask"),
+    ]
+
+
+def test_shop_menu_prints_buys_before_ruby_drop():
+    s = new_game(RS)
+    s.phase = Phase.SHOP
+    seat, stream = seat_with("0")
+    seat.choose(s, "p1", ["done", buy("orange_1"), "ruby_drop", "refill_flask"])
+    out = " ".join(stream.getvalue().split())  # the menu line may wrap
+    assert out.index("[0] done") < out.index("[1] buy orange_1") < out.index("[k] ruby drop")
+    assert out.index("[k] ruby drop") < out.index("[l] refill flask")

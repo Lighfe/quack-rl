@@ -49,13 +49,13 @@ def test_second_chip_purchase_ends_shopping_and_one_chip_of_each_colour_per_roun
     # v2.1: one chip of each colour per round, so the second orange_1 is not legal
     assert buy("orange_1") not in legal_actions(s, RS, "p1")
     r = play(s, buy("green_1"), WAIT)
-    assert legal_actions(r.state, RS, "p1") == [DONE]  # no chip purchase is left
-    events = r.events
-    r = play(r.state, DONE, WAIT)
+    # no chip purchase is left and no rubies: p1's shop closes without asking, and with p2
+    # already done the round ends in this step
+    assert {"seat": "p1", "kind": "done", "auto": True} in r.events
     # the round reset puts all chips back: the start bag plus the 2 bought
     bag = r.state.players["p1"].bag
     assert (bag["orange_1"], bag["green_1"]) == (RS.start_bag["orange_1"] + 1, RS.start_bag["green_1"] + 1)
-    assert {"seat": "p1", "kind": "buy", "item": "green_1", "price": 4} in events
+    assert {"seat": "p1", "kind": "buy", "item": "green_1", "price": 4} in r.events
     assert r.state.phase is Phase.CARD  # both done: the next round starts with its card
     assert r.state.round == 2
 
@@ -67,11 +67,14 @@ def test_last_chip_purchase_leaves_only_done_while_other_player_shops():
     p1 = r.state.players["p1"]
     assert p1.chip_purchases == RS.max_chip_purchases
     assert r.state.phase is Phase.SHOP  # p2 has not finished yet
-    assert legal_actions(r.state, RS, "p1") == [DONE]  # v2.1: the seat still says done itself
+    # nothing but done is left: p1's shop closes without asking (issue #203)
+    assert legal_actions(r.state, RS, "p1") == [WAIT]
+    assert {"seat": "p1", "kind": "done", "auto": True} in r.events
 
 
 def test_done_player_only_waits_and_nothing_of_theirs_changes():
     s = shop_state(p1_money=20, p2_money=20)
+    s.players["p2"].rubies = RS.ruby_cost  # p2 keeps a ruby drop, so p2 still shops after 2 buys
     s = play(s, DONE, buy("orange_1")).state
     assert legal_actions(s, RS, "p1") == [WAIT]
     before = s.players["p1"]
@@ -204,7 +207,8 @@ def test_ruby_drop_twice_with_four_rubies():
 
 def test_rubies_carry_over_into_the_next_round_and_the_droplet_moves_the_start():
     r = play(with_rubies(3), RUBY_DROP, DONE)
-    r = play(r.state, DONE, WAIT)
+    # 1 ruby and no money left: p1's shop closes without asking and the round ends (issue #203)
+    assert {"seat": "p1", "kind": "done", "auto": True} in r.events
     assert r.state.round == 2
     p1 = r.state.players["p1"]
     assert (p1.rubies, p1.droplet_halves, p1.field) == (1, 2, 1)
@@ -214,3 +218,111 @@ def test_ruby_drop_is_followed_only_by_the_flask_actions():
     names = action_names(RS)
     i = names.index(RUBY_DROP)
     assert names[i : i + 3] == [RUBY_DROP, "use_flask", "refill_flask"]
+
+
+# --- idle shops close without asking (issue #203) ---------------------------------
+
+from quack_rl.engine import REFILL_FLASK, TAKE_POINTS, ScriptedChance  # noqa: E402
+
+
+def choice_state(p2_money=20, round_=1):
+    """CHOICE phase: p1 exploded on field 0 (no money), p2 stopped with `p2_money`."""
+    s = brew_start()
+    s.round = round_
+    s.phase = Phase.CHOICE
+    for seat in ("p1", "p2"):
+        p = s.players[seat]
+        p.final_field = p.field = 0
+        p.rubies = 0
+        p.flask_full = True
+        p.money = 0
+    s.players["p1"].status = Status.EXPLODED
+    s.players["p2"].status = Status.STOPPED
+    s.players["p2"].money = p2_money
+    return s
+
+
+def auto_done_events(events):
+    return [e for e in events if e["kind"] == "done" and e.get("auto")]
+
+
+def test_shop_legal_actions_order_is_done_buys_ruby_drop_refill():
+    s = shop_state(p1_money=20)
+    p1 = s.players["p1"]
+    p1.rubies, p1.flask_full = 2, False
+    legal = legal_actions(s, RS, "p1")
+    assert legal[0] == DONE and legal[-2:] == [RUBY_DROP, REFILL_FLASK]
+    buys = legal[1:-2]
+    assert buys and all(a.startswith("buy:") for a in buys)
+
+
+def test_idle_player_on_entering_the_shop_is_never_asked():
+    r = play(choice_state(p2_money=20), TAKE_POINTS, WAIT)
+    s = r.state
+    assert s.phase is Phase.SHOP
+    assert s.players["p1"].shop_done
+    assert legal_actions(s, RS, "p1") == [WAIT]
+    assert auto_done_events(r.events) == [{"seat": "p1", "kind": "done", "auto": True}]
+    # p2 shops on, p1 only waits through the whole shop
+    r = play(s, WAIT, buy("orange_1"))
+    assert legal_actions(r.state, RS, "p1") == [WAIT]
+    assert auto_done_events(r.events) == []
+    r = play(r.state, WAIT, DONE)
+    assert r.state.phase is Phase.CARD
+
+
+def test_second_chip_buy_with_one_ruby_leaves_only_wait():
+    s = shop_state(p1_money=20, p2_money=20)
+    s.players["p1"].rubies = 1
+    s.players["p2"].rubies = RS.ruby_cost
+    s = play(s, buy("orange_1"), buy("orange_1")).state
+    r = play(s, buy("green_1"), buy("green_1"))
+    assert r.state.phase is Phase.SHOP  # p2 also has no chip buy left, but 2 rubies
+    assert legal_actions(r.state, RS, "p1") == [WAIT]
+    assert {"seat": "p1", "kind": "done", "auto": True} in r.events
+
+
+def test_second_chip_buy_with_two_rubies_still_asks():
+    s = shop_state(p1_money=20, p2_money=20)
+    s.players["p1"].rubies = 2
+    s = play(s, buy("orange_1"), DONE).state
+    r = play(s, buy("green_1"), WAIT)
+    assert r.state.phase is Phase.SHOP
+    assert legal_actions(r.state, RS, "p1") == [DONE, RUBY_DROP]
+    assert auto_done_events(r.events) == []
+
+
+def test_both_idle_on_entering_the_shop_ends_the_round():
+    r = play(choice_state(p2_money=0), TAKE_POINTS, WAIT)
+    assert r.state.phase is Phase.CARD
+    assert r.state.round == 2
+    assert auto_done_events(r.events) == [
+        {"seat": "p1", "kind": "done", "auto": True},
+        {"seat": "p2", "kind": "done", "auto": True},
+    ]
+    assert not any(e["kind"] in ("buy", "ruby_drop", "refill_flask") for e in r.events)
+
+
+def test_both_idle_after_resolve_ends_the_round():
+    s = brew_start()
+    s.phase = Phase.RESOLVE
+    for seat in ("p1", "p2"):
+        p = s.players[seat]
+        p.status = Status.STOPPED
+        p.final_field = p.field = 0
+        p.placed = []
+        p.rubies = 0
+        p.flask_full = True
+    r = step(s, RS, None, ScriptedChance(["point_1", "point_1"]))  # both tie on field 0 and roll
+    assert r.state.phase is Phase.CARD
+    assert r.state.round == 2
+    assert len(auto_done_events(r.events)) == 2
+
+
+def test_last_shop_step_with_the_other_player_idle_ends_the_round():
+    s = shop_state(p1_money=20, p2_money=20)
+    s = play(s, buy("orange_1"), DONE).state
+    r = play(s, buy("green_1"), WAIT)  # p1 idle after the second buy, p2 already done
+    assert r.state.phase is Phase.CARD
+    assert r.state.round == 2
+    assert auto_done_events(r.events) == [{"seat": "p1", "kind": "done", "auto": True}]

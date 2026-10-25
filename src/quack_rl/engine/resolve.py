@@ -4,7 +4,7 @@ from quack_rl.components import get_component, pot_effects
 from quack_rl.engine.board import add_points, apply_die_face, die_events
 from quack_rl.engine.cards import card_rolls_twice, card_ruby_field_extras, card_round_end
 from quack_rl.engine.chance import ChanceLog
-from quack_rl.engine.shop import end_game
+from quack_rl.engine.shop import close_idle_shops, end_game
 from quack_rl.engine.state import SEATS, GameState, Phase, Status, scoring_field
 from quack_rl.rules import Ruleset
 
@@ -107,3 +107,4 @@ def apply_resolve(
         end_game(state, rs, events)
     else:
         state.phase = Phase.SHOP
+        close_idle_shops(state, rs, events)

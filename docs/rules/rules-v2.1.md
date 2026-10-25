@@ -229,7 +229,7 @@ Shopping goes in steps, at the same time for both players. In each step, each pl
 - A player with at least 2 rubies (`ruby_cost = 2`) may also choose **Ruby drop**: it costs 2 rubies and moves the droplet by 1 (+1, two halves). The player stays in the shop and may choose it again as long as they can pay
 - A player with an empty flask and at least 2 rubies may also choose **Refill flask** (see "Flask")
 - Bought chips go into the bag
-- A player stops shopping only with Done
+- A player stops shopping with Done. A player with nothing left to do but Done (no chip they may buy, and fewer than 2 rubies for Ruby drop or Refill flask) stops shopping without being asked, as if they chose Done. This is checked when the shop starts and after each shop step; when no player shops anymore, the shop ends at once
 - The chip count and the colours bought start again from zero in every round
 
 Shopping ends when no player shops anymore.

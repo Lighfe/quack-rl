@@ -2,7 +2,7 @@ from typing import Any
 
 from quack_rl.engine.actions import TAKE_MONEY, TAKE_POINTS
 from quack_rl.engine.board import add_points
-from quack_rl.engine.shop import end_game
+from quack_rl.engine.shop import close_idle_shops, end_game
 from quack_rl.engine.state import SEATS, GameState, Phase, scoring_field
 from quack_rl.rules import Ruleset
 
@@ -36,3 +36,4 @@ def apply_choice(
         end_game(state, rs, events)
     else:
         state.phase = Phase.SHOP
+        close_idle_shops(state, rs, events)

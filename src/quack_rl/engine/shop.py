@@ -1,6 +1,6 @@
 from typing import Any
 
-from quack_rl.engine.actions import BUY_PREFIX, DONE, REFILL_FLASK, RUBY_DROP
+from quack_rl.engine.actions import BUY_PREFIX, DONE, REFILL_FLASK, RUBY_DROP, legal_actions
 from quack_rl.engine.board import add_points
 from quack_rl.engine.state import (
     SEATS,
@@ -122,5 +122,20 @@ def apply_shop(
             p.chip_colours.append(rs.chip(item.chip).colour)
             _apply_item(p, item)
             events.append({"seat": seat, "kind": "buy", "item": item.id, "price": item.price})
+    close_idle_shops(state, rs, events)
+
+
+def close_idle_shops(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """Rule 4.4: a player with nothing left to do but Done stops shopping without being asked.
+
+    Called when the SHOP phase is entered and after each shop step. A seat whose shop legal set
+    is only `[DONE]` gets `shop_done` and the event `{"seat", "kind": "done", "auto": True}`.
+    When every shop is closed, the round ends (`_end_round`) in the same step.
+    """
+    for seat in SEATS:
+        p = state.players[seat]
+        if not p.shop_done and legal_actions(state, rs, seat) == [DONE]:
+            p.shop_done = True
+            events.append({"seat": seat, "kind": "done", "auto": True})
     if all(p.shop_done for p in state.players.values()):
         _end_round(state, rs, events)

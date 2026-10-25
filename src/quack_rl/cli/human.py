@@ -79,14 +79,10 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys["m"] = TAKE_MONEY
         elif action == TAKE_POINTS:
             keys["p"] = TAKE_POINTS
-        elif action == RUBY_DROP:
-            keys[RUBY_DROP_KEY] = RUBY_DROP
         elif action == USE_FLASK:
             keys[USE_FLASK_KEY] = USE_FLASK
         elif action == USE_CARD_17:
             keys[USE_CARD_17_KEY] = USE_CARD_17
-        elif action == REFILL_FLASK:
-            keys[REFILL_FLASK_KEY] = REFILL_FLASK
         elif action == CONTINUE:
             keys[CONTINUE_KEY] = CONTINUE
         elif action == RESTART:
@@ -97,8 +93,13 @@ def key_map(legal: list[str]) -> dict[str, str]:
             keys[PUT_BACK_STOP_KEY] = PUT_BACK_STOP
         elif action.startswith(PLAY_PREFIX):
             keys[action.removeprefix(PLAY_PREFIX)] = action
+    # The dict order is the menu order: the shop shows its chip buys before the ruby actions.
     for key, action in zip(BUY_KEYS, buys, strict=False):
         keys[key] = action
+    if RUBY_DROP in legal:
+        keys[RUBY_DROP_KEY] = RUBY_DROP
+    if REFILL_FLASK in legal:
+        keys[REFILL_FLASK_KEY] = REFILL_FLASK
     return keys
 
 
