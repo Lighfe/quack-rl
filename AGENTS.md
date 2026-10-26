@@ -16,6 +16,9 @@ Hooks of the agent-graph-kit plugin check the handoff calls (see `docs/process.m
 - `gh issue comment <number> --body-file <file>` - add a comment to an issue
 - `gh issue edit <number> --add-label <label>` / `--remove-label <label>` - change labels
 - `gh issue close <number>` - close an issue: the orchestrator closes a task issue after `## QA: PASS` (see `docs/team/orchestrator.md`), and the planner closes a finished stage issue (all its sub-issues closed) at stage set-up (see `docs/team/planner.md`)
+- `cd frontend && bun install && bun run dev` - run the frontend app (the submodule `frontend/`; use `bun`, not `npm`)
+
+Lovable project: 34424226-c265-4c0c-a695-30527093b97c
 
 Test command: uv run --with pytest pytest. Never report tests as passed if no test ran.
 QA groups: rl, web

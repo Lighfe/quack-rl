@@ -85,6 +85,16 @@ A local HTTP JSON service for the browser frontend (ruleset `v2.1`, games in mem
 
 The service steps the game by itself (card and resolve phases, `wait`-only seats, bots) until a human must act or the game is over.
 
+## Frontend
+
+The browser app is the submodule `frontend/` (the Lovable project's repo `Lighfe/quacks-frontend`). It changes only through Lovable; do not edit it here. It uses `bun`, not `npm`.
+
+    git submodule update --init frontend
+    uv run --group web quack-rl serve              # start the service (port 8000)
+    cd frontend && bun install && bun run dev      # start the app, in a second terminal
+
+Open the address the dev server prints with `?seat=p1` added, for example `http://localhost:<port>/?seat=p1`.
+
 ## RL environment
 
 Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the training scripts are in "Training" below. The reward is `reward(final_state, seat)`: +1 for more points, -1 for fewer, 0 for a draw, given once at the end of the game. Both take `reward_fn` to replace it.
