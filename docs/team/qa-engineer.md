@@ -15,6 +15,8 @@ The QA sandbox may have no systemd bus: check the numbers (command line, exit co
 
 Do not install anything. If you need a tool that is not in the lockfile or the set-up, the criterion fails (undeclared dependency).
 
+When you run in `scripts/qa-codex` and the project has a `frontend/` submodule, the pre-step has already run the install command of its lockfile (`bun install --frozen-lockfile` or `npm ci`) and the Playwright browser install in `frontend/`, outside your sandbox, before you started. You only start when both exit 0. So a criterion that names that install command passes on this evidence: do not repeat it, and do not mark it `invalid` for it. Check the rest of the criterion yourself (for example the build and `git status --porcelain`).
+
 If your tool list has a browser tool, start the app and run the browser check in one command. A background process does not survive into your next command. Without a browser tool, do not repeat a browser check.
 
 Your output is a verdict: PASS, FAIL, UNVERIFIABLE or INVALID.
