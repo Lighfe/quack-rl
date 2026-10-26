@@ -2,6 +2,7 @@
 
 import threading
 import uuid
+from collections.abc import Sequence
 from typing import Any, Literal
 
 import typer
@@ -15,7 +16,19 @@ from quack_rl.web.session import GameSession, IllegalSubmit, StaleRevision
 from quack_rl.web.view import seat_view
 
 RULES = "v2.1"
+_OCTET = r"\d{1,3}"
 LOCAL_ORIGINS = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+# Private IPv4 ranges 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 (LAN, Docker bridge), http only.
+PRIVATE_ORIGINS = (
+    rf"http://(10\.{_OCTET}|172\.(1[6-9]|2\d|3[01])|192\.168)\.{_OCTET}\.{_OCTET}(:\d+)?"
+)
+DEFAULT_ORIGINS = (LOCAL_ORIGINS, PRIVATE_ORIGINS)
+
+
+def origin_regex(extra_origins: Sequence[str] = ()) -> str:
+    """One regex for CORS: Starlette matches it against the whole origin (fullmatch)."""
+    return "|".join(f"(?:{r})" for r in (*DEFAULT_ORIGINS, *extra_origins))
+
 
 SeatId = Literal["p1", "p2"]
 
@@ -33,11 +46,13 @@ class Action(BaseModel):
     revision: int
 
 
-def create_app() -> FastAPI:
+def create_app(extra_origins: Sequence[str] = ()) -> FastAPI:
+    """The game service; `extra_origins` are origin regexes allowed besides the defaults."""
     app = FastAPI(title="quack-rl game service")
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=LOCAL_ORIGINS,
+        allow_origin_regex=origin_regex(extra_origins),
+        allow_private_network=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

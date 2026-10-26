@@ -1,3 +1,4 @@
+import re
 import secrets
 from collections import Counter
 from pathlib import Path
@@ -375,12 +376,25 @@ def play(
 def serve(
     port: Annotated[int, typer.Option(help="Port of the game service.")] = 8000,
     host: Annotated[str, typer.Option(help="Host to bind (local only by default).")] = "127.0.0.1",
+    allow_origin: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Extra browser origin to allow, as a regex for the whole origin (repeatable). "
+            "Allowed by default: localhost, 127.0.0.1 and http on the private IPv4 ranges.",
+        ),
+    ] = None,
 ) -> None:
     """Start the local game service for the browser (needs the dependency group `web`)."""
+    extra_origins = allow_origin or []
+    for pattern in extra_origins:
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            _fail(f"--allow-origin {pattern!r} is not a valid regex: {e}", code=2)
     try:
         import uvicorn
 
         from quack_rl.web.app import create_app
     except ImportError as e:
         _fail(f"the web service needs the group web (uv run --group web quack-rl serve): {e}")
-    uvicorn.run(create_app(), host=host, port=port)
+    uvicorn.run(create_app(extra_origins=extra_origins), host=host, port=port)

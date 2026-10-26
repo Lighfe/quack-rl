@@ -84,6 +84,113 @@ def test_cors_allows_localhost_only(client):
     assert "access-control-allow-origin" not in other.headers
 
 
+def preflight(client, origin, **headers):
+    return client.options(
+        "/games",
+        headers={"Origin": origin, "Access-Control-Request-Method": "POST", **headers},
+    )
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://192.168.1.20:8080",
+        "http://10.0.0.5:8080",
+        "http://172.17.0.1:8080",
+        "http://172.31.255.254:3000",
+        "http://192.168.0.1",
+        "http://localhost:8080",
+        "http://127.0.0.1:5173",
+    ],
+)
+def test_preflight_allows_local_and_private_origins(client, origin):
+    r = preflight(client, origin)
+    assert r.status_code == 200
+    assert r.headers.get("access-control-allow-origin") == origin
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://example.com",
+        "http://172.32.0.1:8080",
+        "http://172.15.0.1:8080",
+        "http://11.0.0.1:8080",
+        "http://192.168.1.20.example.com:8080",
+        "http://192.169.1.20:8080",
+    ],
+)
+def test_preflight_rejects_other_origins(client, origin):
+    r = preflight(client, origin)
+    assert r.status_code == 400
+    assert "access-control-allow-origin" not in r.headers
+
+
+LOVABLE = r"https://[a-z0-9-]+\.lovable\.app"
+
+
+def test_extra_origins_add_to_the_defaults():
+    client = TestClient(create_app(extra_origins=[LOVABLE]))
+    ok = preflight(client, "https://foo.lovable.app")
+    assert ok.status_code == 200
+    assert ok.headers.get("access-control-allow-origin") == "https://foo.lovable.app"
+    bad = preflight(client, "https://foo.lovable.app.evil.com")
+    assert bad.status_code == 400
+    assert "access-control-allow-origin" not in bad.headers
+    lan = preflight(client, "http://192.168.1.20:8080")
+    assert lan.status_code == 200
+    assert lan.headers.get("access-control-allow-origin") == "http://192.168.1.20:8080"
+
+
+def test_preflight_private_network_header(client):
+    pna = {"Access-Control-Request-Private-Network": "true"}
+    ok = preflight(client, "http://192.168.1.20:8080", **pna)
+    assert ok.status_code == 200
+    assert ok.headers.get("access-control-allow-private-network") == "true"
+    bad = preflight(client, "https://example.com", **pna)
+    assert bad.status_code == 400
+    assert "access-control-allow-origin" not in bad.headers
+
+
+def test_serve_passes_allow_origin_values_to_create_app(monkeypatch):
+    import uvicorn
+
+    import quack_rl.web.app as web_app
+
+    seen = {}
+    runs = []
+
+    def fake_create_app(extra_origins=()):
+        seen["extra_origins"] = list(extra_origins)
+        return "app"
+
+    monkeypatch.setattr(web_app, "create_app", fake_create_app)
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: runs.append((a, k)))
+    result = CliRunner().invoke(
+        cli_app, ["serve", "--allow-origin", LOVABLE, "--allow-origin", r"https://a\.example"]
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["extra_origins"] == [LOVABLE, r"https://a\.example"]
+    assert len(runs) == 1
+
+
+def test_serve_rejects_an_invalid_allow_origin_regex(monkeypatch):
+    import uvicorn
+
+    runs = []
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: runs.append((a, k)))
+    result = CliRunner().invoke(cli_app, ["serve", "--allow-origin", "["])
+    assert result.exit_code != 0
+    assert "'['" in result.output
+    assert runs == []
+
+
+def test_serve_help_lists_allow_origin_and_default_host():
+    out = CliRunner().invoke(cli_app, ["serve", "--help"]).output
+    assert "--allow-origin" in out
+    assert "127.0.0.1" in out
+
+
 # --- errors ---------------------------------------------------------------------------
 
 
