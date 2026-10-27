@@ -1,5 +1,6 @@
 """The HTTP API of the local game service. Games live in memory."""
 
+import re
 import threading
 import uuid
 from collections.abc import Sequence
@@ -22,7 +23,11 @@ LOCAL_ORIGINS = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 PRIVATE_ORIGINS = (
     rf"http://(10\.{_OCTET}|172\.(1[6-9]|2\d|3[01])|192\.168)\.{_OCTET}\.{_OCTET}(:\d+)?"
 )
-DEFAULT_ORIGINS = (LOCAL_ORIGINS, PRIVATE_ORIGINS)
+# This project's Lovable preview, as an exact origin (never a wildcard over *.lovable.app).
+LOVABLE_ORIGINS = "|".join(
+    re.escape(o) for o in ("https://id-preview--34424226-c265-4c0c-a695-30527093b97c.lovable.app",)
+)
+DEFAULT_ORIGINS = (LOCAL_ORIGINS, PRIVATE_ORIGINS, LOVABLE_ORIGINS)
 
 
 def origin_regex(extra_origins: Sequence[str] = ()) -> str:

@@ -79,9 +79,15 @@ A local HTTP JSON service for the browser frontend (ruleset `v2.1`, games in mem
 
     uv run --group web quack-rl serve              # port 8000; --port to change
 
-CORS allows these browser origins by default, on any port: `localhost` and `127.0.0.1` (http or https), and http on the private IPv4 ranges `10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` (the Vite "Network" URLs: LAN IP, Docker bridge IP). Add more origins with `--allow-origin <regex>` (repeatable; the regex must match the whole origin), for example for the Lovable preview:
+CORS allows these browser origins by default, on any port: `localhost` and `127.0.0.1` (http or https), and http on the private IPv4 ranges `10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` (the Vite "Network" URLs: LAN IP, Docker bridge IP), and this project's Lovable preview `https://id-preview--34424226-c265-4c0c-a695-30527093b97c.lovable.app` (that exact origin only, no other Lovable site). Add more origins with `--allow-origin <regex>` (repeatable; the regex must match the whole origin), for example one exact origin:
 
-    uv run --group web quack-rl serve --allow-origin 'https://[a-z0-9-]+\.lovable\.app'
+    uv run --group web quack-rl serve --allow-origin 'https://quacks\.example\.com'
+
+Play-test in the Lovable preview:
+
+1. Start the service: `uv run --group web quack-rl serve`
+2. Open the preview URL `https://id-preview--34424226-c265-4c0c-a695-30527093b97c.lovable.app`
+3. Start a game
 
 - `POST /games` with `{"p1": "human", "p2": "bot:random", "rounds": 9, "seed": null}` returns `{"game_id": ...}`. Seat specs as in `quack-rl play`.
 - `GET /games/{id}/view?seat=p1` returns the view of one seat: `game`, `you`, `to_act`, `seats`, `window`, `chips`, `legal`, `hand`, `card_draw`, `log`. Another seat's hand, card draw and pending action are hidden.

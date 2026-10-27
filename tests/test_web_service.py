@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 pytest.importorskip("fastapi")
@@ -10,7 +12,12 @@ from quack_rl.cli.main import app as cli_app  # noqa: E402
 from quack_rl.engine import ScriptedChance, explosion_limit  # noqa: E402
 from quack_rl.rl.encode import observe  # noqa: E402
 from quack_rl.rules.cards import get_card_effect  # noqa: E402
-from quack_rl.web.app import create_app  # noqa: E402
+from quack_rl.web.app import (  # noqa: E402
+    DEFAULT_ORIGINS,
+    LOVABLE_ORIGINS,
+    create_app,
+    origin_regex,
+)
 from quack_rl.web.view import event_text  # noqa: E402
 
 # A seed whose round-1 card asks no choice before the brew (human vs bot:random).
@@ -140,6 +147,34 @@ def test_extra_origins_add_to_the_defaults():
     lan = preflight(client, "http://192.168.1.20:8080")
     assert lan.status_code == 200
     assert lan.headers.get("access-control-allow-origin") == "http://192.168.1.20:8080"
+
+
+PREVIEW = "https://id-preview--34424226-c265-4c0c-a695-30527093b97c.lovable.app"
+
+
+def test_lovable_origins_are_exact_defaults():
+    assert re.escape(PREVIEW) in LOVABLE_ORIGINS
+    assert LOVABLE_ORIGINS in DEFAULT_ORIGINS
+    regex = origin_regex()
+    for escaped in LOVABLE_ORIGINS.split("|"):
+        origin = escaped.replace("\\", "")
+        assert re.escape(origin) == escaped
+        assert re.fullmatch(regex, origin)
+    for origin in [
+        "https://evil.lovable.app",
+        PREVIEW + ".evil.com",
+        PREVIEW.replace("https://", "http://"),
+        "https://id-preview--00000000-0000-0000-0000-000000000000.lovable.app",
+    ]:
+        assert not re.fullmatch(regex, origin), origin
+
+
+def test_preflight_allows_the_lovable_preview_by_default():
+    client = TestClient(create_app())
+    r = preflight(client, PREVIEW, **{"Access-Control-Request-Private-Network": "true"})
+    assert r.status_code == 200
+    assert r.headers.get("access-control-allow-origin") == PREVIEW
+    assert r.headers.get("access-control-allow-private-network") == "true"
 
 
 def test_preflight_private_network_header(client):
