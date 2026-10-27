@@ -8,7 +8,7 @@ from quack_rl.engine.cards import apply_card, apply_card_choice, apply_restart, 
 from quack_rl.engine.chance import ChanceLog, ChanceSource
 from quack_rl.engine.choice import apply_choice
 from quack_rl.engine.resolve import apply_resolve
-from quack_rl.engine.shop import apply_shop
+from quack_rl.engine.shop import apply_ruby, apply_shop
 from quack_rl.engine.state import SEATS, GameState, Phase
 from quack_rl.rules import Ruleset
 
@@ -34,7 +34,14 @@ class StepResult:
 
 
 def needs_actions(state: GameState) -> bool:
-    return state.phase in (Phase.BREW, Phase.CHOICE, Phase.SHOP, Phase.CARD_CHOICE, Phase.RESTART)
+    return state.phase in (
+        Phase.BREW,
+        Phase.CHOICE,
+        Phase.SHOP,
+        Phase.RUBY,
+        Phase.CARD_CHOICE,
+        Phase.RESTART,
+    )
 
 
 def step(
@@ -66,6 +73,8 @@ def step(
             apply_restart(new, rs, actions, events)
         elif state.phase is Phase.CHOICE:
             apply_choice(new, rs, actions, events)
+        elif state.phase is Phase.RUBY:
+            apply_ruby(new, rs, actions, events)
         else:
             apply_shop(new, rs, actions, events)
     else:

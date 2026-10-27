@@ -71,6 +71,7 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
         p.chip_purchases = 0
         p.chip_colours = []
         p.shop_done = False
+        p.ruby_done = False
         p.restart_offered = False
         p.restart_pending = False
         p.rat_tail = 0
@@ -86,34 +87,40 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
     events.append({"seat": None, "kind": "round_end", "next_round": state.round})
 
 
+def _spend_ruby(p: PlayerState, rs: Ruleset, seat: str, action: str, events: list[dict[str, Any]]) -> None:
+    """A ruby spend: `ruby_drop` (droplet +1) or `refill_flask` (the flask is full again)."""
+    p.rubies -= rs.ruby_cost
+    if action == RUBY_DROP:
+        p.droplet_halves += 2
+        events.append(
+            {
+                "seat": seat,
+                "kind": "ruby_drop",
+                "rubies": rs.ruby_cost,
+                "halves": 2,
+                "total": p.rubies,
+            }
+        )
+    else:
+        p.flask_full = True
+        events.append(
+            {"seat": seat, "kind": "refill_flask", "rubies": rs.ruby_cost, "total": p.rubies}
+        )
+
+
 def apply_shop(
     state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.4 and 4.5: purchases, then the round reset (the last round has no shop)."""
+    """Rules 4.4 and 4.5: purchases, then the ruby step or the round reset (the last round has
+    no shop)."""
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
         if action == DONE:
             p.shop_done = True
             events.append({"seat": seat, "kind": "done"})
-        elif action == RUBY_DROP:
-            p.rubies -= rs.ruby_cost
-            p.droplet_halves += 2
-            events.append(
-                {
-                    "seat": seat,
-                    "kind": "ruby_drop",
-                    "rubies": rs.ruby_cost,
-                    "halves": 2,
-                    "total": p.rubies,
-                }
-            )
-        elif action == REFILL_FLASK:
-            p.rubies -= rs.ruby_cost
-            p.flask_full = True
-            events.append(
-                {"seat": seat, "kind": "refill_flask", "rubies": rs.ruby_cost, "total": p.rubies}
-            )
+        elif action in (RUBY_DROP, REFILL_FLASK):
+            _spend_ruby(p, rs, seat, action, events)
         elif action.startswith(BUY_PREFIX):
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price
@@ -130,7 +137,8 @@ def close_idle_shops(state: GameState, rs: Ruleset, events: list[dict[str, Any]]
 
     Called when the SHOP phase is entered and after each shop step. A seat whose shop legal set
     is only `[DONE]` gets `shop_done` and the event `{"seat", "kind": "done", "auto": True}`.
-    When every shop is closed, the round ends (`_end_round`) in the same step.
+    When every shop is closed, the ruby step follows (`ruby_step`, see `close_idle_ruby`), else
+    the round ends (`_end_round`), in the same step.
     """
     for seat in SEATS:
         p = state.players[seat]
@@ -138,4 +146,39 @@ def close_idle_shops(state: GameState, rs: Ruleset, events: list[dict[str, Any]]
             p.shop_done = True
             events.append({"seat": seat, "kind": "done", "auto": True})
     if all(p.shop_done for p in state.players.values()):
+        if rs.ruby_step:
+            state.phase = Phase.RUBY
+            close_idle_ruby(state, rs, events)
+        else:
+            _end_round(state, rs, events)
+
+
+def apply_ruby(
+    state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
+) -> None:
+    """The ruby step (v2.2): `ruby_drop`, `refill_flask` or `done`, then the round reset."""
+    for seat in SEATS:
+        p = state.players[seat]
+        action = actions[seat]
+        if action == DONE:
+            p.ruby_done = True
+            events.append({"seat": seat, "kind": "done"})
+        elif action in (RUBY_DROP, REFILL_FLASK):
+            _spend_ruby(p, rs, seat, action, events)
+    close_idle_ruby(state, rs, events)
+
+
+def close_idle_ruby(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> None:
+    """A player who can pay for no ruby spend leaves the ruby step without being asked.
+
+    Called when the RUBY phase is entered and after each ruby step. A seat whose ruby legal set
+    is only `[DONE]` gets `ruby_done` and the event `{"seat", "kind": "done", "auto": True}`.
+    When every seat is done, the round ends (`_end_round`) in the same step.
+    """
+    for seat in SEATS:
+        p = state.players[seat]
+        if not p.ruby_done and legal_actions(state, rs, seat) == [DONE]:
+            p.ruby_done = True
+            events.append({"seat": seat, "kind": "done", "auto": True})
+    if all(p.ruby_done for p in state.players.values()):
         _end_round(state, rs, events)

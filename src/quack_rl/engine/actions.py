@@ -258,7 +258,18 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if p.shop_done:
             return [WAIT]
         buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p, state.round)]
-        ruby = [RUBY_DROP] if p.rubies >= rs.ruby_cost else []
-        refill = [REFILL_FLASK] if not p.flask_full and p.rubies >= rs.ruby_cost else []
-        return [DONE, *buys, *ruby, *refill]
+        if rs.ruby_step:
+            return [DONE, *buys]
+        return [DONE, *buys, *_ruby_spends(p, rs)]
+    if state.phase is Phase.RUBY:
+        if p.ruby_done:
+            return [WAIT]
+        return [DONE, *_ruby_spends(p, rs)]
     return []
+
+
+def _ruby_spends(p: PlayerState, rs: Ruleset) -> list[str]:
+    """The ruby spends a player can pay: `ruby_drop`, and `refill_flask` with an empty flask."""
+    ruby = [RUBY_DROP] if p.rubies >= rs.ruby_cost else []
+    refill = [REFILL_FLASK] if not p.flask_full and p.rubies >= rs.ruby_cost else []
+    return [*ruby, *refill]

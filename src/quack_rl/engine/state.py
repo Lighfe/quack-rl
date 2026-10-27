@@ -16,6 +16,7 @@ class Phase(StrEnum):
     RESOLVE = "resolve"
     CHOICE = "choice"
     SHOP = "shop"
+    RUBY = "ruby"  # v2.2: the ruby step after the shop (ruby_drop, refill_flask, done)
     GAME_OVER = "game_over"
 
 
@@ -61,6 +62,7 @@ class PlayerState:
     first_white_placed: bool = False  # card 17: the first white chip of the round has been placed
     first_white_open: bool = False  # card 17: the last placed chip is that chip, still on the track
     flask_full: bool = True  # the flask: use_flask puts a white chip back, refill_flask fills it
+    ruby_done: bool = False  # v2.2: the ruby step is over for this player this round
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)

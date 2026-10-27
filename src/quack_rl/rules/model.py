@@ -125,6 +125,9 @@ class Ruleset(_Frozen):
     # Rubies are a currency: every player starts with `start_rubies`; `ruby_cost` rubies buy a droplet +1.
     start_rubies: int = PydField(ge=0)
     ruby_cost: int = PydField(ge=1)
+    # The ruby step: rubies are spent (ruby_drop, refill_flask) in their own step after the shop,
+    # not in the shop. False (v2.1): the shop offers the ruby spends among the chip buys.
+    ruby_step: bool = PydField(default=False, strict=True)
     # The name of the spellbook that gives each colour its component.
     spellbook: int | str
     # The deck of round-start cards.
