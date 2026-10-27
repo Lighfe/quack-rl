@@ -133,9 +133,10 @@ class HeuristicBot:
     next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
     bot fewer than `RESTART_BELOW` fields; else continue.
 
-    Rules for the actions of v2.1 (simple, not tuned). The strategy colour is blue for `points`,
-    `blue` and `balanced`, green for `green` and `cleaner` (`STRATEGY_COLOUR` in
-    `bots/strategy.py`).
+    Rules for the actions of v2.1 and v2.2 (simple, not tuned). The ruby spends follow the same
+    rule in the v2.1 shop and in the v2.2 ruby step (there `done` when neither is chosen). The
+    strategy colour is blue for `points`, `blue` and `balanced`, green for `green` and `cleaner`
+    (`STRATEGY_COLOUR` in `bots/strategy.py`).
 
     | action                    | rule                                                          |
     |---------------------------|---------------------------------------------------------------|
@@ -191,6 +192,9 @@ class HeuristicBot:
         if state.phase is Phase.SHOP:
             action = self._shop(state, seat, legal)
             return action if action in legal else DONE if DONE in legal else legal[0]
+        if state.phase is Phase.RUBY:
+            action = self._ruby(state, seat, legal) or DONE
+            return action if action in legal else legal[0]
         if state.phase is Phase.CARD_CHOICE:
             action = self._card_choice(state, seat, legal)
             return action if action in legal else legal[0]
@@ -275,12 +279,19 @@ class HeuristicBot:
         )
         return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
 
-    def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
+    def _ruby(self, state: GameState, seat: str, legal: list[str]) -> str | None:
+        """The ruby spend to make (the refill before the drop), or None."""
         p = state.players[seat]
         if REFILL_FLASK in legal and p.rubies - self._rs.ruby_cost >= REFILL_RESERVE:
             return REFILL_FLASK
         if RUBY_DROP in legal:
             return RUBY_DROP
+        return None
+
+    def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
+        ruby = self._ruby(state, seat, legal)
+        if ruby is not None:
+            return ruby
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
         # Items of the list that the shop lacks are never legal, so they are skipped here.
         for item_id in self._strategy.ranked():

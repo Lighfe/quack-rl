@@ -87,7 +87,9 @@ def _end_round(state: GameState, rs: Ruleset, events: list[dict[str, Any]]) -> N
     events.append({"seat": None, "kind": "round_end", "next_round": state.round})
 
 
-def _spend_ruby(p: PlayerState, rs: Ruleset, seat: str, action: str, events: list[dict[str, Any]]) -> None:
+def _spend_ruby(
+    p: PlayerState, rs: Ruleset, seat: str, action: str, events: list[dict[str, Any]]
+) -> None:
     """A ruby spend: `ruby_drop` (droplet +1) or `refill_flask` (the flask is full again)."""
     p.rubies -= rs.ruby_cost
     if action == RUBY_DROP:
