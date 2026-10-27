@@ -4,7 +4,7 @@ A simplified 1v1 version of **The Quacks of Quedlinburg**: a push-your-luck game
 
 Rules version: `v2.1`. Every game record stores the rules version it was played with. The machine-readable values (chips, track, shop, die) live in the ruleset data file of the engine; this document and that file must agree.
 
-Status: v2.1 is complete. The engine plays everything in this document: the point board and the rat tails, the new die faces, rubies, the flask, the 20 round cards and the chips of all eight colours. It is the only ruleset and the default.
+Status: v2.1 is complete. The engine plays everything in this document: the point board and the rat tails, the new die faces, rubies, the flask, the 20 round cards and the chips of all eight colours. It is still playable; the default ruleset is v2.2 (`docs/rules/rules-v2.2.md`: the same rules with a ruby step after the shop).
 
 Changes from v1.11 (`archive/docs/rules/rules-v1.11.md`): see "Changes from v1.11" at the end of this document. Everything not named there is the same as in v1.11.
 

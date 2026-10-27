@@ -18,8 +18,8 @@ The skill has three parts, in this order:
 - Never edit a ruleset version that has recorded games. Saved games, runs and datasets name their version and must replay the same.
 - A change is a new version, a new ruleset file next to the old ones.
 - New behaviour is switched by ruleset fields. The engine reads the field; old versions leave it at a default that keeps them playing as before. Give every new field an old-safe default.
-- The default `rules` value is `v2.1`, everywhere in the code (CLI, tournament, run and simulate functions, RL modules and scripts). v2.1 is the only ruleset (v2 is archived with the older ones, and `v2` is an unknown name); the older rulesets, observation layouts 2 to 6, the training stack and the notebooks are archived in `archive/` (see `archive/README.md`) and not checked. A later ruleset version (v3, say) is not the default until an issue makes it the default, and that issue changes every default, the defaults test and these skill texts together. `tests/test_rules_defaults.py` checks that every default is the current default version and fails on a default that points anywhere else.
-- There is one observation layout, 8 (`BOARD_LAYOUT`). No policy is trained on it and the policy stack (`PolicyBot`, `train`, `finetune`, `selfplay`, offline training, `evaluate` with a policy) is archived. Environments and baseline bots work on v2.1.
+- The default `rules` value is `v2.2`, everywhere in the code (CLI, tournament, run and simulate functions, RL modules, the web service and scripts). The rulesets are v2.1 and v2.2 (v2.2 is v2.1 with the ruby step after the shop, switched by the field `ruby_step`); v2 is archived with the older ones, and `v2` is an unknown name; the older rulesets, observation layouts 2 to 6, the training stack and the notebooks are archived in `archive/` (see `archive/README.md`) and not checked. A later ruleset version (v3, say) is not the default until an issue makes it the default, and that issue changes every default, the defaults test and these skill texts together. `tests/test_rules_defaults.py` checks that every default is the current default version and fails on a default that points anywhere else.
+- There is one observation layout, 8 (`BOARD_LAYOUT`). No policy is trained on it and the policy stack (`PolicyBot`, `train`, `finetune`, `selfplay`, offline training, `evaluate` with a policy) is archived. Environments and baseline bots work on v2.1 and v2.2.
 
 ### Standard rule, plus extras
 
@@ -35,6 +35,7 @@ The skill has three parts, in this order:
 - Formatter side effects. `ruff --fix` and `ruff format` touch unrelated files. Run them, look at the diff, and restore the files that are not part of your change.
 - Wrong type in a ruleset file. A TOML integer against a `str` field fails validation (and the other way round). Check the type of every new field against the model and load the file in a test.
 - Untyped spec. A spec that says "Spellbook 1" without naming the key type leaves the engineer to guess. Name the types of keys and values in the spec.
+- A new phase changes every layout. The RL phase one-hot (`PHASES` in `src/quack_rl/rl/encode.py`) is built from the `Phase` enum, so a new phase adds a `phase.<name>` entry to layout 8 for every ruleset, the older ones too. Regenerate the stored layout 8 sample on purpose (`tests/fixtures/make_golden.py layout8`) and check that every old name keeps its value.
 - Steps that do not apply. A step list rarely fits one change. Read each step as "if your change touches X", and skip the rest on purpose, not by forgetting.
 
 ## 2. Recipes
