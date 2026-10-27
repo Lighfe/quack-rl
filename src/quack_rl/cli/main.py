@@ -93,7 +93,7 @@ def simulate(
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
     shard_size: Annotated[int, typer.Option(help="Games per shard file (at least 1).")] = 1000,
     rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
-    rules: Annotated[str, typer.Option(help="Rules version.")] = "v2.1",
+    rules: Annotated[str, typer.Option(help="Rules version.")] = "v2.2",
     set_: Annotated[
         list[str] | None,
         typer.Option("--set", help="Override a rule number, key=value (repeatable)."),
@@ -162,7 +162,7 @@ def tournament(
     ] = None,
     games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
-    rules: Annotated[str, typer.Option(help="Base rules version.")] = "v2.1",
+    rules: Annotated[str, typer.Option(help="Base rules version.")] = "v2.2",
     rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
     set_: Annotated[
         list[str] | None,
@@ -296,7 +296,7 @@ def play(
         bool, typer.Option("--bag-assist/--no-bag-assist", help="Show the bag contents.")
     ] = True,
     rounds: Annotated[int, typer.Option(help="Rounds per game (at least 1).")] = 9,
-    rules: Annotated[str, typer.Option(help="Rules version.")] = "v2.1",
+    rules: Annotated[str, typer.Option(help="Rules version.")] = "v2.2",
     set_: Annotated[
         list[str] | None,
         typer.Option("--set", help="Override a rule number, key=value (repeatable)."),

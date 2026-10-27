@@ -1,4 +1,4 @@
-"""The default `rules` is v2.1 everywhere in the code; the notebooks are archived."""
+"""The default `rules` is v2.2 everywhere in the code; the notebooks are archived."""
 
 import ast
 import re
@@ -58,10 +58,10 @@ def scan(files) -> list[tuple[str, str, object, int]]:
 
 
 CODE_FILES = sorted((ROOT / "src" / "quack_rl").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
-DEFAULT = "v2.1"
+DEFAULT = "v2.2"
 
 
-def test_every_rules_default_in_code_is_v2_1():
+def test_every_rules_default_in_code_is_v2_2():
     found = scan(CODE_FILES)
     assert found
     bad = [f for f in found if f[2] != DEFAULT]
@@ -80,24 +80,33 @@ def test_scan_finds_the_known_defaults():
 @pytest.mark.parametrize(
     "name", ["src/quack_rl/rl/single_env.py", "src/quack_rl/tournament.py", "src/quack_rl/report.py"]
 )
-@pytest.mark.parametrize("planted_version", ["v3", "v2.0", "v0", "v2.1"])
+@pytest.mark.parametrize("planted_version", ["v3", "v2.0", "v0", "v2.1", "v2.2"])
 def test_check_fails_on_a_planted_version(tmp_path, name, planted_version):
     copy = tmp_path / Path(name).name
     text = (ROOT / name).read_text(encoding="utf-8")
-    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v2.1"', rf'\1"{planted_version}"', text, count=1)
+    planted = re.sub(r'(rules[^=\n]*= |"rules", )"v2.2"', rf'\1"{planted_version}"', text, count=1)
     assert (planted != text) == (planted_version != DEFAULT)
     copy.write_text(planted, encoding="utf-8")
     bad = [f for f in scan([copy]) if f[2] != DEFAULT]
     assert bool(bad) == (planted_version != DEFAULT)
 
 
-def test_grep_of_the_issue_shows_only_v2_1():
+def test_grep_of_the_issue_shows_only_v2_2():
     out = subprocess.run(
         ["grep", "-rnE", r'rules[^=]*=\s*"v[0-9]+(\.[0-9]+)?"', "src", "scripts"],
         cwd=ROOT, capture_output=True, text=True,
     ).stdout
     lines = [ln for ln in out.splitlines() if "__pycache__" not in ln and ".pyc" not in ln]
-    assert lines and all('"v2.1"' in ln for ln in lines), lines
+    assert lines and all('"v2.2"' in ln for ln in lines), lines
+
+
+def test_service_and_tournament_columns_use_the_default():
+    from quack_rl.tournament import CSV_COLUMNS, csv_columns
+    from quack_rl.rules import load_ruleset
+    from quack_rl.web.app import RULES
+
+    assert RULES == DEFAULT
+    assert CSV_COLUMNS == csv_columns(load_ruleset(DEFAULT))
 
 
 def test_data_folder_is_unchanged():

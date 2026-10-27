@@ -64,7 +64,7 @@ def csv_columns(rs: Ruleset) -> list[str]:
     return [*BASE_COLUMNS, *buys, "p1_draws", "p2_draws"]
 
 
-CSV_COLUMNS: list[str] = csv_columns(load_ruleset("v2.1"))
+CSV_COLUMNS: list[str] = csv_columns(load_ruleset("v2.2"))
 SEED_SCHEME = (
     "game_seed = run_seed + (sweep_value_index * pairings_per_value + pairing_index) * games"
     " + game_index"
@@ -93,7 +93,7 @@ class TournamentConfig:
     bots: tuple[str, ...]  # seat specs, `bot:<name>`
     games: int  # games per pairing
     seed: int
-    rules: str = "v2.1"
+    rules: str = "v2.2"
     rounds: int = 9
     overrides: dict[str, str] = field(default_factory=dict)
     sweep: Sweep | None = None

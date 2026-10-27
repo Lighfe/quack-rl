@@ -61,7 +61,7 @@ def train_ppo(
     opponent: str,
     steps: int,
     seed: int = 0,
-    rules: str = "v2.1",
+    rules: str = "v2.2",
     on_progress: Callable[[CurvePoint], None] | None = None,
 ) -> TrainResult:
     """Train MaskablePPO for `steps` decisions against `opponent` (a bot name), on the CPU.
@@ -117,7 +117,7 @@ def run_ppo_experiment(
     seed: int,
     eval_games: int,
     out: Path | str,
-    rules: str = "v2.1",
+    rules: str = "v2.2",
     on_progress: Callable[[CurvePoint], None] | None = None,
 ) -> ExperimentResult:
     """Train, evaluate against the training opponent and against `bot:random`, write the files.

@@ -16,7 +16,7 @@ from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.web.session import GameSession, IllegalSubmit, StaleRevision
 from quack_rl.web.view import seat_view
 
-RULES = "v2.1"
+RULES = "v2.2"
 _OCTET = r"\d{1,3}"
 LOCAL_ORIGINS = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 # Private IPv4 ranges 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 (LAN, Docker bridge), http only.

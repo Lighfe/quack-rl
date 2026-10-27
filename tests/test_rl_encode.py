@@ -27,7 +27,7 @@ from quack_rl.rl import (
 )
 from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 
-VERSIONS = ["v2.1"]
+VERSIONS = ["v2.1", "v2.2"]
 
 
 def brew_game(rs):

@@ -29,7 +29,7 @@ def doc_money(field: int) -> int:
 
 
 def test_supported_versions():
-    assert SUPPORTED_RULES_VERSIONS == ("v2.1",)
+    assert SUPPORTED_RULES_VERSIONS == ("v2.1", "v2.2")
 
 
 def test_old_version_refused():
@@ -427,7 +427,7 @@ def test_chip_component_key_is_refused():
 def test_archived_v2_is_an_unknown_ruleset():
     from quack_rl.rules import UnsupportedRulesVersion
 
-    assert SUPPORTED_RULES_VERSIONS == ("v2.1",)
+    assert SUPPORTED_RULES_VERSIONS == ("v2.1", "v2.2")
     with pytest.raises(UnsupportedRulesVersion) as v2_error:
         load_ruleset("v2")
     with pytest.raises(UnsupportedRulesVersion) as other_error:

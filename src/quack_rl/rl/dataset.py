@@ -116,7 +116,7 @@ def build_dataset(
     opponent: str,
     games: int,
     seed: int = 0,
-    rules: str = "v2.1",
+    rules: str = "v2.2",
     on_progress: Callable[[int], None] | None = None,
 ) -> Dataset:
     """Play `games` games of the bot `agent` against the bot `opponent` (names) and store the

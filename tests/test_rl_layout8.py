@@ -28,7 +28,7 @@ SEATS = ("p1", "p2")
 # vector_names(RS) without the map block, which is last
 PREFIX = [
     "round", "rounds", "explosion_limit", "phase.card", "phase.card_choice", "phase.restart",
-    "phase.brew", "phase.resolve", "phase.choice", "phase.shop", "phase.game_over",
+    "phase.brew", "phase.resolve", "phase.choice", "phase.shop", "phase.ruby", "phase.game_over",
     "own.status.brewing", "own.status.stopped", "own.status.exploded", "own.chip_colours.white",
     "own.chip_colours.orange", "own.chip_colours.green", "own.chip_colours.blue",
     "own.chip_colours.red", "own.chip_colours.black", "own.chip_colours.yellow",
@@ -194,7 +194,7 @@ def test_layout_number_and_pinned_names():
         for k in (*(f"colour.{c}" for c in colours), "value", "order")
     ]
     assert names[sl] == [n.format(f=f) for f in range(RS.track_end + 1) for n in cell]
-    assert len(names) == 1528 == len(PREFIX) + (RS.track_end + 1) * map_channels(RS)
+    assert len(names) == 1529 == len(PREFIX) + (RS.track_end + 1) * map_channels(RS)
     assert len(set(names)) == len(names)
 
 

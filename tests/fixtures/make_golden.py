@@ -1,7 +1,9 @@
 """Regenerate the golden files. Run this only on purpose: the files pin rules behavior.
 
-uv run python tests/fixtures/make_golden.py       # v2.1: the game record, the bots results.csv and the layout 8 sample
-uv run python tests/fixtures/make_golden.py v2.1  # the same
+uv run python tests/fixtures/make_golden.py          # v2.1: the game record, the bots results.csv and the layout 8 sample
+uv run python tests/fixtures/make_golden.py v2.1     # the same
+uv run python tests/fixtures/make_golden.py layout8  # only the layout 8 sample (from the v2.1 record)
+uv run python tests/fixtures/make_golden.py v2.2     # the v2.2 game record (it has a ruby step)
 """
 
 import json
@@ -93,8 +95,12 @@ def main(argv: list[str]) -> None:
         write_record("v2.1", GOLDEN / "v2_1_random_seed7.jsonl")
         write_v2_1_bots_results(GOLDEN / "v2_1_bots_results.csv")
         write_layout8_sample(GOLDEN / "v2_1_random_seed7.jsonl", GOLDEN / "layout8_sample.json")
+    elif mode == "layout8":
+        write_layout8_sample(GOLDEN / "v2_1_random_seed7.jsonl", GOLDEN / "layout8_sample.json")
+    elif mode == "v2.2":
+        write_record("v2.2", GOLDEN / "v2_2_random_seed7.jsonl")
     else:
-        raise SystemExit("usage: make_golden.py [v2.1]")
+        raise SystemExit("usage: make_golden.py [v2.1|layout8|v2.2]")
 
 
 if __name__ == "__main__":

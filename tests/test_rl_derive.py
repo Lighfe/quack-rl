@@ -19,7 +19,7 @@ from quack_rl.rl import observation_bounds, observe, vector_names, vectorize
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import load_ruleset
 
-VERSIONS = ["v2.1"]
+VERSIONS = ["v2.1", "v2.2"]
 
 
 def _states(rs, seed):

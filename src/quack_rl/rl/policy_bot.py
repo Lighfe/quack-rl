@@ -18,7 +18,7 @@ class PolicyBot:
 
     kind = "bot"
 
-    def __init__(self, model: Any, rules: Ruleset | str = "v2.1", name: str = "policy"):
+    def __init__(self, model: Any, rules: Ruleset | str = "v2.2", name: str = "policy"):
         self.rs = load_ruleset(rules) if isinstance(rules, str) else rules
         self.model = model
         self.name = name
