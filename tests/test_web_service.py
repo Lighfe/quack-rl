@@ -364,11 +364,76 @@ def test_accepted_seat_is_not_in_to_act(client):
 # --- view contract ---------------------------------------------------------------------
 
 
+# --- ingredients (shop catalogue) -------------------------------------------------------
+
+
+def chip_entry(v, chip_id):
+    for entry in v["ingredients"]:
+        for c in entry["chips"]:
+            if c["chip"] == chip_id:
+                return c
+    raise AssertionError(f"chip {chip_id} not in ingredients")
+
+
+def colour_chips(v, colour):
+    return next(e["chips"] for e in v["ingredients"] if e["colour"] == colour)
+
+
+def test_view_ingredients_round_1(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    v = view(client, gid)
+    assert session_of(client, gid).rs.version == "v2.2"
+    assert v["game"]["round"] == 1
+    for colour in ("yellow", "purple"):
+        chips = colour_chips(v, colour)
+        assert chips and all(c["available"] is False for c in chips)
+    assert chip_entry(v, "orange_6") == {
+        "chip": "orange_6", "value": 6, "price": 22, "min_round": 1, "available": True,
+    }
+    white = colour_chips(v, "white")
+    assert white
+    for c in white:
+        assert c["price"] is None and c["min_round"] is None and c["available"] is False
+
+
+def test_view_ingredients_round_3(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    session_of(client, gid).state.round = 3
+    v = view(client, gid)
+    assert v["game"]["round"] == 3
+    for colour in ("yellow", "purple"):
+        chips = colour_chips(v, colour)
+        assert chips and all(c["available"] is True for c in chips)
+
+
+def test_view_ingredients_same_for_both_seats(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    assert view(client, gid, "p1")["ingredients"] == view(client, gid, "p2")["ingredients"]
+
+
+def test_view_ingredients_cover_each_colour_once_with_a_short_effect(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    rs = session_of(client, gid).rs
+    v = view(client, gid)
+    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    assert [e["colour"] for e in v["ingredients"]] == colours
+    for entry in v["ingredients"]:
+        assert set(entry) == {"colour", "effect", "chips"}
+        assert entry["effect"] and "\n" not in entry["effect"] and len(entry["effect"]) <= 60
+        assert [c["chip"] for c in entry["chips"]] == [
+            c.id for c in rs.chips if c.colour == entry["colour"]
+        ]
+        for c in entry["chips"]:
+            assert set(c) == {"chip", "value", "price", "min_round", "available"}
+            assert c["value"] == rs.chip(c["chip"]).value
+
+
 def test_view_has_the_fixed_fields(client):
     gid = create(client, "human", "bot:random", seed=HUMAN_SEED)
     v = view(client, gid)
     assert set(v) == {
         "game", "you", "to_act", "seats", "window", "chips", "legal", "hand", "card_draw", "log",
+        "ingredients",
     }
     g = v["game"]
     session = session_of(client, gid)

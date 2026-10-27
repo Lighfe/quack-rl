@@ -8,6 +8,7 @@ from quack_rl.engine.state import scoring_field
 from quack_rl.labels import action_label
 from quack_rl.rl.encode import observe
 from quack_rl.rules.cards import get_card_effect
+from quack_rl.rules.spellbook import colour_effect
 from quack_rl.web.session import GameSession
 
 
@@ -94,6 +95,34 @@ def _window(session: GameSession, seat: str) -> list[dict[str, int]]:
     return [{"field": min(start + k, rs.track_end), **cell} for k, cell in enumerate(ahead)]
 
 
+def _ingredients(session: GameSession) -> list[dict[str, Any]]:
+    """The shop catalogue: per colour, its chips with price, minimum round and availability this
+    round (a catalogue fact: it does not depend on money, phase or seat)."""
+    rs, rnd = session.rs, session.state.round
+    items = {item.chip: item for item in rs.shop}
+    colours = list(dict.fromkeys(c.colour for c in rs.chips))
+    entries = []
+    for colour in colours:
+        chips = []
+        for c in rs.chips:
+            if c.colour != colour:
+                continue
+            item = items.get(c.id)
+            chips.append(
+                {
+                    "chip": c.id,
+                    "value": c.value,
+                    "price": item.price if item else None,
+                    "min_round": item.min_round if item else None,
+                    "available": item is not None and rnd >= item.min_round,
+                }
+            )
+        entries.append(
+            {"colour": colour, "effect": colour_effect(rs.spellbook, colour), "chips": chips}
+        )
+    return entries
+
+
 def seat_view(session: GameSession, seat: str) -> dict[str, Any]:
     state, rs = session.state, session.rs
     to_act = session.to_act()
@@ -111,4 +140,5 @@ def seat_view(session: GameSession, seat: str) -> dict[str, Any]:
         "hand": list(p.hand),
         "card_draw": list(p.card_draw),
         "log": {"lines": [event_text(e) for e in events], "events": events},
+        "ingredients": _ingredients(session),
     }

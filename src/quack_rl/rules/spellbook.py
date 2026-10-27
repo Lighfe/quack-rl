@@ -54,3 +54,25 @@ register_spellbook(
         "purple": "purple@1",
     },
 )
+
+
+# One-line effect text of each component (at most 60 characters, no newline), shown with the
+# shop catalogue. It agrees with the "Effect when placed" column of the Chips table in the
+# rules document. A colour's text is the text of the component its spellbook gives it.
+_COMPONENT_EFFECTS: Mapping[str, str] = MappingProxyType(
+    {
+        "white@1": "Advance by its value; adds it to the explosion total.",
+        "orange@1": "Advance by its value. No other effect.",
+        "green@1": "Advance; 1 ruby at round end if among the last two placed.",
+        "blue@2": "Advance by its value, then draw hand chips and pick one.",
+        "red@1": "Advance by its value, plus extra for orange chips placed.",
+        "black@1": "Advance; round end: droplet effect comparing black chips.",
+        "yellow@1": "Advance; a white chip placed just before goes back to bag.",
+        "purple@1": "Advance; round end: points and droplet by purple count.",
+    }
+)
+
+
+def colour_effect(spellbook: int | str, colour: str) -> str:
+    """The one-line effect text of a colour in a spellbook."""
+    return _COMPONENT_EFFECTS[get_spellbook(spellbook)[colour]]
