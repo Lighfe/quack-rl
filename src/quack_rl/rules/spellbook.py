@@ -57,22 +57,23 @@ register_spellbook(
 
 
 # One-line effect text of each component (at most 60 characters, no newline), shown with the
-# shop catalogue. It agrees with the "Effect when placed" column of the Chips table in the
-# rules document. A colour's text is the text of the component its spellbook gives it.
+# shop catalogue. Every placed chip advances by its value, so no text says it; a component with no
+# other effect has the empty text. It agrees with the "Effect when placed" column of the Chips
+# table in the rules document. A colour's text is the text of the component its spellbook gives it.
 _COMPONENT_EFFECTS: Mapping[str, str] = MappingProxyType(
     {
-        "white@1": "Advance by its value; adds it to the explosion total.",
-        "orange@1": "Advance by its value. No other effect.",
-        "green@1": "Advance; 1 ruby at round end if among the last two placed.",
-        "blue@2": "Advance by its value, then draw hand chips and pick one.",
-        "red@1": "Advance by its value, plus extra for orange chips placed.",
-        "black@1": "Advance; round end: droplet effect comparing black chips.",
-        "yellow@1": "Advance; a white chip placed just before goes back to bag.",
-        "purple@1": "Advance; round end: points and droplet by purple count.",
+        "white@1": "Adds its value to the explosion total.",
+        "orange@1": "",
+        "green@1": "Round end: 1 ruby if among the last two placed.",
+        "blue@2": "Draw hand chips and pick one.",
+        "red@1": "Extra steps for orange chips placed this round.",
+        "black@1": "Round end: droplet effect comparing black chips.",
+        "yellow@1": "A white chip placed just before goes back to bag.",
+        "purple@1": "Round end: points and droplet by purple count.",
     }
 )
 
 
 def colour_effect(spellbook: int | str, colour: str) -> str:
-    """The one-line effect text of a colour in a spellbook."""
+    """The one-line effect text of a colour in a spellbook ("" when it has no other effect)."""
     return _COMPONENT_EFFECTS[get_spellbook(spellbook)[colour]]

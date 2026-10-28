@@ -17,18 +17,18 @@ Earlier draft: `docs/archive/2026-10-08-rules-draft.md`.
 
 ### Chips
 
-The ruleset names a **spellbook** (`spellbook = 1`). The spellbook says what each colour does; a chip in the ruleset file has only a colour and a value. White and orange work the same in every spellbook.
+The ruleset names a **spellbook** (`spellbook = 1`). The spellbook says what each colour does; a chip in the ruleset file has only a colour and a value. White and orange work the same in every spellbook. Every placed chip advances by its value; the table lists only what a colour does besides that.
 
 | Chip | Values | Effect when placed (spellbook 1) |
 |---|---|---|
-| ⚪ White | 1, 2, 3 | Advance by its value. Add its value to the explosion total. |
-| 🟠 Orange | 1, 6 | Advance by its value. No other effect. |
-| 🟢 Green | 1, 2, 4 | Advance by its value. At round end, each green chip among the last two placed chips gives 1 ruby (see 4.3). |
-| 🔵 Blue | 1, 2, 4 | Advance by its value, then draw hand chips and pick (see "Blue" below). No placement bonus. |
-| 🔴 Red | 1, 2, 4 | Advance by its value, plus an extra for the orange chips placed this round (see "Red" below). |
-| ⚫ Black | 1 | Advance by its value. At round end, a droplet effect that compares the black chips of both pots (see "Black" below). |
-| 🟡 Yellow | 1, 2, 4 | Advance by its value. A white chip placed just before it goes back into the bag (see "Yellow" below). |
-| 🟣 Purple | 1 | Advance by its value. At round end, points and a droplet effect by the number of purple chips in the pot (see "Purple" below). |
+| ⚪ White | 1, 2, 3 | Add its value to the explosion total. |
+| 🟠 Orange | 1, 6 | No other effect. |
+| 🟢 Green | 1, 2, 4 | At round end, each green chip among the last two placed chips gives 1 ruby (see 4.3). |
+| 🔵 Blue | 1, 2, 4 | Draw hand chips and pick (see "Blue" below). No placement bonus. |
+| 🔴 Red | 1, 2, 4 | An extra advance for the orange chips placed this round (see "Red" below). |
+| ⚫ Black | 1 | At round end, a droplet effect that compares the black chips of both pots (see "Black" below). |
+| 🟡 Yellow | 1, 2, 4 | A white chip placed just before it goes back into the bag (see "Yellow" below). |
+| 🟣 Purple | 1 | At round end, points and a droplet effect by the number of purple chips in the pot (see "Purple" below). |
 
 #### Red
 

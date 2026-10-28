@@ -173,3 +173,15 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
     assert green_bonuses(Ruleset.model_validate(_data())) == []
     book = Ruleset.model_validate(_data(green_blue_book))
     assert len(green_bonuses(book)) == 4  # 2 chips x 2 seats
+
+
+def test_component_effects_do_not_say_advance():
+    from quack_rl.rules.spellbook import _COMPONENT_EFFECTS
+
+    assert _COMPONENT_EFFECTS["orange@1"] == ""
+    for component, text in _COMPONENT_EFFECTS.items():
+        assert "advance by its value" not in text.lower()
+        assert not text.lower().startswith("advance")
+        assert "\n" not in text and len(text) <= 60
+        if component != "orange@1":
+            assert text and text[0].isupper(), component

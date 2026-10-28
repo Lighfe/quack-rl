@@ -92,7 +92,9 @@ Play-test in the Lovable preview:
 3. Start a game
 
 - `POST /games` with `{"p1": "human", "p2": "bot:random", "rounds": 9, "seed": null}` returns `{"game_id": ...}`. Seat specs as in `quack-rl play`.
-- `GET /games/{id}/view?seat=p1` returns the view of one seat: `game`, `you`, `to_act`, `seats`, `window`, `chips`, `legal`, `hand`, `card_draw`, `log`. Another seat's hand, card draw and pending action are hidden.
+- `GET /games/{id}/view?seat=p1` returns the view of one seat: `game`, `you`, `to_act`, `seats`, `window`, `chips`, `legal`, `hand`, `card_draw`, `log`, `ingredients`, `board`. Another seat's hand, card draw and pending action are hidden.
+  - `board` is the ruleset's point board: `{"fields": 50, "laps": 2, "rat_tails": [1, ..., 48]}` (v2.3: 23 rat tails).
+  - `game.last_roll` is the bonus die of the newest resolve: `null` before the first resolve, then `{"round": 3, "rolls": [{"seat": "p1", "face": "point_2", "text": "+2 points"}]}`, one roll per `die` event of that resolve in event order (`[]` when every seat exploded). It stays until the next resolve; die rolls of a round card do not change it.
 - `POST /games/{id}/actions` with `{"seat": "p1", "action": "draw", "revision": 12}` returns the new view of that seat. An illegal action gives 400 `{"error": "illegal_action", "legal": [...]}`; an old revision or a second action for the same revision gives 409 `{"error": "stale_revision", "revision": n}`.
 
 The service steps the game by itself (card and resolve phases, `wait`-only seats, bots) until a human must act or the game is over.

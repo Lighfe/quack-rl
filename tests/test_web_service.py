@@ -9,7 +9,13 @@ from helpers import RS, brew_start  # noqa: E402
 from typer.testing import CliRunner  # noqa: E402
 
 from quack_rl.cli.main import app as cli_app  # noqa: E402
-from quack_rl.engine import ScriptedChance, explosion_limit  # noqa: E402
+from quack_rl.engine import (  # noqa: E402
+    Phase,
+    ScriptedChance,
+    Status,
+    explosion_limit,
+    new_game,
+)
 from quack_rl.rl.encode import observe  # noqa: E402
 from quack_rl.rules.cards import get_card_effect  # noqa: E402
 from quack_rl.web.app import (  # noqa: E402
@@ -18,7 +24,7 @@ from quack_rl.web.app import (  # noqa: E402
     create_app,
     origin_regex,
 )
-from quack_rl.web.view import event_text  # noqa: E402
+from quack_rl.web.view import die_text, event_text  # noqa: E402
 
 # A seed whose round-1 card asks no choice before the brew (human vs bot:random).
 HUMAN_SEED = 12
@@ -419,7 +425,11 @@ def test_view_ingredients_cover_each_colour_once_with_a_short_effect(client):
     assert [e["colour"] for e in v["ingredients"]] == colours
     for entry in v["ingredients"]:
         assert set(entry) == {"colour", "effect", "chips"}
-        assert entry["effect"] and "\n" not in entry["effect"] and len(entry["effect"]) <= 60
+        assert "\n" not in entry["effect"] and len(entry["effect"]) <= 60
+        if entry["colour"] == "orange":
+            assert entry["effect"] == ""  # orange has no effect besides its advance
+        else:
+            assert entry["effect"]
         assert [c["chip"] for c in entry["chips"]] == [
             c.id for c in rs.chips if c.colour == entry["colour"]
         ]
@@ -433,7 +443,7 @@ def test_view_has_the_fixed_fields(client):
     v = view(client, gid)
     assert set(v) == {
         "game", "you", "to_act", "seats", "window", "chips", "legal", "hand", "card_draw", "log",
-        "ingredients",
+        "ingredients", "board",
     }
     g = v["game"]
     session = session_of(client, gid)
@@ -558,3 +568,107 @@ def test_explosion_limit_includes_card_4(client):
     g = view(client, gid)["game"]
     assert g["card"]["id"] == "card_4"
     assert g["explosion_limit"] == RS.explosion_limit + 2
+
+
+# --- point board and last bonus die roll ---------------------------------------------------
+
+
+def test_view_board_is_the_point_board_of_the_ruleset(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    board = view(client, gid)["board"]
+    pb = RS.point_board
+    assert board == {"fields": pb.fields, "laps": pb.laps, "rat_tails": list(pb.rat_tails)}
+    assert board["fields"] == 50 and board["laps"] == 2
+    assert len(board["rat_tails"]) == 23
+    assert board["rat_tails"][0] == 1 and board["rat_tails"][-1] == 48
+
+
+def at_resolve(client, gid, p1_field, p2_field, exploded=(), rnd=1):
+    """Put the session of a two-human game at the start of Resolve with settled final fields."""
+    state = brew_start()
+    state.phase = Phase.RESOLVE
+    state.round = rnd
+    for seat, fld in (("p1", p1_field), ("p2", p2_field)):
+        p = state.players[seat]
+        p.field = p.final_field = fld
+        p.placed, p.placed_fields = ["white_1"], [fld]
+        p.status = Status.EXPLODED if seat in exploded else Status.STOPPED
+    return state
+
+
+def resolve(client, gid, state, *faces):
+    session = scripted(client, gid, state, list(faces))
+    session.advance()
+    return session
+
+
+def test_last_roll_is_none_before_the_first_resolve(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    assert view(client, gid)["game"]["last_roll"] is None
+
+
+def test_last_roll_with_one_roller(client):
+    gid = create(client)
+    resolve(client, gid, at_resolve(client, gid, 20, 12, rnd=3), "point_2")
+    for seat in ("p1", "p2"):
+        assert view(client, gid, seat)["game"]["last_roll"] == {
+            "round": 3, "rolls": [{"seat": "p1", "face": "point_2", "text": "+2 points"}],
+        }
+
+
+def test_last_roll_with_a_tie_lists_p1_then_p2(client):
+    gid = create(client)
+    resolve(client, gid, at_resolve(client, gid, 10, 10), "droplet_1", "ruby_1")
+    assert view(client, gid)["game"]["last_roll"] == {
+        "round": 1,
+        "rolls": [
+            {"seat": "p1", "face": "droplet_1", "text": "Droplet +1"},
+            {"seat": "p2", "face": "ruby_1", "text": "+1 ruby"},
+        ],
+    }
+
+
+def test_last_roll_is_empty_when_every_seat_exploded(client):
+    gid = create(client)
+    resolve(client, gid, at_resolve(client, gid, 21, 11, exploded=("p1", "p2"), rnd=2))
+    v = view(client, gid)
+    assert v["game"]["phase"] == "choice"
+    assert v["game"]["last_roll"] == {"round": 2, "rolls": []}
+
+
+def test_last_roll_stays_through_the_shop_phase(client):
+    gid = create(client)
+    resolve(client, gid, at_resolve(client, gid, 20, 12), "point_1", "card_16")
+    expected = {"round": 1, "rolls": [{"seat": "p1", "face": "point_1", "text": "+1 point"}]}
+    v = view(client, gid)
+    assert v["game"]["phase"] == "shop"
+    assert v["game"]["last_roll"] == expected
+    joint(client, gid, "done", "done")
+    v = view(client, gid)
+    assert v["game"]["phase"] != "shop"
+    assert v["game"]["last_roll"] == expected
+
+
+def test_a_card_step_roll_does_not_change_last_roll(client):
+    gid = create(client)
+    session = resolve(client, gid, at_resolve(client, gid, 20, 12), "point_1")
+    before = view(client, gid)["game"]["last_roll"]
+    assert before is not None
+    scripted(client, gid, new_game(RS), ["card_18", "point_1", "point_2"])  # the card step
+    session.advance()
+    assert session.state.phase is Phase.BREW
+    v = view(client, gid)
+    assert any(e["kind"] == "card_draw" and e["card"] == "card_18" for e in v["log"]["events"])
+    assert [e["kind"] for e in v["log"]["events"]].count("die") == 3  # 1 resolve + 2 card
+    assert v["game"]["last_roll"] == before
+
+
+def test_die_text_of_every_v2_3_face():
+    texts = {face.id: die_text(face, RS) for face in RS.die}
+    assert texts == {
+        "orange_1": "Orange 1 into the bag",
+        "droplet_1": "Droplet +1",
+        "ruby_1": "+1 ruby",
+        "point_1": "+1 point",
+        "point_2": "+2 points",
+    }

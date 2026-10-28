@@ -7,7 +7,9 @@ from quack_rl.engine import SEATS, explosion_limit, start_field
 from quack_rl.engine.state import scoring_field
 from quack_rl.labels import action_label
 from quack_rl.rl.encode import observe
+from quack_rl.rules import Ruleset
 from quack_rl.rules.cards import get_card_effect
+from quack_rl.rules.model import DieFace
 from quack_rl.rules.spellbook import colour_effect
 from quack_rl.web.session import GameSession
 
@@ -18,6 +20,40 @@ def event_text(event: dict[str, Any]) -> str:
     seat = event.get("seat")
     head = f"{seat}: {event['kind']}" if seat is not None else event["kind"]
     return f"{head} {fields}".rstrip()
+
+
+def _plural(n: int, word: str, plural: str) -> str:
+    return f"+{n} {word if n == 1 else plural}"
+
+
+def die_text(face: DieFace, rs: Ruleset) -> str:
+    """The text of a bonus die face, from its kind and numbers (one rule per kind, no face ids)."""
+    if face.kind == "chip":
+        assert face.chip is not None
+        chip = rs.chip(face.chip)
+        return f"{chip.colour.capitalize()} {chip.value} into the bag"
+    if face.kind == "droplet":
+        return f"Droplet +{face.droplet}"
+    if face.kind == "rubies":
+        return _plural(face.rubies, "ruby", "rubies")
+    return _plural(face.points, "point", "points")
+
+
+def _last_roll(session: GameSession) -> dict[str, Any] | None:
+    """The bonus die of the newest resolve, each roll with the text of its face."""
+    if session.last_roll is None:
+        return None
+    faces = {face.id: face for face in session.rs.die}
+    rolls = [
+        {**roll, "text": die_text(faces[roll["face"]], session.rs)}
+        for roll in session.last_roll["rolls"]
+    ]
+    return {"round": session.last_roll["round"], "rolls": rolls}
+
+
+def _board(session: GameSession) -> dict[str, Any]:
+    board = session.rs.point_board
+    return {"fields": board.fields, "laps": board.laps, "rat_tails": list(board.rat_tails)}
 
 
 def _card(session: GameSession) -> dict[str, str] | None:
@@ -37,6 +73,7 @@ def _game(session: GameSession) -> dict[str, Any]:
         "explosion_limit": explosion_limit(state, session.rs),
         "card": _card(session),
         "winner": state.winner,
+        "last_roll": _last_roll(session),
     }
 
 
@@ -141,4 +178,5 @@ def seat_view(session: GameSession, seat: str) -> dict[str, Any]:
         "card_draw": list(p.card_draw),
         "log": {"lines": [event_text(e) for e in events], "events": events},
         "ingredients": _ingredients(session),
+        "board": _board(session),
     }
