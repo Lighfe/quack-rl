@@ -426,16 +426,18 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
         points = {s: _int(row, f"{s}_points", n) for s in ("p1", "p2")}
         expl = {s: _int(row, f"{s}_explosions", n) for s in ("p1", "p2")}
         draws = {s: _int(row, f"{s}_draws", n) for s in ("p1", "p2")}
-        halves = {s: 2 if winner == s else 1 if winner == "draw" else 0 for s in ("p1", "p2")}
+        win_halves = {s: 2 if winner == s else 1 if winner == "draw" else 0 for s in ("p1", "p2")}
         target = data
         if row["pairing"].startswith(SEAT_CHECK_PREFIX):
-            data.seat.add(halves["p1"], points["p1"], expl["p1"], rounds)
+            data.seat.add(win_halves["p1"], points["p1"], expl["p1"], rounds)
             data.seat_draws += winner == "draw"
             target = seat_data
         target.games += 1
         bots = {"p1": row["p1"], "p2": row["p2"]}
         for seat, bot in bots.items():
-            target.bots.setdefault(bot, Agg()).add(halves[seat], points[seat], expl[seat], rounds)
+            target.bots.setdefault(bot, Agg()).add(
+                win_halves[seat], points[seat], expl[seat], rounds
+            )
             label = label_of(bot)
             if winner == seat:
                 target.won_games[label] = target.won_games.get(label, 0) + 1

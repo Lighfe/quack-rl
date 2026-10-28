@@ -6,7 +6,8 @@ window of the fields from the own scoring field on (money, points, ruby), a boar
 placed chips (no static field table), both bags (remaining and complete), the rule scalars,
 derived features with the field and points gaps, the hand, the shop, the card block and the point
 board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`). Layout 9 is layout 8 with the
-droplet in whole steps (`droplet` for `droplet_halves`, `docs/specs/2026-10-27-game-parts-and-ruleset-v2-3.md`).
+droplet in whole steps (`own.droplet`, `opponent.droplet`; spec:
+`docs/specs/2026-10-27-game-parts-and-ruleset-v2-3.md`).
 The layouts 2 to 6 are archived in `archive/src/quack_rl/rl/encode.py`, layout 7 in
 `archive/src/quack_rl/rl/encode_layout7.py`.
 """

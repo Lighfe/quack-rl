@@ -37,3 +37,15 @@ Ruleset v2 was renamed to `v2.1` (issue #180), which has exactly its numbers. Th
 - `archive/tests/fixtures/make_golden.py`: the generator of those fixtures (the live copy `tests/fixtures/make_golden.py` makes the `v2.1` fixtures)
 
 `v2` is not a known ruleset name any more: `load_ruleset("v2")` and `--rules v2` fail.
+
+## Rulesets v2.1 and v2.2
+
+Ruleset v2.3 replaced both (issue #243): its black chip gives droplet +1 and 1 ruby to the larger count (not 3 rubies), the droplet counts whole steps everywhere (no `droplet_halves`, no `halves` in events), the ruby step after the shop is the rule (no `ruby_step` field), and the record schema version is 3. The v2.1 and v2.2 files keep their old path below `archive/`:
+
+- `archive/src/quack_rl/rules/v2.1.toml`, `v2.2.toml`: the ruleset files
+- `archive/docs/rules/rules-v2.1.md`, `rules-v2.2.md`: the rules texts
+- `archive/tests/fixtures/golden/v2_1_random_seed7.jsonl`, `v2_2_random_seed7.jsonl`, `v2_1_bots_results.csv` and `layout8_sample.json`: the golden records, the bots results and the observation layout 8 sample
+- `archive/tests/test_golden_v2_1.py`, `test_golden_v2_2.py`, `test_ruleset_v2_1.py`, `test_ruleset_v2_2.py`: the per-version tests
+- `archive/tests/test_ruby_step_v2_2.py`, `test_bots_v2_2.py`: the v2.2 forms of the ruby step tests, with the checks that compared v2.2 with v2.1 (the live ports are `tests/test_ruby_step.py` and `tests/test_bots_ruby_step.py`)
+
+`v2.1` and `v2.2` are not known ruleset names any more, and their records (schema version 2) are not read.

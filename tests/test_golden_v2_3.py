@@ -36,7 +36,7 @@ def golden():
 def test_stored_game_replays_to_the_stored_final_state():
     game = golden()
     assert game.header.rules_version == "v2.3"
-    assert verify_game(game) == []  # every event and legal set equals the replay, the footer matches
+    assert verify_game(game) == []  # every event and legal set equals the replay, footer too
     assert verify_seed(game) == []  # the chance outcomes equal what the seed gives
     end = [e for s in game.steps for e in s.events if e["kind"] == "game_end"]
     assert len(end) == 1
@@ -93,7 +93,7 @@ def test_layout9_sample_matches_the_encoder_value_for_value():
     assert len(vector) == len(sample["values"]) == len(names)
     wrong = [
         (n, got, want)
-        for n, got, want in zip(names, vector.tolist(), sample["values"])
+        for n, got, want in zip(names, vector.tolist(), sample["values"], strict=True)
         if got != want
     ]
     assert wrong == []

@@ -171,4 +171,5 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
         return [e for e in events if e["kind"] == "round_end_bonus"]
 
     assert green_bonuses(Ruleset.model_validate(_data())) == []
-    assert len(green_bonuses(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats
+    book = Ruleset.model_validate(_data(green_blue_book))
+    assert len(green_bonuses(book)) == 4  # 2 chips x 2 seats

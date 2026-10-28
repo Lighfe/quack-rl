@@ -1,22 +1,23 @@
 # Quack RL
 
-A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v2.2.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`. What is left of the older rulesets (v1 to v1.11), ruleset v2 and the old code is in `archive/` (`archive/README.md`).
+A simplified version of The Quacks of Quedlinburg (rules: `docs/rules/rules-v2.3.md`), built as a recorded game and a reinforcement learning environment. Design: `docs/specs/2026-10-08-quack-rl-design.md`. What is left of the older rulesets (v1 to v1.11, v2, v2.1 and v2.2) and the old code is in `archive/` (`archive/README.md`).
 
 ## Rulesets
 
 | Version | Rules document | Notes |
 |---|---|---|
-| `v2.2` | `docs/rules/rules-v2.2.md` | **the default**: v2.1 with a ruby step after the shop. The shop offers only chip buys and Done; then, in the ruby step, a player spends rubies on a droplet +1 (`ruby_drop`) or a flask refill (`refill_flask`), or chooses Done |
-| `v2.1` | `docs/rules/rules-v2.1.md` | still playable; the ruby spends are in the shop. It adds a shared point board (fields 0 to 50, two laps, at most 100 points), rat tails with a catch-up bonus at round start, a new bonus die, rubies as a currency, a flask, a field table (money, points, ruby per field) and a card at the start of every round |
+| `v2.3` | `docs/rules/rules-v2.3.md` | **the only ruleset and the default**. The black chip gives droplet +1 to each player on equal counts (1 or more) and droplet +1 and 1 ruby to the larger count; the droplet is counted in whole steps everywhere (state, events, observation); the ruby step after the shop is the rule. Everything else is as in the archived v2.2 |
+| `v2.2` | `archive/docs/rules/rules-v2.2.md` | archived: v2.1 with a ruby step after the shop (switched by the field `ruby_step`); its black chip gave 3 rubies to the larger count |
+| `v2.1` | `archive/docs/rules/rules-v2.1.md` | archived: the ruby spends were in the shop. It added the point board, rat tails, the new bonus die, rubies as a currency, the flask, the field table and the round cards, which v2.3 keeps |
 
-Name one with `--rules v2.2` (CLI) or `rules="v2.2"` (code); v2.2 is what you get without naming a version, `--rules v2.1` plays v2.1. The older rulesets (v1 to v1.11 and v2), their rules documents and their saved data are history under `archive/`; any other name is an error.
+Name it with `--rules v2.3` (CLI) or `rules="v2.3"` (code); v2.3 is what you get without naming a version. The older rulesets (v1 to v1.11, v2, and the archived v2.1 and v2.2), their rules documents, golden records and saved data are history under `archive/`; any other name is an error. Game records of the archived v2.1 and v2.2 (record schema version 2) are not read any more: the reader reads schema version 3 only.
 
-### What v2.1 adds
+### What the rules have
 
-- **Rubies** are a currency. Every player starts with 1; a ruby field gives 1 in Resolve. In the shop (v2.1) or in the ruby step after the shop (v2.2), 2 rubies buy a droplet +1 (`ruby_drop`) as often as the player can pay.
-- **The flask**: once, after a white chip, a player who still brews may put that white chip back into the bag (`use_flask`). An empty flask is refilled for 2 rubies (`refill_flask`), in the shop (v2.1) or in the ruby step (v2.2).
+- **Rubies** are a currency. Every player starts with 1; a ruby field gives 1 in Resolve. In the ruby step after the shop, 2 rubies buy a droplet +1 (`ruby_drop`) as often as the player can pay.
+- **The flask**: once, after a white chip, a player who still brews may put that white chip back into the bag (`use_flask`). An empty flask is refilled for 2 rubies (`refill_flask`) in the ruby step.
 - **Round chip**: in round 6 both players get a white 1 chip.
-- **The 20 round cards**, one drawn per round without replacement (details and exact wording in `docs/rules/rules-v2.2.md`, section "Round cards"):
+- **The 20 round cards**, one drawn per round without replacement (details and exact wording in `docs/rules/rules-v2.3.md`, section "Round cards"):
 
 | Card | Effect |
 |---|---|
@@ -62,21 +63,21 @@ Requires [uv](https://docs.astral.sh/uv/).
     uv run quack-rl play --rounds 4               # a shorter game (default 9)
     uv run quack-rl play --p2 bot:draw20-pts1-points   # against a heuristic bot
 
-The game is played with ruleset `v2.2`, the default (`--rules v2.1` for v2.1).
+The game is played with ruleset `v2.3`, the only ruleset and the default.
 
 Keys: `d` draw, `s` stop, `0` done (shop and ruby step), `1`-`9` and letters buy. Your key is not shown. The menu lists the keys that are legal now:
 
 - `f` flask: the last white chip goes back to the bag (brew)
 - `u` card 17: the first white chip goes back to the bag (brew)
-- `k` ruby drop: rubies for droplet +1 (ruby step; shop in v2.1)
-- `l` refill the empty flask for rubies (ruby step; shop in v2.1)
+- `k` ruby drop: rubies for droplet +1 (ruby step)
+- `l` refill the empty flask for rubies (ruby step)
 - `1`, `2`, ... answer a card question (cards 5, 8, 10, 11, 12, 14, 19)
 
 Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
 
 ## Web service
 
-A local HTTP JSON service for the browser frontend (ruleset `v2.2`, games in memory; the view's `game.phase` is `ruby` in the ruby step). It binds to `127.0.0.1` by default:
+A local HTTP JSON service for the browser frontend (ruleset `v2.3`, games in memory; the view's `game.phase` is `ruby` in the ruby step). It binds to `127.0.0.1` by default:
 
     uv run --group web quack-rl serve              # port 8000; --port to change
 
@@ -112,20 +113,20 @@ Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the train
 
     from quack_rl.rl import QuackEnv, QuackParallelEnv
 
-    env = QuackEnv(seat="p1", opponent=None, rules="v2.2")   # Gymnasium, one seat against a bot
+    env = QuackEnv(seat="p1", opponent=None, rules="v2.3")   # Gymnasium, one seat against a bot
     obs, info = env.reset(seed=0)
     obs, reward, terminated, truncated, info = env.step(int(info["action_mask"].argmax()))
 
-    penv = QuackParallelEnv(rules="v2.2")                    # PettingZoo, both seats act
+    penv = QuackParallelEnv(rules="v2.3")                    # PettingZoo, both seats act
     obs, infos = penv.reset(seed=0)                          # obs[seat]["observation"], ["action_mask"]
 
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).
-- Observation: a flat `float32` vector of the agent's view, called observation layout 8 (`BOARD_LAYOUT = 8` in `quack_rl.rl`). No hidden information: the draw order of the bag, the opponent's hand and the opponent's pending choice never appear; both bags and the placed chips are public. The entry names, in order, are `vector_names(rs)` (1529 entries for v2.1 and v2.2); the layout depends only on the ruleset and the window size `K`. The groups, in order:
+- Observation: a flat `float32` vector of the agent's view, called observation layout 9 (`BOARD_LAYOUT = 9` in `quack_rl.rl`; layout 8 with the droplet in whole steps). No hidden information: the draw order of the bag, the opponent's hand and the opponent's pending choice never appear; both bags and the placed chips are public. The entry names, in order, are `vector_names(rs)` (1529 entries for v2.3); the layout depends only on the ruleset and the window size `K`. The groups, in order:
   - shared: `round`, `rounds` (total number of rounds), `explosion_limit`, phase (one-hot; the card phases and `phase.ruby` are in it, for every ruleset)
-  - own seat, then the opponent: status (one-hot), chip colours bought this round, `money`, `rubies`, `flask_full`, `white_total`, `points`, `droplet_halves`, `purchases`, `chip_purchases`, `shop_done`, and per chip id `bag.remaining.<id>` (still in the bag) and `bag.owned.<id>` (bag plus placed chips)
+  - own seat, then the opponent: status (one-hot), chip colours bought this round, `money`, `rubies`, `flask_full`, `white_total`, `points`, `droplet` (whole steps), `purchases`, `chip_purchases`, `shop_done`, and per chip id `bag.remaining.<id>` (still in the bag) and `bag.owned.<id>` (bag plus placed chips)
   - the derived features (below), including the gaps `field_gap` and `points_gap`
   - `own.hand.<i>.*` and `own.hand_size` (the blue chip hand, own seat only), `shop.<item>.min_round` and `shop.<item>.open`
-  - the card block: `card.<kind>` (the card of the round, one entry per card kind), `deck.<kind>` (cards left), `restart.available`, `own.round_end_halves` and `opponent.round_end_halves` (the resolved round-end drops)
+  - the card block: `card.<kind>` (the card of the round, one entry per card kind), `deck.<kind>` (cards left), `restart.available`
   - the board block: per seat `<who>.board.marker.<k>` (one-hot, `k` in 0..50), `<who>.board.has_50pts` and `<who>.rat_tail`, then `board.tail.<f>` (1 when a rat tail lies after field `f`). All of it is open information
   - the look-ahead window: for `k` in 0..`K` (default `K = 10`) the field `scoring field + k` as `ahead.<k>.money`, `ahead.<k>.points`, `ahead.<k>.ruby`. `k = 0` is what the seat gets if it stops now. Past the last field the window repeats the last field. There is no table of all fields: the field values are constants of the ruleset
   - the map as the last block: one row per field `0..track_end` and `map_channels(rs)` channels (20): for `own` and for `opponent` one flag per colour, `value` and `order` of the chip that lies on the field (all zero without a chip; `order` is 1 for the first chip of the round; if several chips land on the last field the later one fills it). Reshape it with `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`
@@ -133,11 +134,11 @@ Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the train
   - Rule of thumb: generic rules (fields, the money table, rubies, the explosion limit, the die, points) are derived; specific rules (what one colour or chip does, the round-end ruby bonus, the buy options) are not. The model learns those from the map and the Shop mask.
   - `money` is the budget in the Shop phase and the value of the last Resolve otherwise. Values are raw, not scaled.
   - `observation_bounds(rs)` gives `(low, high)`: finite for flags, fields and ruleset constants, `inf` where there is no real bound (points, money, bag counts); both envs use it in their observation space.
-- Actions: `Discrete(n)` (88 for v2.1 and v2.2), the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
+- Actions: `Discrete(n)` (88 for v2.3), the names are `action_names(rs)` from `quack_rl.engine`. The mask is 1 for legal actions.
 
 ## Training
 
-The training stack is in the repo again, on ruleset v2.2 (the default) and observation layout 8: `PolicyBot` (`quack_rl.rl.policy_bot`, a trained model as a bot), the trainers (`quack_rl.rl.train`, `selfplay`, `offline`), the dataset builder (`dataset`) and the evaluator (`evaluate`). The scripts in `scripts/` call them. What is not ported is listed in `archive/README.md`. How to run them and what they showed: "Testing the RL environment" below.
+The training stack is in the repo again, on ruleset v2.3 (the default) and observation layout 9: `PolicyBot` (`quack_rl.rl.policy_bot`, a trained model as a bot), the trainers (`quack_rl.rl.train`, `selfplay`, `offline`), the dataset builder (`dataset`) and the evaluator (`evaluate`). The scripts in `scripts/` call them. What is not ported is listed in `archive/README.md`. How to run them and what they showed: "Testing the RL environment" below.
 
 ## Testing the RL environment
 
@@ -226,4 +227,4 @@ Load it:
 
 ### Notebooks
 
-There are no notebooks now. The old marimo notebooks are in `archive/notebooks/` and are not maintained. New notebooks come with ruleset v2.1.
+There are no notebooks now. The old marimo notebooks are in `archive/notebooks/` and are not maintained. New notebooks come with ruleset v2.3.

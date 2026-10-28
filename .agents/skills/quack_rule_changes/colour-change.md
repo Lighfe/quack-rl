@@ -12,7 +12,7 @@ Find your case first. A colour can be more than one.
 
 The colour only needs a component that already exists, or a new component class that uses the hooks that exist. The ruleset names a spellbook, the spellbook maps each colour to a component, and the engine asks the component.
 
-- A round-end effect that needs the whole pot or the other player's pot is a new hook, not `round_end_rubies` (which sees one chip and its position). `pot_round_end(pot, other_pot)` returns points and droplet half steps; `puts_back_previous(chip, previous)` is the placement hook of yellow. Both default to "nothing", so older components stay unchanged.
+- A round-end effect that needs the whole pot or the other player's pot is a new hook, not `round_end_rubies` (which sees one chip and its position). `pot_round_end(pot, other_pot)` returns points, droplet steps (whole steps) and rubies; `puts_back_previous(chip, previous)` is the placement hook of yellow. Both default to "nothing", so older components stay unchanged.
 - Touches: Rules (the ruleset file with the chips, the shop and the start bag; the spellbook with one entry per colour; the exports when a name is public), Components (one class per effect, registered under a name with a version suffix), and the rules document.
 - Engine, record, bots, CLI and RL need no code when the component only uses existing hooks. They still need tests on the new colour.
 - White and orange are fixed in every spellbook. A new colour needs an entry in every spellbook that a ruleset can name, or a new spellbook. An existing spellbook may get an entry for a colour that no ruleset uses yet. Never change an existing entry. A test that lists the colours of a spellbook is then updated on purpose (see `tests/test_spellbook.py`).
@@ -81,12 +81,12 @@ Work through these five steps in order. Each step needs the one before it.
 
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape for the new colour.
 
-- Ruleset: the ruleset test of the version (`tests/test_ruleset_v2_1.py`), the spellbook tests in `tests/test_spellbook.py`.
+- Ruleset: the ruleset test of the version (`tests/test_ruleset_v2_3.py`), the spellbook tests in `tests/test_spellbook.py`.
 - Effect on the pot (case B): `test_only_blue_has_a_place_bonus` in `tests/test_components.py`, `test_pick_red_beats_orange_with_three_orange_in_the_pot` in `tests/test_bots.py`.
 - Hand and pick step (case C): `tests/test_brew.py`, `test_pick_plays_the_highest_advance`, `test_random_bot_answers_all_three_kinds_at_the_pick_step`, `test_view_of_the_other_seat_has_no_hand_and_no_pending_choice`.
-- CLI: `tests/test_cli_v2_1.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_keys_map_to_legal_actions`, `test_own_hand_is_shown_and_the_other_hand_is_not`.
-- RL: `tests/test_rl_layout8.py`, `tests/test_golden_v2_1.py` (the stored layout 8 sample) and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
-- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2.2`).
+- CLI: `tests/test_cli_v2_3.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_keys_map_to_legal_actions`, `test_own_hand_is_shown_and_the_other_hand_is_not`.
+- RL: `tests/test_rl_layout9.py`, `tests/test_golden_v2_3.py` (the stored layout 9 sample) and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
+- Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2.3`).
 
 Edge cases to try for any new colour:
 
