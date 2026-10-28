@@ -51,10 +51,14 @@ RS = with_rounds(load_ruleset("v2.3"), 9).model_copy(
 
 
 class KeepRubiesBot(HeuristicBot):
-    """The `points` bot that never spends rubies: the shop is empty, so it only says done."""
+    """The `points` bot that never spends rubies: the shop is empty, so it only says done, and
+    in the ruby step after the shop it says done too."""
 
     def _shop(self, state, seat, legal):
         return DONE
+
+    def _ruby(self, state, seat, legal):
+        return None  # `choose` answers done in the ruby step
 
 
 CHUNK = 125  # games per task, so the pool (at most 4 workers) keeps its workers busy
