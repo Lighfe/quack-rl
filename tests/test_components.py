@@ -4,7 +4,7 @@ from quack_rl.components import Component, UnknownComponent, get_component, regi
 from quack_rl.components import registry as _registry
 from quack_rl.rules import load_ruleset
 
-rs = load_ruleset("v2.1")
+rs = load_ruleset("v2.3")
 
 
 def comp(chip_id):

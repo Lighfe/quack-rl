@@ -27,7 +27,7 @@ from quack_rl.rl import (
 )
 from quack_rl.rules import apply_overrides, load_ruleset, with_rounds
 
-VERSIONS = ["v2.1", "v2.2"]
+VERSIONS = ["v2.3", "v2.3"]
 
 
 def brew_game(rs):
@@ -77,7 +77,7 @@ def test_vector_layout_depends_only_on_ruleset(version):
 
 
 def test_layout_differs_between_rulesets_only_by_ruleset():
-    assert vector_names(load_ruleset("v2.1")) == vector_names(load_ruleset("v2.1"))
+    assert vector_names(load_ruleset("v2.3")) == vector_names(load_ruleset("v2.3"))
 
 
 @pytest.mark.parametrize("version", VERSIONS)
@@ -95,11 +95,11 @@ def test_observation_is_mirrored_between_seats(version):
 
 
 def test_observation_content():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     state = new_game(rs)
     obs = observe(state, rs, "p1")
     assert obs["round"] == 1
-    assert obs["phase"] == "card"  # v2.1 opens with the card step
+    assert obs["phase"] == "card"  # v2.3 opens with the card step
     state = brew_game(rs)
     obs = observe(state, rs, "p1")
     assert obs["phase"] == "brew"
@@ -112,7 +112,7 @@ def test_observation_content():
         "flask_full",
         "points",
         "status",
-        "droplet_halves",
+        "droplet",
         "purchases",
         "chip_colours",
     }
@@ -139,7 +139,7 @@ def test_no_hidden_information(version):
 
 
 def test_reward_win_loss_draw():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     state = new_game(rs)
     state.players["p1"].points = 10
     state.players["p2"].points = 4
@@ -182,7 +182,7 @@ def _place_events(rs, seed):
 def test_names_unique_and_layout_version(version):
     rs = load_ruleset(version)
     names = vector_names(rs)
-    assert observation_layout(rs) == 8
+    assert observation_layout(rs) == 9
     assert len(set(names)) == len(names)
     assert names == vector_names(load_ruleset(version))
     sl = map_slice(rs)
@@ -211,7 +211,7 @@ def test_map_matches_place_events(version):
                     for order, e in enumerate(events[s], start=1):
                         expected[who][e["to"]] = (rs.chip(e["chip"]), order)
                 for f in range(rs.track_end + 1):
-                    # layout 8: the cells of both seats, no field table
+                    # layout 9: the cells of both seats, no field table
                     for k, who in enumerate(("own", "opponent")):
                         cell = grid[f, k * (len(colours) + 2) :][: len(colours) + 2]
                         if f in expected[who]:
@@ -223,7 +223,7 @@ def test_map_matches_place_events(version):
 
 
 def test_two_chips_on_track_end_later_chip_fills_the_slot():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     state = brew_game(rs)
     state.players["p1"].field = 52
     for chip in ("white_2", "white_1"):
@@ -252,7 +252,7 @@ def test_bags_of_both_seats(version):
 
 
 def test_rule_scalars_follow_the_ruleset():
-    base = load_ruleset("v2.1")
+    base = load_ruleset("v2.3")
     variants = [
         base,
         apply_overrides(base, {"explosion_limit": 5}),
@@ -272,7 +272,7 @@ def test_removed_entries_and_kept_entries(version):
     for who in ("own", "opponent"):
         assert not [n for n in names if n.startswith(f"{who}.placed.")]
         assert f"{who}.field" not in names
-        for k in ("points", "droplet_halves", "white_total", "rubies", "flask_full", "money"):
+        for k in ("points", "droplet", "white_total", "rubies", "flask_full", "money"):
             assert f"{who}.{k}" in names
         assert f"{who}.status.exploded" in names
     assert "round" in names and "phase.brew" in names
@@ -285,7 +285,7 @@ def test_vector_lies_inside_the_bounds(version):
     assert low.dtype == high.dtype == np.float32
     assert low.shape == high.shape == (len(vector_names(rs)),)
     names = vector_names(rs)
-    assert high[names.index("own.points")] == 100  # v2.1 caps the points at 100
+    assert high[names.index("own.points")] == 100  # v2.3 caps the points at 100
     assert high[names.index("own.status.exploded")] == 1
     assert np.isfinite(high[names.index("own.flask_full")])
     assert np.isfinite(high[names.index("ahead.10.money")])
@@ -336,5 +336,5 @@ def test_derived_entries_come_before_the_map_block(version):
     names = vector_names(rs)
     first = names.index(derived_names()[0])
     assert names[first : first + len(derived_names())] == derived_names()
-    # v2.1: the card, shop and board blocks follow the derived entries, then the map block
+    # v2.3: the card, shop and board blocks follow the derived entries, then the map block
     assert first + len(derived_names()) <= map_slice(rs).start

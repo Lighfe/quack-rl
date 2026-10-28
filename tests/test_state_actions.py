@@ -21,12 +21,12 @@ from quack_rl.engine import (
 
 def test_new_game_setup():
     s = new_game(RS)
-    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v2.1", 1, Phase.CARD, 0, None)
+    assert (s.rules_version, s.round, s.phase, s.step, s.winner) == ("v2.3", 1, Phase.CARD, 0, None)
     assert set(s.players) == {"p1", "p2"}
     for p in s.players.values():
         assert p.bag == RS.start_bag
         assert p.bag is not RS.start_bag
-        assert (p.field, p.droplet_halves, p.points, p.white_total) == (0, 0, 0, 0)
+        assert (p.field, p.droplet, p.points, p.white_total) == (0, 0, 0, 0)
         assert (p.money, p.purchases, p.shop_done, p.final_field) == (0, 0, False, None)
         assert p.placed == []
         assert p.status is Status.BREWING
@@ -42,7 +42,7 @@ def test_start_bags_are_separate_copies():
     assert RS.start_bag == start
 
 
-def test_action_names_v2_1():
+def test_action_names_v2_3():
     names = action_names(RS)
     assert names[:6] == [WAIT, DRAW, STOP, DONE, "take_money", "take_points"]
     assert names[6:8] == [buy("orange_1"), buy("orange_6")]

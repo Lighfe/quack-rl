@@ -12,14 +12,14 @@ from quack_rl.rules import (
     unregister_spellbook,
 )
 
-V2 = load_ruleset("v2.1")
+V2 = load_ruleset("v2.3")
 BOOK = "test_book"
 # blue gets the orange component here (no placement bonus), so the engine must differ from v2.
 COMPONENTS = {**get_spellbook(V2.spellbook), "blue": "orange@1"}
 
 
 def _data(spellbook=None):
-    """The v2.1 data with another spellbook; the default is the spellbook of v2.1 itself."""
+    """The v2.3 data with another spellbook; the default is the spellbook of v2.3 itself."""
     data = V2.model_dump()
     if spellbook is not None:
         data["spellbook"] = spellbook
@@ -40,7 +40,7 @@ def book():
         unregister_spellbook(BOOK)
 
 
-def test_v2_1_names_a_spellbook_that_gives_each_colour_its_component():
+def test_v2_3_names_a_spellbook_that_gives_each_colour_its_component():
     assert V2.spellbook == 1
     assert all(V2.component_name(c) == get_spellbook(1)[c.colour] for c in V2.chips)
 
@@ -148,7 +148,7 @@ GREEN_BLUE_BOOK = "test_green_blue"
 
 @pytest.fixture
 def green_blue_book():
-    # blue gets the green component (droplet halves for the last two placed chips)
+    # blue gets the green component (a ruby for each of the last two placed chips)
     register_spellbook(GREEN_BLUE_BOOK, {**COMPONENTS, "blue": "green@1"})
     try:
         yield GREEN_BLUE_BOOK
@@ -160,7 +160,7 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
     from quack_rl.engine.resolve import apply_resolve
     from quack_rl.engine.state import Status
 
-    def halves(rs):
+    def green_bonuses(rs):
         state = new_game(rs)
         for p in state.players.values():
             p.placed = ["blue_4", "blue_2"]
@@ -170,5 +170,5 @@ def test_resolve_reads_component_through_spellbook(green_blue_book):
         apply_resolve(state, rs, ScriptedChance([]), events)
         return [e for e in events if e["kind"] == "round_end_bonus"]
 
-    assert halves(Ruleset.model_validate(_data())) == []
-    assert len(halves(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats
+    assert green_bonuses(Ruleset.model_validate(_data())) == []
+    assert len(green_bonuses(Ruleset.model_validate(_data(green_blue_book)))) == 4  # 2 chips x 2 seats

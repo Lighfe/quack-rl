@@ -16,12 +16,12 @@ from quack_rl.cli.main import app
 from quack_rl.engine import DONE, DRAW, STOP, Phase, ScriptedChance, new_game, step
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 runner = CliRunner()
 
 
 def brew_state(bag, white_total, placed=("white_1",)):
-    # v2.1 opens with the card step; a card without effect leads to the first brew step
+    # v2.3 opens with the card step; a card without effect leads to the first brew step
     state = step(new_game(RS), RS, None, ScriptedChance(["card_16"])).state
     p = state.players["p1"]
     p.bag = dict(bag)
@@ -151,7 +151,7 @@ def test_parse_bot_name():
 def sim(out, p1, p2, seed="4", games="4"):
     return runner.invoke(
         app,
-        ["simulate", "--rules", "v2.1", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
+        ["simulate", "--rules", "v2.3", "--p1", p1, "--p2", p2, "--games", games, "--seed", seed, "--out", str(out)],
     )
 
 
@@ -383,7 +383,7 @@ def test_strategy_games_verify(tmp_path, strategy):
 
 # --- v1.1 chip rule (max_chip_purchases) --------------------------------------
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 
 
 def shop_state11(money, rnd, rs=RS):
@@ -391,7 +391,7 @@ def shop_state11(money, rnd, rs=RS):
     state.phase = Phase.SHOP
     state.round = rnd
     state.players["p1"].money = money
-    state.players["p2"].rubies = rs.ruby_cost  # p2 keeps a ruby drop, so p2's shop stays open
+    state.players["p2"].money = 40  # p2 can still buy a chip, so p2's shop stays open
     return state
 
 
@@ -468,7 +468,7 @@ def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
 
 # --- v1 games unchanged (golden results.csv) ----------------------------------
 
-GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v2_1_bots_results.csv"
+GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v2_3_bots_results.csv"
 GOLDEN_V1_BOTS = (
     "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
     "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
@@ -486,7 +486,7 @@ def test_v1_tournament_matches_the_golden_results_csv(tmp_path):
             "--bots",
             GOLDEN_V1_BOTS,
             "--rules",
-            "v2.1",
+            "v2.3",
             "--games",
             "10",
             "--seed",
@@ -521,7 +521,7 @@ from quack_rl.engine import (  # noqa: E402
 )
 from quack_rl.runner import play_game  # noqa: E402
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 
 
 def choice_state(rnd):
@@ -613,7 +613,7 @@ def test_random_bot_plays_many_seeded_v18_games():
 
 # --- v1.9: the pick step --------------------------------------------------------------------
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 PICK_LEGAL = ["play:0", "play:1", "put_back_draw", "put_back_stop"]
 
 
@@ -709,7 +709,7 @@ def test_v1_9_full_games_reach_the_end_with_legal_actions(p1, p2, tmp_path):
         path = tmp_path / f"{seed}.jsonl"
         with path.open("w", encoding="utf-8") as f:
             final, _, _ = play_sim_game(
-                RS, rules="v2.1", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=f
+                RS, rules="v2.3", rounds=9, overrides={}, p1=p1, p2=p2, game_seed=seed, stream=f
             )
         assert final.winner is not None  # an illegal action would have raised
         (game,) = read_games(path)
@@ -726,7 +726,7 @@ def test_v1_9_tournament_runs_all_pairs(tmp_path):
         [
             "tournament",
             "--rules",
-            "v2.1",
+            "v2.3",
             "--games",
             "4",
             "--seed",

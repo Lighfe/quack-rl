@@ -1,4 +1,4 @@
-"""Cards 11 and 20 of v2.1 (issue #187): the cards that draw chips from the bag at the card step."""
+"""Cards 11 and 20 of v2.3 (issue #187): the cards that draw chips from the bag at the card step."""
 
 import io
 import random
@@ -148,7 +148,7 @@ def test_card_11_the_draw_is_visible_to_the_choosing_player_only():
     a = _state_with_opponent_draw(["white_1"] * 4)
     b = _state_with_opponent_draw(["white_1", "white_1", "white_2", "white_3"])
     assert a.players["p2"].card_draw != b.players["p2"].card_draw
-    # the observation of p1 (layout 8) and its text render are equal
+    # the observation of p1 (layout 9) and its text render are equal
     va = vectorize(observe(a, RS, "p1"), RS)
     vb = vectorize(observe(b, RS, "p1"), RS)
     assert (va == vb).all()

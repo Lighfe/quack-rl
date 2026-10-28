@@ -3,7 +3,7 @@ import pytest
 from quack_rl.engine import board_position, has_50pts, calculate_rat_tails, tails_between
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 
 
 @pytest.mark.parametrize(

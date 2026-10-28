@@ -1,4 +1,4 @@
-"""Cards 8, 12, 14 and 19 of v2.1 (issue #186): the cards with a player decision at the card step."""
+"""Cards 8, 12, 14 and 19 of v2.3 (issue #186): the cards with a player decision at the card step."""
 
 import pytest
 from helpers import RS, auto  # noqa: F401

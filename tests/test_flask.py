@@ -95,17 +95,27 @@ def _shop(rubies, full):
     return s
 
 
-def test_refill_is_offered_only_with_an_empty_flask_and_two_rubies():
-    assert REFILL_FLASK not in legal_actions(_shop(5, True), RS, "p1")
-    assert REFILL_FLASK not in legal_actions(_shop(1, False), RS, "p1")
-    assert REFILL_FLASK in legal_actions(_shop(2, False), RS, "p1")
-    s = _shop(2, False)
-    s.players["p1"].shop_done = True
+def _ruby(rubies, full):
+    """The ruby step after the shop: both shops are closed."""
+    s = _shop(rubies, full)
+    s.phase = Phase.RUBY
+    for p in s.players.values():
+        p.shop_done = True
+    return s
+
+
+def test_refill_is_offered_only_in_the_ruby_step_with_an_empty_flask_and_two_rubies():
+    assert REFILL_FLASK not in legal_actions(_shop(5, False), RS, "p1")  # not in the shop
+    assert REFILL_FLASK not in legal_actions(_ruby(5, True), RS, "p1")
+    assert REFILL_FLASK not in legal_actions(_ruby(1, False), RS, "p1")
+    assert REFILL_FLASK in legal_actions(_ruby(2, False), RS, "p1")
+    s = _ruby(2, False)
+    s.players["p1"].ruby_done = True
     assert legal_actions(s, RS, "p1") == [WAIT]
 
 
 def test_refill_costs_two_rubies_and_fills_the_flask():
-    r = play(_shop(3, False), REFILL_FLASK, DONE)
+    r = play(_ruby(3, False), REFILL_FLASK, DONE)
     p = r.state.players["p1"]
     assert (p.rubies, p.flask_full) == (1, True)
     assert {"seat": "p1", "kind": "refill_flask", "rubies": 2, "total": 1} in r.events

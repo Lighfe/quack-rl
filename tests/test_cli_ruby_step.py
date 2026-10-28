@@ -1,4 +1,4 @@
-"""Human CLI under ruleset v2.2: the ruby step menu."""
+"""Human CLI under ruleset v2.3: the ruby step menu."""
 
 import io
 import re
@@ -13,7 +13,7 @@ from quack_rl.engine import DONE, REFILL_FLASK, RUBY_DROP, Phase, legal_actions,
 from quack_rl.record import read_games, verify_game
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.2")
+RS = load_ruleset("v2.3")
 runner = CliRunner()
 
 
@@ -50,7 +50,7 @@ def test_ruby_step_menu_without_refill_when_the_flask_is_full():
     assert action == DONE and "[l]" not in out
 
 
-def test_cli_play_v2_2_full_game_through_the_ruby_step(tmp_path, monkeypatch):
+def test_cli_play_v2_3_full_game_through_the_ruby_step(tmp_path, monkeypatch):
     last = {}
     phases = []
     original = HumanSeat.choose
@@ -80,12 +80,12 @@ def test_cli_play_v2_2_full_game_through_the_ruby_step(tmp_path, monkeypatch):
 
     monkeypatch.setattr(human, "default_read_key", read)
     result = runner.invoke(
-        app, ["play", "--rules", "v2.2", "--seed", "2", "--out", str(tmp_path), "--p2", "bot:random"]
+        app, ["play", "--rules", "v2.3", "--seed", "2", "--out", str(tmp_path), "--p2", "bot:random"]
     )
     out = result.output
     assert result.exit_code == 0, out
     assert "Traceback" not in out and re.search(r"^winner: ", out, re.M)
     assert Phase.RUBY in phases
-    (path,) = (tmp_path / "v2.2" / "play").glob("*.jsonl")
+    (path,) = (tmp_path / "v2.3" / "play").glob("*.jsonl")
     (game,) = read_games(path)
     assert verify_game(game) == []

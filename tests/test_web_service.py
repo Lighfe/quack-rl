@@ -382,7 +382,7 @@ def colour_chips(v, colour):
 def test_view_ingredients_round_1(client):
     gid = create(client, "human", "human", seed=HUMAN_SEED)
     v = view(client, gid)
-    assert session_of(client, gid).rs.version == "v2.2"
+    assert session_of(client, gid).rs.version == "v2.3"
     assert v["game"]["round"] == 1
     for colour in ("yellow", "purple"):
         chips = colour_chips(v, colour)

@@ -10,19 +10,19 @@ from quack_rl.cli.main import app
 from quack_rl.record import read_games
 
 runner = CliRunner()
-GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_1_random_seed7.jsonl"
-GOLDEN_ID = "golden-v2.1-seed7"
+GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_3_random_seed7.jsonl"
+GOLDEN_ID = "golden-v2.3-seed7"
 TRACEBACK = "Traceback (most recent call last)"
 
 
 def sim(out: Path, *extra: str, games: str = "5", seed: str = "3"):
     return runner.invoke(
-        app, ["simulate", "--rules", "v2.1", "--games", games, "--seed", seed, "--out", str(out), *extra]
+        app, ["simulate", "--rules", "v2.3", "--games", games, "--seed", seed, "--out", str(out), *extra]
     )
 
 
 def run_dirs(out: Path) -> list[Path]:
-    return sorted(p for p in (out / "v2.1" / "sim").glob("*") if p.is_dir())
+    return sorted(p for p in (out / "v2.3" / "sim").glob("*") if p.is_dir())
 
 
 def shards(out: Path) -> list[Path]:
@@ -262,7 +262,7 @@ def test_replay_prints_golden_record():
     assert result.exit_code == 0, result.output
     out = result.output.splitlines()
     (game,) = list(read_games(GOLDEN))
-    assert out[0] == f"game {GOLDEN_ID} (rules v2.1)"
+    assert out[0] == f"game {GOLDEN_ID} (rules v2.3)"
     step_lines = out[1:-1]
     assert len(step_lines) == len(game.steps)
     for text, step in zip(step_lines, game.steps, strict=True):
@@ -283,7 +283,7 @@ def test_replay_filters_by_game_id(tmp_path):
     result = runner.invoke(app, ["replay", str(shard), "--game", wanted.header.game_id])
     assert result.exit_code == 0, result.output
     headers = [ln for ln in result.output.splitlines() if ln.startswith("game ")]
-    assert headers == [f"game {wanted.header.game_id} (rules v2.1)"]
+    assert headers == [f"game {wanted.header.game_id} (rules v2.3)"]
     assert sum(ln.startswith("step ") for ln in result.output.splitlines()) == len(wanted.steps)
 
 
@@ -300,6 +300,6 @@ def test_replay_incomplete_game_prints_steps_without_winner(tmp_path):
     result = runner.invoke(app, ["replay", str(bad)])
     assert result.exit_code == 0, result.output
     out = result.output.splitlines()
-    assert out[0] == f"game {GOLDEN_ID} (rules v2.1)"
+    assert out[0] == f"game {GOLDEN_ID} (rules v2.3)"
     assert sum(ln.startswith("step ") for ln in out) == 19
     assert not any(ln.startswith("winner") for ln in out)

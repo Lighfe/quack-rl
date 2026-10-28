@@ -1,4 +1,4 @@
-"""Observation layout 8 (rules v2.1): look-ahead window, gaps, no field table, bounds."""
+"""Observation layout 9 (rules v2.3): look-ahead window, gaps, no field table, bounds."""
 
 import copy
 import random
@@ -22,7 +22,7 @@ from quack_rl.rl import (
 from quack_rl.rl.encode import BOARD_LAYOUT
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 SEATS = ("p1", "p2")
 
 # vector_names(RS) without the map block, which is last
@@ -33,7 +33,7 @@ PREFIX = [
     "own.chip_colours.orange", "own.chip_colours.green", "own.chip_colours.blue",
     "own.chip_colours.red", "own.chip_colours.black", "own.chip_colours.yellow",
     "own.chip_colours.purple", "own.money", "own.rubies", "own.flask_full", "own.white_total",
-    "own.points", "own.droplet_halves", "own.purchases", "own.chip_purchases", "own.shop_done",
+    "own.points", "own.droplet", "own.purchases", "own.chip_purchases", "own.shop_done",
     "own.bag.remaining.white_1", "own.bag.remaining.white_2", "own.bag.remaining.white_3",
     "own.bag.remaining.orange_1", "own.bag.remaining.orange_6", "own.bag.remaining.green_1",
     "own.bag.remaining.green_2", "own.bag.remaining.green_4", "own.bag.remaining.blue_1",
@@ -51,7 +51,7 @@ PREFIX = [
     "opponent.chip_colours.orange", "opponent.chip_colours.green", "opponent.chip_colours.blue",
     "opponent.chip_colours.red", "opponent.chip_colours.black", "opponent.chip_colours.yellow",
     "opponent.chip_colours.purple", "opponent.money", "opponent.rubies", "opponent.flask_full",
-    "opponent.white_total", "opponent.points", "opponent.droplet_halves", "opponent.purchases",
+    "opponent.white_total", "opponent.points", "opponent.droplet", "opponent.purchases",
     "opponent.chip_purchases", "opponent.shop_done", "opponent.bag.remaining.white_1",
     "opponent.bag.remaining.white_2", "opponent.bag.remaining.white_3",
     "opponent.bag.remaining.orange_1", "opponent.bag.remaining.orange_6",
@@ -182,7 +182,7 @@ def states(seed):
 
 
 def test_layout_number_and_pinned_names():
-    assert BOARD_LAYOUT == observation_layout(RS) == 8
+    assert BOARD_LAYOUT == observation_layout(RS) == 9
     names = vector_names(RS)
     sl = map_slice(RS)
     assert names[: sl.start] == PREFIX
@@ -203,7 +203,7 @@ def test_no_static_field_table():
     assert not [n for n in names if n.startswith("map.") and n.endswith(("money", "points", "ruby"))]
     assert not [n for n in names if "ruby_fields" in n]
     for who in ("own", "opponent"):
-        for k in ("money", "points", "rubies", "flask_full", "droplet_halves", "white_total"):
+        for k in ("money", "points", "rubies", "flask_full", "droplet", "white_total"):
             assert f"{who}.{k}" in names
     assert "explosion_limit" in names and "own.board.marker.0" in names
 

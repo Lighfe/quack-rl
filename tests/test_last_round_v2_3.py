@@ -1,4 +1,4 @@
-"""Ruleset v2.1: the last round has no shop, and rubies become points at game end (issue #202)."""
+"""Ruleset v2.3: the last round has no shop, and rubies become points at game end (issue #202)."""
 
 from quack_rl.bots.heuristic import HeuristicBot
 from quack_rl.engine import (
@@ -15,12 +15,12 @@ from quack_rl.engine.shop import end_game
 from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 SHOP_EVENTS = {"buy", "ruby_drop", "refill_flask", "done"}
 NO_RUBY_LANDING = 2  # scoring field 3: no ruby field
 
 
-def test_v2_1_sets_the_ruby_divisor_to_2():
+def test_v2_3_sets_the_ruby_divisor_to_2():
     assert RS.last_round_ruby_divisor == 2
 
 

@@ -1,4 +1,4 @@
-"""Cards 10 and 17 of v2.1 (issue #188): the cards that act in the brew."""
+"""Cards 10 and 17 of v2.3 (issue #188): the cards that act in the brew."""
 
 import random
 

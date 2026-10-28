@@ -1,4 +1,4 @@
-"""Round chips (v2.1): a chip every player gets into the bag at the card step of a round."""
+"""Round chips (v2.3): a chip every player gets into the bag at the card step of a round."""
 
 import pytest
 from pydantic import ValidationError
@@ -10,7 +10,7 @@ from quack_rl.engine.chance import ChanceLog
 from quack_rl.rules import Ruleset, load_ruleset, with_rounds
 from quack_rl.runner import play_game
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 
 
 def card_step(round_no, card="card_16", rs=RS, state=None):

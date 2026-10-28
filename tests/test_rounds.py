@@ -9,8 +9,8 @@ from quack_rl.cli.main import app
 from quack_rl.record import read_games
 
 runner = CliRunner()
-GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_1_random_seed7.jsonl"
-GOLDEN_ID = "golden-v2.1-seed7"
+GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "v2_3_random_seed7.jsonl"
+GOLDEN_ID = "golden-v2.3-seed7"
 TRACEBACK = "Traceback (most recent call last)"
 
 

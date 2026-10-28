@@ -29,7 +29,7 @@ def test_train_save_load_evaluate(tmp_path):
     assert data["against_opponent"]["games"] == 4 and data["against_random"]["games"] == 4
     assert result.against_opponent.games == 4
 
-    bot = PolicyBot(MaskablePPO.load(str(tmp_path / "model.zip")), "v2.1")
+    bot = PolicyBot(MaskablePPO.load(str(tmp_path / "model.zip")), "v2.3")
     names = action_names(QuackEnv().rs)
     for i in range(4):  # the bot as the agent: no illegal action
         env = QuackEnv(seat="p1" if i % 2 == 0 else "p2", opponent=RandomBot(i))
@@ -64,7 +64,7 @@ def test_policy_bot_plays_a_seat_of_the_runner():
     from quack_rl.rules import load_ruleset
     from quack_rl.runner import play_game
 
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     env = QuackEnv(rules=rs)
     bot = PolicyBot(MaskablePPO("MlpPolicy", env, device="cpu", seed=0), rs)
     final = play_game(rs, {"p1": bot, "p2": RandomBot(1)}, RngChance(2))

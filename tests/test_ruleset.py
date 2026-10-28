@@ -16,11 +16,11 @@ from quack_rl.rules import (
     load_ruleset,
 )
 
-RULES_DOC = Path(__file__).resolve().parents[1] / "docs" / "rules" / "rules-v2.1.md"
+RULES_DOC = Path(__file__).resolve().parents[1] / "docs" / "rules" / "rules-v2.3.md"
 
 
 def doc_money(field: int) -> int:
-    # formula from docs/rules/rules-v2.1.md, section 1 "Track"
+    # formula from docs/rules/rules-v2.3.md, section 1 "Track"
     if field <= 14:
         return field
     if field <= 52:
@@ -29,7 +29,7 @@ def doc_money(field: int) -> int:
 
 
 def test_supported_versions():
-    assert SUPPORTED_RULES_VERSIONS == ("v2.1", "v2.2")
+    assert SUPPORTED_RULES_VERSIONS == ("v2.3",)
 
 
 def test_old_version_refused():
@@ -37,10 +37,10 @@ def test_old_version_refused():
         load_ruleset("v1.11")  # old-version-ok
 
 
-def test_load_v2_1_returns_ruleset():
-    rs = load_ruleset("v2.1")
+def test_load_v2_3_returns_ruleset():
+    rs = load_ruleset("v2.3")
     assert isinstance(rs, Ruleset)
-    assert rs.version == "v2.1"
+    assert rs.version == "v2.3"
 
 
 def test_unsupported_version_is_value_error():
@@ -54,8 +54,8 @@ def test_unknown_version_is_refused(version: str):
 
 
 def test_core_numbers():
-    rs = load_ruleset("v2.1")
-    assert rs.version == "v2.1"
+    rs = load_ruleset("v2.3")
+    assert rs.version == "v2.3"
     assert rs.rounds == 9
     assert rs.explosion_limit == 7
     assert rs.max_chip_purchases == 2
@@ -63,14 +63,14 @@ def test_core_numbers():
 
 
 def test_money_track_matches_rules_doc():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert len(rs.fields) == 54
     assert [f.money for f in rs.fields] == [doc_money(f) for f in range(54)]
     assert rs.fields[53].money == 35
 
 
 def test_rubies_match_rules_doc():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     rubies = [n for n, f in enumerate(rs.fields) if f.ruby]
     assert rubies == [5, 9, 13, 16, 20, 24, 28, 30, 34, 36, 40, 42, 46, 50, 52]
     line = "Ruby fields: " + ", ".join(str(f) for f in rubies) + "."
@@ -85,7 +85,7 @@ POINT_RANGES = [
 
 
 def test_points_are_the_real_board_values():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     expected = [0] * 54
     for first, last, value in POINT_RANGES:
         for f in range(first, last + 1):
@@ -95,7 +95,7 @@ def test_points_are_the_real_board_values():
 
 
 def test_field_table_in_rules_doc_matches_the_toml():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     doc = RULES_DOC.read_text(encoding="utf-8")
     rows = re.findall(r"^\| (\d+) \| (\d+) \| (\d+) \| (yes|no) \|$", doc, flags=re.M)
     assert len(rows) == 54
@@ -104,19 +104,19 @@ def test_field_table_in_rules_doc_matches_the_toml():
 
 
 def test_toml_has_no_old_per_field_lists():
-    data = _v2_1_data()
+    data = _v2_3_data()
     assert not {"money", "points", "rubies"} & data.keys()
     assert len(data["fields"]) == 54
 
 
 def test_start_bag():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert rs.start_bag == {"white_1": 4, "white_2": 2, "white_3": 1, "orange_1": 1, "green_1": 1}
 
 
 def test_chips():
-    rs = load_ruleset("v2.1")
-    # v2.1 names a spellbook: it gives the component of each colour
+    rs = load_ruleset("v2.3")
+    # v2.3 names a spellbook: it gives the component of each colour
     assert rs.spellbook == 1
     assert [(c.id, c.colour, c.value) for c in rs.chips] == [
         ("white_1", "white", 1),
@@ -163,7 +163,7 @@ SHOP_LABELS = {
 
 
 def test_shop_items():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert [(i.id, i.price, i.kind) for i in rs.shop] == [
         ("orange_1", 3, "chip"),
         ("orange_6", 22, "chip"),
@@ -183,11 +183,11 @@ def test_shop_items():
         ("purple_1", 9, "chip"),
     ]
     for item in rs.shop:
-        assert item.kind == "chip" and item.chip == item.id  # v2.1 sells chips only
+        assert item.kind == "chip" and item.chip == item.id  # v2.3 sells chips only
 
 
 def test_shop_prices_match_rules_doc():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     doc = RULES_DOC.read_text(encoding="utf-8")
     assert [i.id for i in rs.shop] == list(SHOP_LABELS)
     for item in rs.shop:
@@ -196,12 +196,12 @@ def test_shop_prices_match_rules_doc():
 
 
 def test_die_faces():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert [f.id for f in rs.die] == ["orange_1", "droplet_1", "ruby_1", "point_1", "point_2"]
     faces = {f.id: f for f in rs.die}
     assert sum(f.weight for f in rs.die) == 6
     d1 = faces["droplet_1"]
-    assert (d1.kind, d1.halves, d1.weight) == ("droplet", 2, 1)
+    assert (d1.kind, d1.droplet, d1.weight) == ("droplet", 1, 1)  # whole steps
     r1 = faces["ruby_1"]
     assert (r1.kind, r1.rubies, r1.weight) == ("rubies", 1, 1)
     o1 = faces["orange_1"]
@@ -209,11 +209,11 @@ def test_die_faces():
     p1 = faces["point_1"]
     assert (p1.kind, p1.points, p1.weight) == ("points", 1, 2)
     p2 = faces["point_2"]
-    assert (p2.kind, p2.points, p2.weight) == ("points", 2, 1)  # no money face in v2.1
+    assert (p2.kind, p2.points, p2.weight) == ("points", 2, 1)  # no money face in v2.3
 
 
 def test_lookup_helpers():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert rs.chip("blue_2").value == 2
     assert rs.shop_item("orange_6").price == 22
     with pytest.raises(KeyError):
@@ -222,8 +222,8 @@ def test_lookup_helpers():
         rs.shop_item("purple_9")
 
 
-def _v2_1_data() -> dict[str, Any]:
-    text = resources.files("quack_rl.rules").joinpath("v2.1.toml").read_text(encoding="utf-8")
+def _v2_3_data() -> dict[str, Any]:
+    text = resources.files("quack_rl.rules").joinpath("v2.3.toml").read_text(encoding="utf-8")
     return tomllib.loads(text)
 
 
@@ -265,13 +265,13 @@ REFUSALS: dict[str, Callable[[dict[str, Any]], None]] = {
 }
 
 
-def test_unchanged_v2_1_data_validates():
-    Ruleset.model_validate(_v2_1_data())
+def test_unchanged_v2_3_data_validates():
+    Ruleset.model_validate(_v2_3_data())
 
 
 @pytest.mark.parametrize("change", list(REFUSALS.values()), ids=list(REFUSALS))
 def test_invalid_ruleset_is_refused(change: Callable[[dict[str, Any]], None]):
-    data = _v2_1_data()
+    data = _v2_3_data()
     change(data)
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
@@ -340,7 +340,7 @@ BOUNDARY_CASES: dict[
     "start_bag_count_0": (_bag("white_1", 0), _bag("white_1", 1)),
     "chip_value_0": (_chip("white_1", "value", 0), _chip("white_1", "value", 1)),
     "money_entry_minus_1": (_money_at(1, -1), _money_at(1, 0)),
-    "die_droplet_halves_0": (_die("droplet_1", "halves", 0), _die("droplet_1", "halves", 1)),
+    "die_droplet_0": (_die("droplet_1", "droplet", 0), _die("droplet_1", "droplet", 1)),
     "die_points_0": (_die("point_1", "points", 0), _die("point_1", "points", 1)),
     "shop_chip_item_chip_missing": (
         _shop("blue_1", "chip", None),
@@ -355,7 +355,7 @@ BOUNDARY_CASES: dict[
 
 @pytest.mark.parametrize("case", list(BOUNDARY_CASES))
 def test_out_of_range_value_is_refused(case: str):
-    data = _v2_1_data()
+    data = _v2_3_data()
     BOUNDARY_CASES[case][0](data)
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
@@ -363,7 +363,7 @@ def test_out_of_range_value_is_refused(case: str):
 
 @pytest.mark.parametrize("case", list(BOUNDARY_CASES))
 def test_boundary_value_validates(case: str):
-    data = _v2_1_data()
+    data = _v2_3_data()
     BOUNDARY_CASES[case][1](data)
     Ruleset.model_validate(data)
 
@@ -381,14 +381,14 @@ def test_boundary_value_validates(case: str):
     ],
 )
 def test_field_without_old_safe_default_is_required(field: str):
-    data = _v2_1_data()
+    data = _v2_3_data()
     del data[field]
     with pytest.raises(pydantic.ValidationError, match=field):
         Ruleset.model_validate(data)
 
 
-def test_v2_1_values_of_the_required_fields():
-    rs = load_ruleset("v2.1")
+def test_v2_3_values_of_the_required_fields():
+    rs = load_ruleset("v2.3")
     assert rs.explosion_choice is True
     assert rs.last_round_money_divisor == 5
     assert rs.last_round_ruby_divisor == 2
@@ -397,28 +397,28 @@ def test_v2_1_values_of_the_required_fields():
     assert len(rs.cards) > 0
 
 
-def test_v2_1_meaning_of_a_flag_is_the_only_value():
-    data = _v2_1_data()
+def test_v2_3_meaning_of_a_flag_is_the_only_value():
+    data = _v2_3_data()
     data["explosion_choice"] = False
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
 
 
 @pytest.mark.parametrize("kind", ["money", "remove_chip", "droplet", "points"])
-def test_kinds_no_v2_1_entry_uses_are_refused(kind: str):
-    shop = _v2_1_data()
+def test_kinds_no_v2_3_entry_uses_are_refused(kind: str):
+    shop = _v2_3_data()
     shop["shop"][0]["kind"] = kind
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(shop)
     if kind == "money":
-        die = _v2_1_data()
+        die = _v2_3_data()
         die["die"][1]["kind"] = kind
         with pytest.raises(pydantic.ValidationError):
             Ruleset.model_validate(die)
 
 
 def test_chip_component_key_is_refused():
-    data = _v2_1_data()
+    data = _v2_3_data()
     data["chips"][0]["component"] = "white@1"
     with pytest.raises(pydantic.ValidationError):
         Ruleset.model_validate(data)
@@ -427,9 +427,27 @@ def test_chip_component_key_is_refused():
 def test_archived_v2_is_an_unknown_ruleset():
     from quack_rl.rules import UnsupportedRulesVersion
 
-    assert SUPPORTED_RULES_VERSIONS == ("v2.1", "v2.2")
+    assert SUPPORTED_RULES_VERSIONS == ("v2.3",)
     with pytest.raises(UnsupportedRulesVersion) as v2_error:
         load_ruleset("v2")
     with pytest.raises(UnsupportedRulesVersion) as other_error:
         load_ruleset("v9")
     assert str(v2_error.value) == str(other_error.value).replace("v9", "v2")
+
+
+@pytest.mark.parametrize("version", ["v2.1", "v2.2"])  # old-version-ok
+def test_archived_v2_1_and_v2_2_are_unknown_rulesets(version: str):
+    with pytest.raises(UnsupportedRulesVersion):
+        load_ruleset(version)
+    rules = resources.files("quack_rl.rules")
+    assert not rules.joinpath(f"{version}.toml").is_file()
+    archived = Path(__file__).resolve().parents[1] / "archive" / "src" / "quack_rl" / "rules"
+    assert (archived / f"{version}.toml").is_file()
+
+
+def test_die_face_key_halves_is_refused():
+    data = _v2_3_data()
+    face = _by_id(data["die"], "droplet_1")
+    face["halves"] = face.pop("droplet") * 2
+    with pytest.raises(pydantic.ValidationError):
+        Ruleset.model_validate(data)

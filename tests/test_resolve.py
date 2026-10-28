@@ -24,7 +24,7 @@ def test_resolve_takes_no_actions_and_moves_to_shop():
 
 def test_money_of_final_field_and_bonus_die_for_furthest():
     r = auto(brewed(20, 12), "point_1")
-    assert r.state.players["p1"].money == 18  # v2.1 has no money die face: the face gives a point
+    assert r.state.players["p1"].money == 18  # v2.3 has no money die face: the face gives a point
     assert r.state.players["p1"].points == RS.fields[scoring_field(20, RS)].points + 1  # field + die
     assert r.state.players["p2"].money == 13
     assert r.chance == [{"seat": "p1", "kind": "die", "value": "point_1"}]
@@ -32,7 +32,7 @@ def test_money_of_final_field_and_bonus_die_for_furthest():
 
 def test_exploded_waits_for_the_choice_and_never_rolls():
     r = auto(brewed(21, 4, exploded=("p1",)), "point_1")
-    assert r.state.phase is Phase.CHOICE  # v2.1: the exploded seat takes money or points next
+    assert r.state.phase is Phase.CHOICE  # v2.3: the exploded seat takes money or points next
     assert r.state.players["p1"].money == 0
     assert r.chance == [{"seat": "p2", "kind": "die", "value": "point_1"}]
     assert r.state.players["p2"].points == 1
@@ -48,21 +48,21 @@ def test_both_exploded_nobody_rolls():
 def test_tied_furthest_both_roll():
     r = auto(brewed(10, 10), "droplet_1", "ruby_1")
     assert [c["seat"] for c in r.chance] == ["p1", "p2"]
-    assert r.state.players["p1"].droplet_halves == 2
+    assert r.state.players["p1"].droplet == 1
     assert r.state.players["p2"].rubies == RS.start_rubies + 1
 
 
 def test_ruby_field_gives_one_ruby_also_after_explosion():
     r = auto(brewed(8, 8, exploded=("p1",)), "point_1")
     p1 = r.state.players["p1"]
-    assert (p1.rubies, p1.droplet_halves) == (RS.start_rubies + 1, 0)
+    assert (p1.rubies, p1.droplet) == (RS.start_rubies + 1, 0)
     assert {"seat": "p1", "kind": "ruby", "rubies": 1, "total": RS.start_rubies + 1} in r.events
 
 
 def test_ruby_field_gives_one_ruby_and_no_droplet():
     r = auto(brewed(8, 3), "point_1")
     assert r.state.players["p1"].rubies == RS.start_rubies + 1
-    assert r.state.players["p1"].droplet_halves == 0
+    assert r.state.players["p1"].droplet == 0
 
 
 def test_non_ruby_field_gives_no_ruby():
@@ -93,7 +93,7 @@ def test_green_in_last_two_gives_a_ruby_each():
     assert r.state.players["p1"].rubies == start + 1  # only green_2 is in the last two
     r = auto(brewed(3, 2, p1_placed=("white_1", "green_1", "green_2")), "point_1")
     assert r.state.players["p1"].rubies == start + 2
-    assert r.state.players["p1"].droplet_halves == 0
+    assert r.state.players["p1"].droplet == 0
 
 
 def test_die_orange_chip_goes_into_the_bag():
@@ -138,10 +138,10 @@ def test_field_53_exploded_waits_for_the_choice():
 
 def test_die_faces_apply():
     r = auto(brewed(3, 2), "droplet_1")
-    assert r.state.players["p1"].droplet_halves == 2
+    assert r.state.players["p1"].droplet == 1
     r = auto(brewed(3, 2), "ruby_1")
     assert r.state.players["p1"].rubies == RS.start_rubies + 1
-    assert r.state.players["p1"].droplet_halves == 0
+    assert r.state.players["p1"].droplet == 0
     r = auto(brewed(3, 2), "point_2")
     assert r.state.players["p1"].points == 2
     r = auto(brewed(3, 2), "point_1")
@@ -213,7 +213,7 @@ def test_landing_on_51_scores_field_52_ruby_and_money_33():
 def test_last_chip_on_53_scores_field_53():
     r = auto(brewed(53, 0), "point_1")
     assert r.state.players["p1"].money == 35
-    assert r.state.players["p1"].droplet_halves == 0
+    assert r.state.players["p1"].droplet == 0
 
 
 def test_landing_on_52_and_53_tie_and_both_roll():

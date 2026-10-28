@@ -46,7 +46,7 @@ def test_pool_opponent_is_random_while_empty_and_picks_per_episode():
         return Fake()
 
     pool = CheckpointPool(4)
-    opp = PoolOpponent(pool, "v2.1", seed=0, loader=loader)
+    opp = PoolOpponent(pool, "v2.3", seed=0, loader=loader)
     env = QuackEnv(seat="random", opponent=opp)
     env.reset(seed=0)
     assert opp.current is None and not loaded
@@ -88,7 +88,7 @@ def test_selfplay_two_rounds(tmp_path):
 
     pool = CheckpointPool()
     pool.add(tmp_path / "checkpoint_2.zip")
-    opp = PoolOpponent(pool, "v2.1", seed=1, loader=load_checkpoint)
+    opp = PoolOpponent(pool, "v2.3", seed=1, loader=load_checkpoint)
     env = QuackEnv(seat="random", opponent=opp)
     rng = np.random.default_rng(0)
     for i in range(2):

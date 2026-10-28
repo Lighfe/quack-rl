@@ -1,12 +1,12 @@
-# Quack RL rules v2.2
+# Quack RL rules v2.3
 
 A simplified 1v1 version of **The Quacks of Quedlinburg**: a push-your-luck game about brewing potions, improving your ingredients and avoiding explosions.
 
-Rules version: `v2.2`. Every game record stores the rules version it was played with. The machine-readable values (chips, track, shop, die) live in the ruleset data file of the engine; this document and that file must agree.
+Rules version: `v2.3`. Every game record stores the rules version it was played with. The machine-readable values (chips, track, shop, die) live in the ruleset data file of the engine; this document and that file must agree.
 
-Status: v2.2 is complete and **the default** ruleset. It is v2.1 (`docs/rules/rules-v2.1.md`) with one change: the **ruby step** after the shop (ruleset field `ruby_step = true`). The shop offers only the chip buys and Done; the ruby spends (Ruby drop, Refill flask) have their own step after the shop. Every number is the same as in v2.1. v2.1 stays playable, and its records replay unchanged.
+Status: v2.3 is complete, **the only** ruleset and **the default**. It is v2.2 (archived: `archive/docs/rules/rules-v2.2.md`) with two changes: the **black chip** rule (section "Black") and the **droplet in whole steps** everywhere, also in the engine state and the game record. The **ruby step** after the shop (section 4.4a) is simply the rule; there is no switch for it. v2.1 and v2.2 are archived (`archive/docs/rules/rules-v2.1.md`, `archive/docs/rules/rules-v2.2.md`): they cannot be loaded, and their records are not replayed.
 
-Changes from v2.1: see "Changes from v2.1" at the end of this document. Changes from v1.11 (`archive/docs/rules/rules-v1.11.md`): see "Changes from v1.11" after it. Everything not named there is the same as in v1.11.
+Changes from v2.2: see "Changes from v2.2" at the end of this document. The earlier changes (from v2.1, and from v1.11 in v2.1) follow it. Everything not named there is the same as in v1.11 (`archive/docs/rules/rules-v1.11.md`).
 
 - **Settled:** the mechanics (simultaneous brewing per chip draw, explosion, resolve order, shop without victory points, game end)
 - **Default:** every number (chip values, explosion limit, track money, ruby fields, die odds, shop prices, purchase limits, starting bag, number of rounds). These are tuning values. A change makes a new ruleset version (for example `v3`)
@@ -39,7 +39,7 @@ When a red chip is placed, it counts the orange chips already placed this round 
 At round end, when both players have stopped, count the black chips in each player's pot (an exploded pot counts). Let `a` be the count of one player and `b` the count of the other:
 
 - `a` is at least 1 and `a == b`: each of the two players advances the droplet by 1.
-- `a > b` (so `a` is at least 1): the player with the larger count gets 3 rubies. The other player gets nothing.
+- `a > b` (so `a` is at least 1): the player with the larger count advances the droplet by 1 and gets 1 ruby. The other player gets nothing.
 - Otherwise nothing.
 
 The effect fires once per player, however many black chips there are.
@@ -100,7 +100,7 @@ A tail after field `f` lies at total `f` and at total `f + 50`. It counts for a 
 
 ### Droplet
 
-The droplet marks the start field of each round. It moves in whole steps. The start field of a round is the droplet position.
+The droplet marks the start field of each round. It moves in whole steps and is counted in whole steps (there are no half steps anywhere: not in the rules, the engine state or the game record, whose events carry `drop`). The start field of a round is the droplet position plus the rat tail bonus.
 
 ### Bag
 
@@ -235,9 +235,9 @@ Shopping ends when no player shops anymore. The ruby step follows.
 
 ### 4.4a Ruby step
 
-The ruby step (`ruby_step = true`, phase `ruby`) follows the shop in every round but the last. It goes in steps, at the same time for both players, like the shop. In each step, each player who is still in the ruby step chooses one of:
+The ruby step (phase `ruby`) follows the shop in every round but the last. It is the rule; there is no switch. It goes in steps, at the same time for both players, like the shop. In each step, each player who is still in the ruby step chooses one of:
 
-- **Ruby drop** (`ruby_drop`): with at least 2 rubies (`ruby_cost = 2`). It costs 2 rubies and moves the droplet by 1 (+1, two halves). The player stays in the ruby step and may choose it again as long as they can pay
+- **Ruby drop** (`ruby_drop`): with at least 2 rubies (`ruby_cost = 2`). It costs 2 rubies and moves the droplet by 1. The player stays in the ruby step and may choose it again as long as they can pay
 - **Refill flask** (`refill_flask`): with an empty flask and at least 2 rubies. It costs 2 rubies and fills the flask (see "Flask")
 - **Done** (`done`): the player leaves the ruby step
 
@@ -262,7 +262,7 @@ Before the winner is decided, each player's rubies become `rubies // 2` points (
 2. On a tie: the player with the furthest scoring field in round 9 (4.2) wins
 3. If that is tied too: the game is a draw
 
-## 6. Planned rule changes (not in v2.2)
+## 6. Planned rule changes (not in v2.3)
 
 These are candidate changes for later versions. They are also test cases for the future "add a rule or component" skill.
 
@@ -270,9 +270,18 @@ These are candidate changes for later versions. They are also test cases for the
 - Random events
 - Uncertain bag contents, for example chips that appear at random
 
-## 7. Changes from v2.1
+## 7. Changes from v2.2
 
-- **Ruby step:** a new ruleset field `ruby_step` (bool, default `false`; v2.2 sets `true`). With it, the shop offers only the chip buys and Done, and a new ruby step (phase `ruby`, section 4.4a) after the shop offers Ruby drop, Refill flask and Done. The action ids stay the same (`ruby_drop`, `refill_flask`, `done`), so the action list and the RL action space keep their size. The new phase adds the entry `phase.ruby` to the phase list of observation layout 8.
+- **Black chip:** on equal counts (1 or more) each player still advances the droplet by 1; the larger count now gives droplet +1 and 1 ruby (in v2.2: 3 rubies). Both pots count, an exploded pot too.
+- **Whole-step droplet:** the engine stores the droplet in whole steps (`PlayerState.droplet`), the round-end hook gives whole steps (`PotRoundEnd.droplet`), the bonus die face key is `droplet` (whole steps), and the events carry `drop` (whole steps), not `halves`. Every move has the same size as in v2.2: die face +1, card 3 +1, card 6 +2, purple 3 or more +1, ruby drop +1, black +1.
+- **Ruby step without a switch:** the ruleset field `ruby_step` is gone; the ruby step after the shop always runs.
+- **Game record:** schema version 3. Records of schema version 2 (v2.1 and v2.2 games) are refused, not converted.
+- **Observation layout 9:** layout 8 with `own.droplet` and `opponent.droplet` (whole steps) in place of `own.droplet_halves` and `opponent.droplet_halves`.
+- Every other number is as in v2.2.
+
+## 7a. Changes from v2.1 (in v2.2)
+
+- **Ruby step:** in v2.2 a ruleset field `ruby_step` switched it on (removed in v2.3, where the step is the rule). The shop offers only the chip buys and Done, and the ruby step (phase `ruby`, section 4.4a) after the shop offers Ruby drop, Refill flask and Done. The action ids stay the same (`ruby_drop`, `refill_flask`, `done`). The phase adds the entry `phase.ruby` to the phase list of the observation.
 - Every number is as in v2.1.
 
 ## 8. Changes from v1.11 (in v2.1)
@@ -287,7 +296,7 @@ These are candidate changes for later versions. They are also test cases for the
 
 ### Round chip
 
-In round 6, at the card step and before the round card is drawn, both players get one white 1 chip (`white_1`) into the bag, first p1, then p2 (event `round_chip`). The chip stays in the bag for the rest of the game, like any chip. The rule is the ruleset table `round_chips` (entries `round` and `chip`); v2.1 has one entry, round 6 with `white_1`. A game with fewer rounds never reaches round 6 and has no round chip.
+In round 6, at the card step and before the round card is drawn, both players get one white 1 chip (`white_1`) into the bag, first p1, then p2 (event `round_chip`). The chip stays in the bag for the rest of the game, like any chip. The rule is the ruleset table `round_chips` (entries `round` and `chip`); v2.3 has one entry, round 6 with `white_1`. A game with fewer rounds never reaches round 6 and has no round chip.
 
 ### Round cards
 
@@ -307,7 +316,7 @@ One card is drawn per round, at random from the cards not yet drawn in this game
 | card_8 | rat_tails_for_rubies | a player with a rat tail entitlement above 0 may give up 1 to 3 of it (at most the entitlement) and takes the same number of rubies; actions `card_tails:0` (decline) to `card_tails:3`; the engine adds the number to `rat_tail_adjust`, so the standard bonus is entitlement minus the number given up. A player with entitlement 0 is not asked (`wait`) | 1 |
 | card_9 | die_twice | a player who rolls the bonus die in Resolve rolls it a second time on top of the standard roll; both rewards apply in order, each roll is a chance event | 1 |
 | card_10 | draw5_choose_place | after the brew, a player who stopped without exploding (a player who exploded, or has an empty bag, is not affected) draws 5 chips from the bag (p1, then p2; each chip is one recorded `draw_chip` event; all that are left if fewer than 5) and chooses one: action `card_place:<chip id>` for each distinct drawn chip. The drawn chips stay in the bag until the choice; the chosen chip leaves the bag and is placed as a normal placement (its effects fire, the other drawn chips are in the bag, so a blue chip draws its hand from a bag that holds them; the placement can make the player explode, with all consequences). A player with a hand is brewing again: picks or stops as usual. The step happens once per player and round, before Resolve; the draw is visible to the choosing player only | 1 |
-| card_11 | draw4_upgrade | each player draws 4 chips from their own bag, without replacement (p1, then p2; each chip is one recorded `draw_chip` event, so 8 events), and may choose one drawn chip that is not white, not orange and not at the highest value of its colour: it becomes the next higher value of its colour (1 to 2 to 4; black and purple have only value 1 and orange has 1 and 6, so none of them can be upgraded); action `card_upgrade:<chip id>` for each distinct upgradable chip of the draw (the id is the chip before the upgrade). A player with no upgradable chip is not asked (`wait`) and takes a green 1 chip. All drawn chips stay in the bag, the upgraded chip in place of its original, so the upgrade is permanent. The draw is visible to the choosing player only (it is not part of the observation, layout 8; the CLI shows it to the choosing seat) | 1 |
+| card_11 | draw4_upgrade | each player draws 4 chips from their own bag, without replacement (p1, then p2; each chip is one recorded `draw_chip` event, so 8 events), and may choose one drawn chip that is not white, not orange and not at the highest value of its colour: it becomes the next higher value of its colour (1 to 2 to 4; black and purple have only value 1 and orange has 1 and 6, so none of them can be upgraded); action `card_upgrade:<chip id>` for each distinct upgradable chip of the draw (the id is the chip before the upgrade). A player with no upgradable chip is not asked (`wait`) and takes a green 1 chip. All drawn chips stay in the bag, the upgraded chip in place of its original, so the upgrade is permanent. The draw is visible to the choosing player only (it is not part of the observation, layout 9; the CLI shows it to the choosing seat) | 1 |
 | card_12 | ruby_for_chip | a player with at least one ruby may swap one ruby for a value-1 chip of green, blue, red, yellow, orange or white (`card_swap:<chip id>`), or decline (`card_swap_no`); without a ruby the player is not asked (`wait`) | 1 |
 | card_13 | fewest_rubies_ruby | the player(s) with the fewest rubies get 1 ruby (a tie: all tied players) | 1 |
 | card_14 | points_or_remove_white | each player chooses (A) 4 points (`card_points`) or (B) a white 1 chip leaves the bag for the rest of the game (`card_remove_white`); when the bag has no white 1, (B) is not offered: the player gets `wait` and the 4 points without a choice; the points count for the bonus of the same round | 1 |

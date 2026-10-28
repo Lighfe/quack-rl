@@ -1,4 +1,4 @@
-"""The 20-card framework of v2.1 (issue #185): the deck, the round start order, the rat tail
+"""The 20-card framework of v2.3 (issue #185): the deck, the round start order, the rat tail
 function and the cards that need no new decision."""
 
 import pytest

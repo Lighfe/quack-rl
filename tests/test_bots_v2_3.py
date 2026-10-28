@@ -1,4 +1,4 @@
-"""Heuristic bots answer every action of v2.1 (issue #190). Balance is not tested."""
+"""Heuristic bots answer every action of v2.3 (issue #190). Balance is not tested."""
 
 import random
 
@@ -176,19 +176,31 @@ def shop_choice(state, strategy="points"):
     return bot(strategy).choose(state, "p1", legal_actions(state, RS, "p1"))
 
 
+def ruby_state(rubies, flask_full=True):
+    """The ruby step after the shop: the shop of p1 is closed."""
+    state = shop_state(rubies, flask_full)
+    state.phase = Phase.RUBY
+    state.players["p1"].shop_done = True
+    return state
+
+
 def test_ruby_drop_while_it_can_pay():
     assert RS.ruby_cost == 2
-    assert shop_choice(shop_state(3)) == "ruby_drop"
-    assert shop_choice(shop_state(1)) == DONE
+    assert shop_choice(ruby_state(3)) == "ruby_drop"
+    assert shop_choice(ruby_state(1)) == DONE
 
 
 def test_ruby_drop_with_a_full_flask_never_refills():
-    assert shop_choice(shop_state(9)) == "ruby_drop"
+    assert shop_choice(ruby_state(9)) == "ruby_drop"
 
 
 def test_refill_only_with_an_empty_flask_and_two_rubies_left_over():
-    assert shop_choice(shop_state(4, flask_full=False)) == "refill_flask"
-    assert shop_choice(shop_state(3, flask_full=False)) == "ruby_drop"
+    assert shop_choice(ruby_state(4, flask_full=False)) == "refill_flask"
+    assert shop_choice(ruby_state(3, flask_full=False)) == "ruby_drop"
+
+
+def test_the_shop_spends_no_rubies():
+    assert shop_choice(shop_state(9, flask_full=False)) == DONE
 
 
 def card_state(card, **points):

@@ -23,7 +23,7 @@ def games_of(out: Path):
 
 def sim(out, *extra, games="3"):
     return runner.invoke(
-        app, ["simulate", "--rules", "v2.1", "--games", games, "--seed", "3", "--out", str(out), *extra]
+        app, ["simulate", "--rules", "v2.3", "--games", games, "--seed", "3", "--out", str(out), *extra]
     )
 
 
@@ -31,7 +31,7 @@ def sim(out, *extra, games="3"):
 
 
 def test_override_changes_the_copy_and_not_the_original():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert price(rs) == 3
     new = apply_overrides(rs, {"shop.orange_1.price": "4"})
     assert price(new) == 4
@@ -39,14 +39,14 @@ def test_override_changes_the_copy_and_not_the_original():
 
 
 def test_several_overrides_apply_and_empty_map_is_equal():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     new = apply_overrides(rs, {"explosion_limit": "8", "shop.orange_1.price": "4"})
     assert new.explosion_limit == 8 and price(new) == 4
     assert apply_overrides(rs, {}) == rs
 
 
 def test_typed_values_are_accepted():
-    rs = load_ruleset("v2.1")
+    rs = load_ruleset("v2.3")
     assert price(apply_overrides(rs, {"shop.orange_1.price": 5})) == 5
 
 
@@ -65,14 +65,14 @@ def test_typed_values_are_accepted():
 )
 def test_bad_overrides_fail_with_the_key(key, value):
     with pytest.raises(ValueError) as e:
-        apply_overrides(load_ruleset("v2.1"), {key: value})
+        apply_overrides(load_ruleset("v2.3"), {key: value})
     assert key in str(e.value)
 
 
 @pytest.mark.parametrize("key,flag", [("rounds", "--rounds"), ("version", "--rules")])
 def test_rounds_and_version_are_refused_with_a_pointer(key, flag):
     with pytest.raises(ValueError, match=flag):
-        apply_overrides(load_ruleset("v2.1"), {key: "3"})
+        apply_overrides(load_ruleset("v2.3"), {key: "3"})
 
 
 # --- the commands ---------------------------------------------------------------
@@ -84,7 +84,7 @@ def test_simulate_set_stores_overrides_and_verify_passes(tmp_path):
     games = games_of(tmp_path)
     assert len(games) == 3
     for g in games:
-        assert g.header.rules_version == "v2.1"
+        assert g.header.rules_version == "v2.3"
         assert g.header.overrides == {"shop.orange_1.price": "4", "explosion_limit": "8"}
         assert verify_game(g) == []
     path = next(tmp_path.glob("**/*.jsonl"))
@@ -95,7 +95,7 @@ def test_play_set_stores_overrides(tmp_path, monkeypatch):
     keys = itertools.cycle("ds0m1")
     monkeypatch.setattr(human, "default_read_key", lambda: next(keys))
     result = runner.invoke(
-        app, ["play", "--rules", "v2.1", "--seed", "4", "--out", str(tmp_path), "--set", "shop.orange_1.price=4"]
+        app, ["play", "--rules", "v2.3", "--seed", "4", "--out", str(tmp_path), "--set", "shop.orange_1.price=4"]
     )
     assert result.exit_code == 0, result.output
     (game,) = games_of(tmp_path)

@@ -1,4 +1,4 @@
-"""Ruleset v2.1: points stop at 100 (issue #155), and the new die faces."""
+"""Ruleset v2.3: points stop at 100 (issue #155), and the new die faces."""
 
 import pytest
 
@@ -15,7 +15,7 @@ from quack_rl.engine import (
 from quack_rl.report import _expected_points, baseline_maximum, realistic_baseline_maximum
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 CAP = 100
 
 

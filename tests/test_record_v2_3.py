@@ -1,4 +1,4 @@
-"""Records and replay with everything new in v2.1 (issue #189)."""
+"""Records and replay with everything new in v2.3 (issue #189)."""
 
 import io
 import json
@@ -42,7 +42,7 @@ def header(seed: int | None, version: int = RECORD_SCHEMA_VERSION) -> HeaderLine
     return HeaderLine(
         game_id="g1",
         schema_version=version,
-        rules_version="v2.1",
+        rules_version="v2.3",
         rounds=RS.rounds,
         seed=seed,
         mode="sim",
@@ -68,16 +68,18 @@ def record(chance, seed: int | None, bot_seed: int, tmp_path):
     return game, final
 
 
-def test_the_schema_version_is_2():
-    assert RECORD_SCHEMA_VERSION == 2
+def test_the_schema_version_is_3():
+    assert RECORD_SCHEMA_VERSION == 3
 
 
-def test_the_reader_refuses_schema_version_1_and_names_both_versions(tmp_path):
+@pytest.mark.parametrize("old", [1, 2])
+def test_the_reader_refuses_an_old_schema_version_and_names_both_versions(tmp_path, old):
+    """Schema version 2 (v2.1 and v2.2 records, droplet in half steps) is refused, not converted."""
     path = tmp_path / "old.jsonl"
-    path.write_text(header(5, version=1).model_dump_json() + "\n", encoding="utf-8")
+    path.write_text(header(5, version=old).model_dump_json() + "\n", encoding="utf-8")
     with pytest.raises(RecordFormatError) as e:
         list(read_games(path))
-    assert "schema_version 1" in str(e.value) and "schema_version 2" in str(e.value)
+    assert f"schema_version {old}" in str(e.value) and "schema_version 3" in str(e.value)
 
 
 @pytest.mark.parametrize("card", CARDS)
@@ -143,7 +145,7 @@ def test_the_record_holds_the_new_event_kinds_and_chance_outcomes(tmp_path):
     assert chance_kinds == {"draw_chip", "die", "card"}
 
 
-def test_a_changed_event_in_a_v2_1_record_is_found(tmp_path):
+def test_a_changed_event_in_a_v2_3_record_is_found(tmp_path):
     game, _ = record(RngChance(3), 3, 7, tmp_path)
     step = next(s for s in game.steps if any(e["kind"] == "ruby" for e in s.events))
     next(e for e in step.events if e["kind"] == "ruby")["total"] += 1

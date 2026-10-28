@@ -1,4 +1,4 @@
-"""Ruleset v2.1: the rat tail bonus at the round start (issue #156)."""
+"""Ruleset v2.3: the rat tail bonus at the round start (issue #156)."""
 
 from quack_rl.engine import (
     CARD_DROP_2,
@@ -15,7 +15,7 @@ from quack_rl.engine import (
 )
 from quack_rl.rules import load_ruleset
 
-RS = load_ruleset("v2.1")
+RS = load_ruleset("v2.3")
 
 
 def card_state(p1=0, p2=10, rs=RS):
@@ -37,10 +37,10 @@ def test_rat_tail_survives_the_state_dict():
 
 def test_start_field_adds_the_bonus_and_caps_at_track_end():
     p = new_game(RS).players["p1"]
-    p.droplet_halves = 6
+    p.droplet = 3
     p.rat_tail = 2
     assert start_field(p, RS) == 5
-    p.droplet_halves = 2 * (RS.track_end - 1)
+    p.droplet = RS.track_end - 1
     p.rat_tail = 5
     assert start_field(p, RS) == RS.track_end
 
@@ -99,7 +99,7 @@ def test_restart_returns_to_the_boosted_start():
 def test_a_drop_during_the_round_keeps_the_bonus():
     s = draw(card_state(0, 10), "card_16").state
     p1 = s.players["p1"]
-    p1.droplet_halves += 4
+    p1.droplet += 2
     p1.field = start_field(p1, RS)
     assert p1.field == 2 + 3
     assert p1.rat_tail == 3
@@ -125,7 +125,7 @@ def test_next_round_recalculates_and_drops_the_old_bonus():
 
 def test_drop_near_track_end_plus_bonus_stays_at_track_end():
     s = card_state(0, 40)
-    s.players["p1"].droplet_halves = 2 * (RS.track_end - 1)
+    s.players["p1"].droplet = RS.track_end - 1
     out = draw(s, "card_16")
     assert out.state.players["p1"].rat_tail == calculate_rat_tails({"p1": 0, "p2": 40}, RS)["p1"]
     assert out.state.players["p1"].field == RS.track_end

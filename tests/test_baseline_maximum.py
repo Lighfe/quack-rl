@@ -2,7 +2,7 @@
 
 `realistic_baseline_maximum` (src/quack_rl/report.py) is "points of the field table, without
 chip purchases and cards", calculated from the ruleset only. This file plays many games of the
-`points` strategy (points round 1) on v2.1 with 9 rounds and an empty shop (so nobody buys
+`points` strategy (points round 1) on v2.3 with 9 rounds and an empty shop (so nobody buys
 chips), one draw limit after the other, and compares the averages with it:
 
 - (a) the best simulated average over the draw limits is at least the calculation minus 3
@@ -12,7 +12,7 @@ chips), one draw limit after the other, and compares the averages with it:
 The calculation has no card effects (only the explosion limit of card 4), and cards cannot be
 removed from the deck, so the simulation is above it; the margin is CARD_MARGIN. The calculation
 does not spend rubies either, so the bot under test keeps its rubies (`KeepRubiesBot`: no
-`ruby_drop`, no `refill_flask`), in line with "the baseline never buys chips". Since v2.1 has
+`ruby_drop`, no `refill_flask`), in line with "the baseline never buys chips". Since v2.3 has
 no droplet half steps (issue #201), green, purple and black chips and the bonus die give rubies,
 and a bot that spends them on droplets is too far above the calculation. The calculation has
 no end-of-game ruby points either (rubies // `last_round_ruby_divisor`, issue #202), so the test
@@ -45,7 +45,7 @@ OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
 # No end-of-game ruby points (issue #202): the divisor is far above any ruby count, so the
 # rubies the bot keeps give 0 points, as in the calculation.
 NO_RUBY_POINTS = 10**6
-RS = with_rounds(load_ruleset("v2.1"), 9).model_copy(
+RS = with_rounds(load_ruleset("v2.3"), 9).model_copy(
     update={"shop": [], "last_round_ruby_divisor": NO_RUBY_POINTS}
 )
 

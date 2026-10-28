@@ -52,9 +52,13 @@ def test_service_view_labels_equal_the_cli_labels():
     session = GameSession.create(RS, {"p1": "human", "p2": "human"}, seed=1)
     session.state = shop_state()
     labels = {a["id"]: a["label"] for a in seat_view(session, "p1")["legal"]}
-    assert labels[RUBY_DROP] == RUBY_DROP_LABEL
     assert labels[buy("orange_1")] == BUY_ORANGE_LABEL
-    assert list(labels) == [DONE, *(buy(i.id) for i in RS.shop if i.price <= 3), RUBY_DROP]
+    assert list(labels) == [DONE, *(buy(i.id) for i in RS.shop if i.price <= 3)]
+    # the ruby drop is offered in the ruby step after the shop
+    session.state.phase = Phase.RUBY
+    session.state.players["p1"].shop_done = True
+    labels = {a["id"]: a["label"] for a in seat_view(session, "p1")["legal"]}
+    assert labels == {DONE: action_label(DONE, RS), RUBY_DROP: RUBY_DROP_LABEL}
 
 
 @pytest.mark.parametrize(

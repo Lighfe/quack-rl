@@ -43,11 +43,11 @@ def script(monkeypatch, keys):
 
 
 def play(tmp_path, *extra, seed="4"):
-    return runner.invoke(app, ["play", "--rules", "v2.1", "--seed", seed, "--out", str(tmp_path), *extra])
+    return runner.invoke(app, ["play", "--rules", "v2.3", "--seed", seed, "--out", str(tmp_path), *extra])
 
 
 def play_files(tmp_path: Path) -> list[Path]:
-    return sorted((tmp_path / "v2.1" / "play").glob("*.jsonl"))
+    return sorted((tmp_path / "v2.3" / "play").glob("*.jsonl"))
 
 
 def only_game(tmp_path: Path):
@@ -134,7 +134,7 @@ def test_board_full_v1_values_fit_in_80_columns():
         p.field = 53
         p.money = 88
         p.points = 77
-        p.droplet_halves = 99
+        p.droplet = 50
         p.placed = ["orange_1", "blue_1", "green_1", "white_1", "orange_1", "blue_1"]
     text = board(s, width=80)
     assert max(len(line) for line in text.splitlines()) <= 80
@@ -365,7 +365,7 @@ def test_abort_at_first_key_leaves_header_only(tmp_path, monkeypatch):
     assert result.exit_code == 130, result.output
     assert "game aborted, partial record:" in result.output
     path, game = only_game(tmp_path)
-    # v2.1 opens with a card step (chance only, no decision): the header and that step are written
+    # v2.3 opens with a card step (chance only, no decision): the header and that step are written
     assert [s.actions for s in game.steps] == [None] and game.footer is None
     v = runner.invoke(app, ["verify", str(path)])
     assert v.exit_code == 1 and "incomplete game" in v.output
@@ -397,7 +397,7 @@ def test_simulate_still_refuses_human(tmp_path):
 def test_archived_v2_is_refused_and_names_the_known_ruleset(tmp_path):
     result = play(tmp_path, "--rules", "v2")
     assert result.exit_code != 0
-    assert "v2" in result.output and "v2.1" in result.output and TRACEBACK not in result.output
+    assert "v2" in result.output and "v2.3" in result.output and TRACEBACK not in result.output
     assert play_files(tmp_path) == []
 
 
@@ -423,7 +423,7 @@ def test_flask_keys_are_their_own_and_the_board_shows_the_flask():
     assert board(width=120).count("flask full") == 2
 
 
-# --- v2.1 actions: keys, texts, scripted games (issue #191) ---------------------
+# --- v2.3 actions: keys, texts, scripted games (issue #191) ---------------------
 
 
 def test_new_actions_get_distinct_keys():
