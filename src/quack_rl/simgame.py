@@ -25,7 +25,7 @@ class GameStats:
 
     `money[seat][k]` is the amount of the seat's `money` event in round k (its money when the
     shop phase of round k starts), `points[seat][k]` its points total at the end of round k
-    (after the shop), `droplet_halves[seat][k]` its droplet position in half steps at the same
+    (after the shop), `droplet[seat][k]` its droplet position in whole steps at the same
     time. Both are read from the state at round end, so every event that changes them (ruby,
     green, black, purple, die, shop) is counted.
     """
@@ -34,7 +34,7 @@ class GameStats:
     buys: dict[str, Counter[str]] = field(default_factory=lambda: {s: Counter() for s in SEATS})
     money: dict[str, dict[int, int]] = field(default_factory=lambda: {s: {} for s in SEATS})
     points: dict[str, dict[int, int]] = field(default_factory=lambda: {s: {} for s in SEATS})
-    droplet_halves: dict[str, dict[int, int]] = field(
+    droplet: dict[str, dict[int, int]] = field(
         default_factory=lambda: {s: {} for s in SEATS}
     )
 
@@ -94,9 +94,9 @@ def play_sim_game(
             elif event.get("kind") in ("round_end", "game_end"):
                 for seat in SEATS:
                     stats.points[seat][result.round] = result.state.players[seat].points
-                    stats.droplet_halves[seat][result.round] = result.state.players[
+                    stats.droplet[seat][result.round] = result.state.players[
                         seat
-                    ].droplet_halves
+                    ].droplet
         if recorder is not None:
             recorder.on_step(result, decision_ms)
 

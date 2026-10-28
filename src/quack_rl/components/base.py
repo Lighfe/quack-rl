@@ -7,10 +7,10 @@ from quack_rl.rules import ChipSpec
 
 @dataclass(frozen=True)
 class PotRoundEnd:
-    """What a component gives at round end for a whole pot: points, droplet half steps, rubies."""
+    """What a component gives at round end for a whole pot: points, droplet steps, rubies."""
 
     points: int = 0
-    droplet_halves: int = 0
+    droplet: int = 0
     rubies: int = 0
 
 

@@ -93,13 +93,13 @@ def _spend_ruby(
     """A ruby spend: `ruby_drop` (droplet +1) or `refill_flask` (the flask is full again)."""
     p.rubies -= rs.ruby_cost
     if action == RUBY_DROP:
-        p.droplet_halves += 2
+        p.droplet += 1
         events.append(
             {
                 "seat": seat,
                 "kind": "ruby_drop",
                 "rubies": rs.ruby_cost,
-                "halves": 2,
+                "drop": 1,
                 "total": p.rubies,
             }
         )
@@ -113,16 +113,13 @@ def _spend_ruby(
 def apply_shop(
     state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
 ) -> None:
-    """Rules 4.4 and 4.5: purchases, then the ruby step or the round reset (the last round has
-    no shop)."""
+    """Rules 4.4 and 4.5: purchases, then the ruby step (the last round has no shop)."""
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]
         if action == DONE:
             p.shop_done = True
             events.append({"seat": seat, "kind": "done"})
-        elif action in (RUBY_DROP, REFILL_FLASK):
-            _spend_ruby(p, rs, seat, action, events)
         elif action.startswith(BUY_PREFIX):
             item = rs.shop_item(action.removeprefix(BUY_PREFIX))
             p.money -= item.price
@@ -139,8 +136,7 @@ def close_idle_shops(state: GameState, rs: Ruleset, events: list[dict[str, Any]]
 
     Called when the SHOP phase is entered and after each shop step. A seat whose shop legal set
     is only `[DONE]` gets `shop_done` and the event `{"seat", "kind": "done", "auto": True}`.
-    When every shop is closed, the ruby step follows (`ruby_step`, see `close_idle_ruby`), else
-    the round ends (`_end_round`), in the same step.
+    When every shop is closed, the ruby step follows (see `close_idle_ruby`) in the same step.
     """
     for seat in SEATS:
         p = state.players[seat]
@@ -148,17 +144,14 @@ def close_idle_shops(state: GameState, rs: Ruleset, events: list[dict[str, Any]]
             p.shop_done = True
             events.append({"seat": seat, "kind": "done", "auto": True})
     if all(p.shop_done for p in state.players.values()):
-        if rs.ruby_step:
-            state.phase = Phase.RUBY
-            close_idle_ruby(state, rs, events)
-        else:
-            _end_round(state, rs, events)
+        state.phase = Phase.RUBY
+        close_idle_ruby(state, rs, events)
 
 
 def apply_ruby(
     state: GameState, rs: Ruleset, actions: dict[str, str], events: list[dict[str, Any]]
 ) -> None:
-    """The ruby step (v2.2): `ruby_drop`, `refill_flask` or `done`, then the round reset."""
+    """The ruby step after the shop: `ruby_drop`, `refill_flask` or `done`, then the round reset."""
     for seat in SEATS:
         p = state.players[seat]
         action = actions[seat]

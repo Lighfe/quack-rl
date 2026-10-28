@@ -72,11 +72,11 @@ def _brew_outcomes(
 ) -> dict[tuple[int, bool, int, int], float]:
     """Chance of each end of a brew for a bot with `draw_limit`.
 
-    The key is (advance, exploded, droplet halves, points). The bot rule of `HeuristicBot`: the
+    The key is (advance, exploded, droplet steps, points). The bot rule of `HeuristicBot`: the
     first chip is always drawn; then it stops when the chance to explode is more than the draw
     limit. A brew also ends on an explosion or an empty bag. The advance is the sum of the chip
     advances (blue bonus included), so the final field is `min(start field + advance, track_end)`.
-    The halves are the droplet halves of the pot effects (black, purple); the points are the pot
+    The droplet steps are those of the pot effects (black, purple); the points are the pot
     effects' points. Rubies (green, black, purple) do not move the droplet, so the chain ignores
     them.
 
@@ -101,12 +101,12 @@ def _brew_outcomes(
     )
 
     def end_bonus(pot: tuple[str, ...]) -> tuple[int, int]:
-        halves = points = 0
+        drop = points = 0
         if tracked:
             for _, effect in pot_effects(rs, pot, ()):
-                halves += effect.droplet_halves
+                drop += effect.droplet
                 points += effect.points
-        return halves, points
+        return drop, points
 
     def place(chip_id: str, white: int, pot: tuple[str, ...]) -> tuple[int, tuple[str, ...], bool]:
         """(white total, pot, put back?) after placing the chip, as the engine does."""
@@ -160,8 +160,8 @@ def _brew_outcomes(
                     results = go(new_remaining, new_white, new_pot)
                 else:
                     results = {(0, False, *end_bonus(new_pot)): 1.0}
-            for (advance, exploded, halves, points), p in results.items():
-                outcome = (advance + gain, exploded, halves, points)
+            for (advance, exploded, drop, points), p in results.items():
+                outcome = (advance + gain, exploded, drop, points)
                 out[outcome] = out.get(outcome, 0.0) + chance * p
         memo[key] = out
         return out
@@ -206,7 +206,7 @@ def _draw_limit_classes(rs: Ruleset) -> list[int]:
 def _expected_points(rs: Ruleset, draw_limit: int) -> float:
     """Average final points of the `points` bot (points round 1) with one draw limit.
 
-    The chain state is (droplet halves, bag, points). The points follow the engine order of a
+    The chain state is (droplet, bag, points). The points follow the engine order of a
     round: pot effects, the bonus die face, the points of the scoring field, and in the last
     round money // `last_round_money_divisor` (an exploded potion takes the points of the field
     instead of the money). The total stops at `max_points` after every step. The bot buys no
@@ -216,12 +216,12 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
     die_total = sum(f.weight for f in rs.die)
     cap = rs.point_board.max_points
     brews: dict[tuple[_Bag, int], dict[tuple[int, bool, int, int], float]] = {}
-    # (droplet halves, bag, points) -> chance
+    # (droplet, bag, points) -> chance
     states: dict[tuple[int, _Bag, int], float] = {(0, start, 0): 1.0}
     for round_number in range(1, rs.rounds + 1):
         nxt: dict[tuple[int, _Bag, int], float] = {}
-        for (halves, bag, points), p_state in states.items():
-            begin = min(halves // 2, rs.track_end)
+        for (drop, bag, points), p_state in states.items():
+            begin = min(drop, rs.track_end)
             for limit, p_limit in _round_limits(rs):
                 if (bag, limit) not in brews:
                     brews[bag, limit] = _brew_outcomes(rs, bag, draw_limit, None, limit)
@@ -229,15 +229,15 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                     p = p_state * p_brew * float(p_limit)
                     scoring = min(min(begin + advance, rs.track_end) + 1, rs.track_end)
                     field = rs.fields[scoring]
-                    base_halves = halves + green
+                    base_drop = drop + green
                     after_pot = min(points + pot_points, cap)
                     faces = [None] if exploded else rs.die  # an exploded potion never rolls
                     for face in faces:
                         chance = p if face is None else p * face.weight / die_total
-                        new_halves, new_bag, total = base_halves, bag, after_pot
+                        new_drop, new_bag, total = base_drop, bag, after_pot
                         if face is not None:
                             if face.kind == "droplet":
-                                new_halves += face.halves
+                                new_drop += face.droplet
                             elif face.kind == "chip" and face.chip is not None:
                                 counts = dict(bag)
                                 counts[face.chip] = counts.get(face.chip, 0) + 1
@@ -247,7 +247,7 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
                         total = min(total + field.points, cap)
                         if round_number == rs.rounds and not exploded:
                             total = min(total + field.money // rs.last_round_money_divisor, cap)
-                        key = (new_halves, new_bag, total)
+                        key = (new_drop, new_bag, total)
                         nxt[key] = nxt.get(key, 0.0) + chance
         states = nxt
     return sum(chance * points for (_, _, points), chance in states.items())
@@ -406,7 +406,7 @@ def load(folder: Path) -> tuple[Data, dict[str, Any]]:
             if column not in columns:
                 raise ReportError(f"results.csv in {folder} lacks the column {column!r}")
         try:
-            buy_items = [item.id for item in load_ruleset(config.get("rules", "v2.2")).shop]
+            buy_items = [item.id for item in load_ruleset(config.get("rules", "v2.3")).shop]
         except (ValueError, KeyError, TypeError, OSError) as e:
             raise ReportError(f"config.json in {folder} names no usable ruleset: {e}") from None
         for item in buy_items:
@@ -600,7 +600,7 @@ def section_baseline(data: Data, config: dict[str, Any]) -> list[str]:
         bots=(),
         games=1,
         seed=0,
-        rules=config.get("rules", "v2.2"),
+        rules=config.get("rules", "v2.3"),
         rounds=data.rounds,
         overrides=dict(config.get("overrides") or {}),
         sweep=Sweep(sweep["param"], tuple(sweep["values"])) if sweep else None,

@@ -55,7 +55,8 @@ def _count(pot: Sequence[ChipSpec], colour: str) -> int:
 
 @register
 class Black(Component):
-    """Black: at round end, drop +1 each on equal counts (1 or more), 3 rubies for the larger."""
+    """Black: at round end, droplet +1 each on equal counts (1 or more); the larger count gets
+    droplet +1 and 1 ruby. Both pots count, an exploded pot too."""
 
     name = "black@1"
     round_end_order = 1
@@ -63,9 +64,9 @@ class Black(Component):
     def pot_round_end(self, pot: Sequence[ChipSpec], other_pot: Sequence[ChipSpec]) -> PotRoundEnd:
         mine, theirs = _count(pot, "black"), _count(other_pot, "black")
         if mine >= 1 and mine == theirs:
-            return PotRoundEnd(droplet_halves=2)
+            return PotRoundEnd(droplet=1)
         if mine > theirs:
-            return PotRoundEnd(rubies=3)
+            return PotRoundEnd(droplet=1, rubies=1)
         return PotRoundEnd()
 
 
@@ -94,4 +95,4 @@ class Purple(Component):
             return PotRoundEnd(points=1)
         if count == 2:
             return PotRoundEnd(points=1, rubies=1)
-        return PotRoundEnd(points=2, droplet_halves=2)
+        return PotRoundEnd(points=2, droplet=1)

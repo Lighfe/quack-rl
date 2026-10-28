@@ -1,4 +1,4 @@
-"""Round cards (v2.1): the draw and the effects. A card is an extra on top of the standard rules.
+"""Round cards: the draw and the effects. A card is an extra on top of the standard rules.
 
 The round start has a fixed order: (1) the round chips, (2) the card is drawn and its effect and
 choices are resolved, (3) the rat tail bonus is calculated once (`set_rat_tails`) and the pots move
@@ -174,9 +174,9 @@ def apply_card(
     if effect == "drop_all_1":
         for seat in SEATS:
             p = state.players[seat]
-            p.droplet_halves += 2
+            p.droplet += 1
             p.field = start_field(p, rs)
-            events.append({"seat": seat, "kind": "card_drop", "halves": 2})
+            events.append({"seat": seat, "kind": "card_drop", "drop": 1})
     elif effect == "fewest_rubies_ruby":
         fewest = min(state.players[s].rubies for s in SEATS)
         for seat in SEATS:
@@ -230,9 +230,9 @@ def apply_card_choice(
         events.append({"seat": seat, "kind": "card_choice", "action": action})
         chip_id: str | None = None
         if action == CARD_DROP_2:
-            p.droplet_halves += 4
+            p.droplet += 2
             p.field = start_field(p, rs)
-            events.append({"seat": seat, "kind": "card_drop", "halves": 4})
+            events.append({"seat": seat, "kind": "card_drop", "drop": 2})
         elif action == CARD_PURPLE:
             chip_id = _chip_of(rs, "purple", 1)
         elif action == CARD_BLACK:

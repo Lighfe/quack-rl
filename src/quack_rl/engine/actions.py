@@ -41,9 +41,9 @@ CARD_NO_UPGRADE = ("white", "orange")  # colours card 11 cannot upgrade
 CARD_PLACE_PREFIX = "card_place:"  # card 10: the drawn chip that is placed, by id
 CARD_PLACE_DRAW = 5  # card 10: chips drawn by a player who stopped without exploding
 USE_CARD_17 = "use_card_17"  # card 17: the first white chip of the round goes back into the bag
-RUBY_DROP = "ruby_drop"  # shop: ruby_cost rubies for a droplet +1
+RUBY_DROP = "ruby_drop"  # ruby step: ruby_cost rubies for a droplet +1
 USE_FLASK = "use_flask"  # brew: the last white chip goes back into the bag
-REFILL_FLASK = "refill_flask"  # shop: ruby_cost rubies fill the empty flask
+REFILL_FLASK = "refill_flask"  # ruby step: ruby_cost rubies fill the empty flask
 MAX_HAND = 4  # the largest blue chip value in a ruleset: hand slots 0..3
 
 
@@ -258,9 +258,7 @@ def legal_actions(state: GameState, rs: Ruleset, seat: str) -> list[str]:
         if p.shop_done:
             return [WAIT]
         buys = [buy(item.id) for item in rs.shop if _can_buy(item, rs, p, state.round)]
-        if rs.ruby_step:
-            return [DONE, *buys]
-        return [DONE, *buys, *_ruby_spends(p, rs)]
+        return [DONE, *buys]
     if state.phase is Phase.RUBY:
         if p.ruby_done:
             return [WAIT]

@@ -1,4 +1,4 @@
-"""The points board of ruleset v2.1 (pure helpers): position, flag and rat tail bonus."""
+"""The points board (pure helpers): position, flag and rat tail bonus."""
 
 from typing import Any
 
@@ -29,7 +29,7 @@ def die_events(seat: str, p: PlayerState, face: DieFace) -> list[dict[str, Any]]
 def apply_die_face(p: PlayerState, face: DieFace, rs: Ruleset) -> None:
     """Apply a bonus die face to a player."""
     if face.kind == "droplet":
-        p.droplet_halves += face.halves
+        p.droplet += face.droplet
     elif face.kind == "rubies":
         p.rubies += face.rubies
     elif face.kind == "chip" and face.chip is not None:

@@ -80,7 +80,7 @@ def _seat(session: GameSession, seat: str, viewer: str) -> dict[str, Any]:
         "rubies": p.rubies,
         "flask_full": p.flask_full,
         "white_total": p.white_total,
-        "droplet": p.droplet_halves // 2,
+        "droplet": p.droplet,
         "start_field": start_field(p, session.rs),
         "rat_tail": p.rat_tail,
         "bag": _bag(session, seat, viewer),

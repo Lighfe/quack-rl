@@ -16,9 +16,9 @@ def _apply_pot_effects(
     p = state.players[seat]
     other = state.players[SEATS[1] if seat == SEATS[0] else SEATS[0]]
     for component, effect in pot_effects(rs, p.placed, other.placed):
-        if effect.points or effect.droplet_halves or effect.rubies:
+        if effect.points or effect.droplet or effect.rubies:
             add_points(p, effect.points, rs)
-            p.droplet_halves += effect.droplet_halves
+            p.droplet += effect.droplet
             p.rubies += effect.rubies
             events.append(
                 {
@@ -26,7 +26,7 @@ def _apply_pot_effects(
                     "kind": "pot_round_end",
                     "component": component.name,
                     "points": effect.points,
-                    "halves": effect.droplet_halves,
+                    "drop": effect.droplet,
                     "rubies": effect.rubies,
                     "total": p.rubies,
                 }

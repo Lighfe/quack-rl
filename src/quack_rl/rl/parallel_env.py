@@ -37,7 +37,7 @@ class QuackParallelEnv(ParallelEnv):
 
     def __init__(
         self,
-        rules: str | Ruleset = "v2.2",
+        rules: str | Ruleset = "v2.3",
         reward_fn: Callable[[GameState, str], float] = reward,
         chance: ChanceSource | None = None,
     ):

@@ -23,8 +23,7 @@ class ShopItem(_Frozen):
     price: int = PydField(ge=0)
     kind: Literal["chip"]
     chip: str
-    # `halves` and `points` are only read by the bots (removed with their last reader in #173).
-    halves: int = 0
+    # `points` is only read by the bots.
     points: int = 0
     # v1.10: the item can be bought from this round on (rounds are numbered from 1).
     min_round: int = PydField(default=1, ge=1, strict=True)
@@ -35,7 +34,7 @@ class DieFace(_Frozen):
     weight: int = PydField(ge=1)
     kind: Literal["droplet", "chip", "points", "rubies"]
     chip: str | None = None
-    halves: int = 0
+    droplet: int = 0  # whole steps
     points: int = 0
     rubies: int = 0
 
@@ -58,7 +57,7 @@ class RoundChip(_Frozen):
 
 
 class PointBoard(_Frozen):
-    """The points board (v2.1): fields 0..fields, `laps` laps, rat tails between some fields.
+    """The points board: fields 0..fields, `laps` laps, rat tails between some fields.
 
     A rat tail after field f lies at total f and at total f + fields (on every lap).
     """
@@ -82,7 +81,7 @@ class PointBoard(_Frozen):
 
 def _check_kind_fields(entry: "ShopItem | DieFace") -> None:
     needed = {
-        "droplet": "halves",
+        "droplet": "droplet",
         "points": "points",
         "rubies": "rubies",
     }.get(entry.kind)
@@ -125,9 +124,6 @@ class Ruleset(_Frozen):
     # Rubies are a currency: every player starts with `start_rubies`; `ruby_cost` rubies buy a droplet +1.
     start_rubies: int = PydField(ge=0)
     ruby_cost: int = PydField(ge=1)
-    # The ruby step: rubies are spent (ruby_drop, refill_flask) in their own step after the shop,
-    # not in the shop. False (v2.1): the shop offers the ruby spends among the chip buys.
-    ruby_step: bool = PydField(default=False, strict=True)
     # The name of the spellbook that gives each colour its component.
     spellbook: int | str
     # The deck of round-start cards.

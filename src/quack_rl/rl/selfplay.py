@@ -74,7 +74,7 @@ class PoolOpponent:
     def __init__(
         self,
         pool: CheckpointPool,
-        rules: Ruleset | str = "v2.2",
+        rules: Ruleset | str = "v2.3",
         seed: int | None = None,
         loader: Loader = load_checkpoint,
     ):
@@ -130,7 +130,7 @@ def run_selfplay(
     pool_size: int = 4,
     seed: int = 0,
     eval_games: int = 500,
-    rules: str = "v2.2",
+    rules: str = "v2.3",
     on_progress: Callable[[RoundPoint], None] | None = None,
 ) -> SelfplayResult:
     """Train for `rounds` rounds, each against the pool, and evaluate the last checkpoint.

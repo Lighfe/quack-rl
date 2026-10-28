@@ -16,7 +16,7 @@ class Phase(StrEnum):
     RESOLVE = "resolve"
     CHOICE = "choice"
     SHOP = "shop"
-    RUBY = "ruby"  # v2.2: the ruby step after the shop (ruby_drop, refill_flask, done)
+    RUBY = "ruby"  # the ruby step after the shop (ruby_drop, refill_flask, done)
     GAME_OVER = "game_over"
 
 
@@ -34,7 +34,7 @@ class PlayerState:
     field: int = 0
     white_total: int = 0
     status: Status = Status.BREWING
-    droplet_halves: int = 0
+    droplet: int = 0  # whole steps; the round start field is droplet + rat tail
     points: int = 0
     money: int = 0
     purchases: int = 0
@@ -49,7 +49,7 @@ class PlayerState:
     restart_offered: bool = False
     restart_pending: bool = False
     rubies: int = 0  # the ruby currency: earned on ruby fields, spent in the shop (ruby_drop)
-    rat_tail: int = 0  # v2.1: pot fields gained at the round start (the rat tail bonus)
+    rat_tail: int = 0  # pot fields gained at the round start (the rat tail bonus)
     rat_tail_adjust: int = (
         0  # a card lowers the rat tail bonus by this (positive); reset every round
     )
@@ -62,7 +62,7 @@ class PlayerState:
     first_white_placed: bool = False  # card 17: the first white chip of the round has been placed
     first_white_open: bool = False  # card 17: the last placed chip is that chip, still on the track
     flask_full: bool = True  # the flask: use_flask puts a white chip back, refill_flask fills it
-    ruby_done: bool = False  # v2.2: the ruby step is over for this player this round
+    ruby_done: bool = False  # the ruby step is over for this player this round
 
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)
@@ -87,7 +87,7 @@ def scoring_field(landing_field: int, rs: Ruleset) -> int:
 
 
 def start_field(p: PlayerState, rs: Ruleset) -> int:
-    return min(p.droplet_halves // 2 + p.rat_tail, rs.track_end)
+    return min(p.droplet + p.rat_tail, rs.track_end)
 
 
 def refill_all_flasks(state: GameState) -> None:

@@ -55,7 +55,7 @@ class OfflinePolicy:
     def __init__(
         self,
         net: nn.Module,
-        rules: Ruleset | str = "v2.2",
+        rules: Ruleset | str = "v2.3",
         name: str = "offline",
         curve: list[float] | None = None,
     ):
@@ -97,7 +97,7 @@ def train_bc(
     dataset: Dataset,
     epochs: int,
     seed: int = 0,
-    rules: str = "v2.2",
+    rules: str = "v2.3",
     batch_size: int = 256,
     lr: float = 1e-3,
     hidden: int = 256,
@@ -136,7 +136,7 @@ def train_cql(
     steps: int,
     seed: int = 0,
     alpha: float = 1.0,
-    rules: str = "v2.2",
+    rules: str = "v2.3",
     batch_size: int = 256,
     lr: float = 1e-3,
     hidden: int = 256,
@@ -202,7 +202,7 @@ def run_offline_experiment(
     epochs: int = 5,
     steps: int = 20_000,
     alpha: float = 1.0,
-    rules: str = "v2.2",
+    rules: str = "v2.3",
     on_progress: Callable[[int, float], None] | None = None,
 ) -> OfflineResult:
     """Train `method` ("bc" or "cql") on the dataset file, evaluate against `bot:random` and

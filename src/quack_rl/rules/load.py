@@ -5,7 +5,7 @@ from typing import Any
 
 from quack_rl.rules.model import Ruleset
 
-SUPPORTED_RULES_VERSIONS: tuple[str, ...] = ("v2.1", "v2.2")
+SUPPORTED_RULES_VERSIONS: tuple[str, ...] = ("v2.3",)
 
 
 class UnsupportedRulesVersion(ValueError):

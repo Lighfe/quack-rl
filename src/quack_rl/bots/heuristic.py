@@ -133,8 +133,8 @@ class HeuristicBot:
     next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
     bot fewer than `RESTART_BELOW` fields; else continue.
 
-    Rules for the actions of v2.1 and v2.2 (simple, not tuned). The ruby spends follow the same
-    rule in the v2.1 shop and in the v2.2 ruby step (there `done` when neither is chosen). The
+    Rules for the actions of v2.3 (simple, not tuned). The ruby spends are made in the ruby
+    step after the shop (`done` when neither is chosen). The
     strategy colour is blue for `points`, `blue` and `balanced`, green for `green` and `cleaner`
     (`STRATEGY_COLOUR` in `bots/strategy.py`).
 
@@ -289,9 +289,6 @@ class HeuristicBot:
         return None
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
-        ruby = self._ruby(state, seat, legal)
-        if ruby is not None:
-            return ruby
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
         # Items of the list that the shop lacks are never legal, so they are skipped here.
         for item_id in self._strategy.ranked():

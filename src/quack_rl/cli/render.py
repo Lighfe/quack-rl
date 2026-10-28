@@ -69,7 +69,7 @@ def render_board(state: GameState, rs: Ruleset, bag_assist: bool) -> RenderableT
         table.add_row(
             seat,
             p.status.value,
-            f"drop {p.droplet_halves / 2:g}\nstart {start_field(p, rs)}{tail}",
+            f"drop {p.droplet}\nstart {start_field(p, rs)}{tail}",
             field_text,
             f"{p.white_total}/{explosion_limit(state, rs)}",
             str(p.points),
@@ -106,7 +106,7 @@ def _die_effect(face_id: str, rs: Ruleset) -> str:
         case "points":
             return f"+{face.points} point" + ("s" if face.points != 1 else "")
         case "droplet":
-            return f"+{face.halves / 2:g} droplet"
+            return f"+{face.droplet} droplet"
         case "rubies":
             return f"+{face.rubies} ruby" + ("s" if face.rubies != 1 else "")
         case _:

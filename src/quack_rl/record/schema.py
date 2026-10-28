@@ -2,7 +2,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-RECORD_SCHEMA_VERSION = 2
+RECORD_SCHEMA_VERSION = 3
 
 
 class _Line(BaseModel):

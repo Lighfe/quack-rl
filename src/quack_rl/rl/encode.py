@@ -1,12 +1,14 @@
 """Observation of one seat: a readable dict, a flat float32 vector and an action mask.
 
 The view holds only what the seat may know: no draw order, no opponent bag, no simultaneous
-choice of the opponent. The one observation layout is number 8 (`BOARD_LAYOUT`): a look-ahead
+choice of the opponent. The one observation layout is number 9 (`BOARD_LAYOUT`): a look-ahead
 window of the fields from the own scoring field on (money, points, ruby), a board map of the
 placed chips (no static field table), both bags (remaining and complete), the rule scalars,
 derived features with the field and points gaps, the hand, the shop, the card block and the point
-board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`). The layouts 2 to 6 are archived in
-`archive/src/quack_rl/rl/encode.py`, the layout before it in `archive/src/quack_rl/rl/encode_layout7.py`.
+board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`). Layout 9 is layout 8 with the
+droplet in whole steps (`droplet` for `droplet_halves`, `docs/specs/2026-10-27-game-parts-and-ruleset-v2-3.md`).
+The layouts 2 to 6 are archived in `archive/src/quack_rl/rl/encode.py`, layout 7 in
+`archive/src/quack_rl/rl/encode_layout7.py`.
 """
 
 from typing import Any
@@ -31,7 +33,7 @@ from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rl.derive import derived, derived_names
 from quack_rl.rules import Ruleset
 
-BOARD_LAYOUT = 8
+BOARD_LAYOUT = 9
 LOOKAHEAD = 10  # default K: the window holds the fields k = 0 ... K
 PHASES = [p.value for p in Phase]
 RESTART_EFFECT = "restart_after_5"
@@ -43,7 +45,7 @@ _SCALARS = (
     "flask_full",
     "white_total",
     "points",
-    "droplet_halves",
+    "droplet",
     "purchases",
     "chip_purchases",
     "shop_done",
@@ -53,7 +55,7 @@ MAP_COLOURS = 8  # colour flags per chip in the map: the eight colours of the ru
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: always 8, the only layout. The version name is not read."""
+    """The layout number of a ruleset: always 9, the only layout. The version name is not read."""
     return BOARD_LAYOUT
 
 
@@ -141,7 +143,7 @@ def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
         "white_total": p.white_total,
         "points": p.points,
         "status": p.status.value,
-        "droplet_halves": p.droplet_halves,
+        "droplet": p.droplet,
         "purchases": p.purchases,
         "chip_purchases": p.chip_purchases,
         "chip_colours": {c: p.chip_colours.count(c) for c in _colours(rs)},
@@ -382,7 +384,7 @@ def observation_bounds(rs: Ruleset, k_max: int = LOOKAHEAD) -> tuple[np.ndarray,
         "flask_full": 1.0,
         "white_total": inf,
         "points": max_points,
-        "droplet_halves": inf,
+        "droplet": inf,
         "purchases": inf,
         "chip_purchases": chip_cap,
         "shop_done": 1.0,

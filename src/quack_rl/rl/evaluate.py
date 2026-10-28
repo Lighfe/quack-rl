@@ -37,7 +37,7 @@ def wilson_interval(successes: float, n: int, z: float = Z95) -> tuple[float, fl
 
 
 def evaluate(
-    bot: Any, opponent: str | Any, games: int = 500, seed: int = 0, rules: str = "v2.2"
+    bot: Any, opponent: str | Any, games: int = 500, seed: int = 0, rules: str = "v2.3"
 ) -> EvalResult:
     """Play `games` games of `bot` against `opponent` (a bot name or a bot object).
 
