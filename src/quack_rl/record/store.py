@@ -26,6 +26,8 @@ def new_game_id() -> str:
 class RecordStore(Protocol):
     def new_play_path(self, rules_version: str, now: datetime | None = None) -> Path: ...
 
+    def new_web_path(self, rules_version: str, now: datetime | None = None) -> Path: ...
+
     def new_sim_dir(self, rules_version: str, now: datetime | None = None) -> Path: ...
 
     def shard_path(self, sim_dir: Path, index: int) -> Path: ...
@@ -34,15 +36,22 @@ class RecordStore(Protocol):
 
 
 class LocalRecordStore:
-    """Records as files under data/records/<rules_version>/{play,sim}/ (spec 6.2)."""
+    """Records as files under data/records/<rules_version>/{play,web,sim}/ (spec 6.2)."""
 
     def __init__(self, root: Path = Path("data/records")):
         self.root = root
 
-    def new_play_path(self, rules_version: str, now: datetime | None = None) -> Path:
-        folder = self.root / rules_version / "play"
+    def _new_game_path(self, rules_version: str, kind: str, now: datetime | None) -> Path:
+        folder = self.root / rules_version / kind
         folder.mkdir(parents=True, exist_ok=True)
         return folder / f"{berlin_stamp(now)}_{secrets.token_hex(2)}.jsonl"
+
+    def new_play_path(self, rules_version: str, now: datetime | None = None) -> Path:
+        return self._new_game_path(rules_version, "play", now)
+
+    def new_web_path(self, rules_version: str, now: datetime | None = None) -> Path:
+        """One game of the web service (`quack-rl serve`)."""
+        return self._new_game_path(rules_version, "web", now)
 
     def new_sim_dir(self, rules_version: str, now: datetime | None = None) -> Path:
         folder = self.root / rules_version / "sim" / f"{berlin_stamp(now)}_{secrets.token_hex(2)}"

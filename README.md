@@ -77,9 +77,11 @@ Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
 
 ## Web service
 
-A local HTTP JSON service for the browser frontend (ruleset `v2.3`, games in memory; the view's `game.phase` is `ruby` in the ruby step). It binds to `127.0.0.1` by default:
+A local HTTP JSON service for the browser frontend (ruleset `v2.3`; the view's `game.phase` is `ruby` in the ruby step). It binds to `127.0.0.1` by default:
 
     uv run --group web quack-rl serve              # port 8000; --port to change
+
+Every web game is saved as a game record (mode `web`, header `game_id` = the service's `game_id`) under `data/records/<rules version>/web/`, one step line per engine step, written as the service performs it, so a closed browser window or a stopped service still leaves every step so far; a finished game gets the footer. Set the record root with `--out <path>` (default `data/records`). A finished web game replays with `quack-rl verify <file>`.
 
 CORS allows these browser origins by default, on any port: `localhost` and `127.0.0.1` (http or https), and http on the private IPv4 ranges `10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` (the Vite "Network" URLs: LAN IP, Docker bridge IP), and this project's Lovable preview `https://id-preview--34424226-c265-4c0c-a695-30527093b97c.lovable.app` (that exact origin only, no other Lovable site). Add more origins with `--allow-origin <regex>` (repeatable; the regex must match the whole origin), for example one exact origin:
 

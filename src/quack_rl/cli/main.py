@@ -383,6 +383,9 @@ def serve(
             "Allowed by default: localhost, 127.0.0.1 and http on the private IPv4 ranges.",
         ),
     ] = None,
+    out: Annotated[
+        Path, typer.Option(help="Record root folder; each web game is saved under <rules>/web/.")
+    ] = Path("data/records"),
 ) -> None:
     """Start the local game service for the browser (needs the dependency group `web`)."""
     extra_origins = allow_origin or []
@@ -397,4 +400,4 @@ def serve(
         from quack_rl.web.app import create_app
     except ImportError as e:
         _fail(f"the web service needs the group web (uv run --group web quack-rl serve): {e}")
-    uvicorn.run(create_app(extra_origins=extra_origins), host=host, port=port)
+    uvicorn.run(create_app(out, extra_origins=extra_origins), host=host, port=port)

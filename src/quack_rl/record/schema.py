@@ -23,7 +23,7 @@ class HeaderLine(_Line):
     rounds: int = Field(ge=1)
     overrides: dict[str, int | bool | str] = {}
     seed: int | None
-    mode: Literal["play", "sim"]
+    mode: Literal["play", "sim", "web"]
     seats: dict[str, SeatInfo]
     ui: dict[str, Any]
     engine_version: str

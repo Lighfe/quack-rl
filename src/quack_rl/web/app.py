@@ -1,9 +1,11 @@
-"""The HTTP API of the local game service. Games live in memory."""
+"""The HTTP API of the local game service. Running games live in memory; each game is also saved
+as a game record under `<record root>/<rules version>/web/`."""
 
 import re
 import threading
 import uuid
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, Literal
 
 import typer
@@ -12,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from quack_rl.record import LocalRecordStore
 from quack_rl.rules import load_ruleset, with_rounds
 from quack_rl.web.session import GameSession, IllegalSubmit, StaleRevision
 from quack_rl.web.view import seat_view
@@ -51,8 +54,9 @@ class Action(BaseModel):
     revision: int
 
 
-def create_app(extra_origins: Sequence[str] = ()) -> FastAPI:
-    """The game service; `extra_origins` are origin regexes allowed besides the defaults."""
+def create_app(record_root: Path, extra_origins: Sequence[str] = ()) -> FastAPI:
+    """The game service; each game is recorded under `record_root`. `extra_origins` are origin
+    regexes allowed besides the defaults."""
     app = FastAPI(title="quack-rl game service")
     app.add_middleware(
         CORSMiddleware,
@@ -65,6 +69,7 @@ def create_app(extra_origins: Sequence[str] = ()) -> FastAPI:
     app.state.games = games
     games_lock = threading.Lock()
     base = load_ruleset(RULES)
+    store = LocalRecordStore(Path(record_root))
 
     def session_of(game_id: str) -> GameSession:
         session = games.get(game_id)
@@ -74,13 +79,17 @@ def create_app(extra_origins: Sequence[str] = ()) -> FastAPI:
 
     @app.post("/games")
     def create_game(body: NewGame) -> dict[str, str]:
+        game_id = uuid.uuid4().hex
         try:
             session = GameSession.create(
-                with_rounds(base, body.rounds), {"p1": body.p1, "p2": body.p2}, body.seed
+                with_rounds(base, body.rounds),
+                {"p1": body.p1, "p2": body.p2},
+                body.seed,
+                store=store,
+                game_id=game_id,
             )
         except typer.BadParameter as e:
             raise HTTPException(status_code=400, detail=e.message) from None
-        game_id = uuid.uuid4().hex
         with games_lock:
             games[game_id] = session
         return {"game_id": game_id}

@@ -32,8 +32,8 @@ HUMAN_SEED_CARD = "card_16"
 
 
 @pytest.fixture
-def client():
-    return TestClient(create_app())
+def client(tmp_path):
+    return TestClient(create_app(tmp_path))
 
 
 def create(client, p1="human", p2="human", **extra) -> str:
@@ -142,8 +142,8 @@ def test_preflight_rejects_other_origins(client, origin):
 LOVABLE = r"https://[a-z0-9-]+\.lovable\.app"
 
 
-def test_extra_origins_add_to_the_defaults():
-    client = TestClient(create_app(extra_origins=[LOVABLE]))
+def test_extra_origins_add_to_the_defaults(tmp_path):
+    client = TestClient(create_app(tmp_path, extra_origins=[LOVABLE]))
     ok = preflight(client, "https://foo.lovable.app")
     assert ok.status_code == 200
     assert ok.headers.get("access-control-allow-origin") == "https://foo.lovable.app"
@@ -175,8 +175,8 @@ def test_lovable_origins_are_exact_defaults():
         assert not re.fullmatch(regex, origin), origin
 
 
-def test_preflight_allows_the_lovable_preview_by_default():
-    client = TestClient(create_app())
+def test_preflight_allows_the_lovable_preview_by_default(tmp_path):
+    client = TestClient(create_app(tmp_path))
     r = preflight(client, PREVIEW, **{"Access-Control-Request-Private-Network": "true"})
     assert r.status_code == 200
     assert r.headers.get("access-control-allow-origin") == PREVIEW
@@ -201,7 +201,7 @@ def test_serve_passes_allow_origin_values_to_create_app(monkeypatch):
     seen = {}
     runs = []
 
-    def fake_create_app(extra_origins=()):
+    def fake_create_app(record_root, extra_origins=()):
         seen["extra_origins"] = list(extra_origins)
         return "app"
 

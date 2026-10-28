@@ -3,14 +3,19 @@
 The session only calls the engine. It steps through the phases that take no actions, through
 seats whose only legal action is `wait` and through bot decisions, until a human must act or
 the game is over.
+
+With a record store, the session writes the game as a game record (mode `web`): the header when
+the game is created, one step line per engine step (flushed at once) and the footer when the
+game is over; the record file is closed after the footer.
 """
 
 import secrets
 import threading
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TextIO
 
-from quack_rl.cli.seats import check_seat, parse_seat
+from quack_rl import __version__
+from quack_rl.cli.seats import check_seat, parse_seat, seat_info
 from quack_rl.engine import (
     SEATS,
     WAIT,
@@ -23,6 +28,15 @@ from quack_rl.engine import (
     new_game,
     start_field,
     step,
+)
+from quack_rl.record import (
+    RECORD_SCHEMA_VERSION,
+    GameRecorder,
+    HeaderLine,
+    RecordStore,
+    SeatInfo,
+    berlin_iso,
+    new_game_id,
 )
 from quack_rl.rules import Ruleset
 from quack_rl.runner import Seat
@@ -49,8 +63,10 @@ class GameSession:
         rs: Ruleset,
         seats: Mapping[str, Seat | None],
         chance: ChanceSource,
+        seed: int | None = None,
     ):
         self.rs = rs
+        self.seed = seed
         self.seats = dict(seats)  # None is a human seat
         self.chance = chance
         self.state: GameState = new_game(rs)
@@ -61,11 +77,23 @@ class GameSession:
         # event order; None before the first resolve. Die rolls of other steps do not change it.
         self.last_roll: dict[str, Any] | None = None
         self.lock = threading.Lock()
+        self.record_file: TextIO | None = None
+        self._recorder: GameRecorder | None = None
 
     @classmethod
-    def create(cls, rs: Ruleset, specs: Mapping[str, str], seed: int | None) -> "GameSession":
+    def create(
+        cls,
+        rs: Ruleset,
+        specs: Mapping[str, str],
+        seed: int | None,
+        *,
+        store: RecordStore | None = None,
+        game_id: str | None = None,
+    ) -> "GameSession":
         """Seat specs as in `quack-rl play`; raises `typer.BadParameter` for an unknown spec.
-        The bot seeds follow `quack-rl play`: 2 * seed + 1 for p1, 2 * seed + 2 for p2."""
+        The bot seeds follow `quack-rl play`: 2 * seed + 1 for p1, 2 * seed + 2 for p2.
+        With a `store`, the game is recorded under the store's web folder with `game_id` as the
+        header game id; an error while creating the record file is raised, not swallowed."""
         for spec in specs.values():
             check_seat(spec, allow_human=True)
         game_seed = seed if seed is not None else secrets.randbelow(2**31)
@@ -73,9 +101,36 @@ class GameSession:
         for i, seat in enumerate(SEATS, start=1):
             spec = specs[seat]
             seats[seat] = None if spec == HUMAN else parse_seat(spec, 2 * game_seed + i, rs=rs)
-        session = cls(rs, seats, RngChance(game_seed))
+        session = cls(rs, seats, RngChance(game_seed), seed=game_seed)
+        if store is not None:
+            session._open_record(store, game_id or new_game_id())
         session.advance()
         return session
+
+    def _open_record(self, store: RecordStore, game_id: str) -> None:
+        header = HeaderLine(
+            game_id=game_id,
+            schema_version=RECORD_SCHEMA_VERSION,
+            rules_version=self.rs.version,
+            rounds=self.rs.rounds,
+            overrides={},
+            seed=self.seed,
+            mode="web",
+            seats={
+                seat: SeatInfo(kind="human", name=HUMAN) if bot is None else seat_info(bot)
+                for seat, bot in self.seats.items()
+            },
+            ui={},
+            engine_version=__version__,
+            started_at=berlin_iso(),
+        )
+        f = store.new_web_path(self.rs.version).open("w", encoding="utf-8")
+        try:
+            self._recorder = GameRecorder(f, header)
+        except BaseException:
+            f.close()
+            raise
+        self.record_file = f
 
     @property
     def revision(self) -> int:
@@ -129,6 +184,13 @@ class GameSession:
     def _step(self, actions: dict[str, str] | None) -> None:
         result = step(self.state, self.rs, actions, self.chance)
         self.state = result.state
+        if self._recorder is not None:
+            self._recorder.on_step(result, {})
+            if self.state.phase is Phase.GAME_OVER:
+                self._recorder.close(self.state)
+                self._recorder = None
+                if self.record_file is not None:
+                    self.record_file.close()
         for event in result.events:
             self.events.append(event)
             self._track_pot(event)
