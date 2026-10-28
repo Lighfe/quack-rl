@@ -115,10 +115,10 @@ def _choice_text(action: str, rs: Ruleset) -> str:
 
 def _game_end(event: dict[str, Any]) -> str:
     winner = event.get("winner")
-    head = "Game over: a draw." if winner == "draw" else f"Game over: {winner} wins."
+    head = "Game over: a draw" if winner == "draw" else f"Game over: {winner} wins"
     points = event.get("points") or {}
     scores = ", ".join(f"{seat} {n}" for seat, n in points.items())
-    return f"{head} Points: {scores}." if scores else head
+    return f"{head} with points {scores}." if scores else f"{head}."
 
 
 def _unknown(event: dict[str, Any]) -> str:

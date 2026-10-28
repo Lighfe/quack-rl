@@ -1,5 +1,7 @@
 """The log lines of the service view: one plain sentence per engine event (issue #246)."""
 
+import re
+
 import pytest
 
 pytest.importorskip("fastapi")
@@ -77,6 +79,11 @@ def clean(line: str) -> bool:
     return bool(line) and not any(ch in line for ch in "=_@")
 
 
+def one_sentence(line: str) -> bool:
+    """One sentence: it ends with a full stop and has no sentence end inside."""
+    return line.endswith(".") and re.search(r"[.!?]\s", line) is None
+
+
 def test_samples_cover_every_kind():
     assert sorted(e["kind"] for e in SAMPLES) == sorted(KINDS)
     assert len(KINDS) == 36
@@ -86,6 +93,7 @@ def test_samples_cover_every_kind():
 def test_each_kind_gives_a_plain_line(event):
     line = event_text(event, RS)
     assert clean(line), line
+    assert one_sentence(line), line
 
 
 def test_chip_names_come_from_the_ruleset():
@@ -151,11 +159,13 @@ def test_game_end_shows_scores_also_when_zero():
         },
         RS,
     )
-    assert line == "Game over: p2 wins. Points: p1 0, p2 7."
+    assert line == "Game over: p2 wins with points p1 0, p2 7."
+    assert one_sentence(line), line
     draw = event_text(
         {"seat": None, "kind": "game_end", "winner": "draw", "points": {"p1": 5, "p2": 5}}, RS
     )
-    assert draw == "Game over: a draw. Points: p1 5, p2 5."
+    assert draw == "Game over: a draw with points p1 5, p2 5."
+    assert one_sentence(draw), draw
 
 
 def test_done_names_auto():
@@ -229,6 +239,7 @@ def test_bot_games_give_plain_lines_and_only_known_kinds(tmp_path):
             assert len(v["log"]["lines"]) == len(v["log"]["events"])
             for line in v["log"]["lines"]:
                 assert clean(line), line
+                assert one_sentence(line), line
             found |= {e["kind"] for e in v["log"]["events"]}
     assert found <= set(KINDS), found - set(KINDS)
     assert {"explode", "ruby_drop", "ruby_points", "pot_round_end"} <= found
