@@ -549,7 +549,7 @@ def test_hand_and_card_draw_are_hidden_from_the_other_seat(client):
         assert not (e.get("seat") == "p1" and e["kind"] in ("hand", "put_back"))
         assert "value" not in e  # no chance outcome
     for v in (own, other):
-        assert v["log"]["lines"] == [event_text(e) for e in v["log"]["events"]]
+        assert v["log"]["lines"] == [event_text(e, RS) for e in v["log"]["events"]]
 
 
 def test_pending_action_is_not_in_the_other_view(client):
