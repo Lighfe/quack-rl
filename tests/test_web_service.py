@@ -663,6 +663,61 @@ def test_a_card_step_roll_does_not_change_last_roll(client):
     assert v["game"]["last_roll"] == before
 
 
+CARD_ROLL_R1 = {
+    "round": 1,
+    "rolls": [
+        {"seat": "p1", "face": "point_1", "text": "+1 point"},
+        {"seat": "p2", "face": "ruby_1", "text": "+1 ruby"},
+    ],
+}
+
+
+def card_18_step(client, gid):
+    """Run the round-1 card step with card_18; p1 rolls point_1, p2 rolls ruby_1."""
+    session = scripted(client, gid, new_game(RS), ["card_18", "point_1", "ruby_1"])
+    session.advance()
+    assert session.state.phase is Phase.BREW
+    return session
+
+
+def test_card_roll_is_none_in_a_new_game_without_a_rolling_card(client):
+    gid = create(client, "human", "human", seed=HUMAN_SEED)
+    g = view(client, gid)["game"]
+    assert g["card"]["id"] == HUMAN_SEED_CARD
+    assert g["card_roll"] is None
+
+
+def test_card_roll_after_the_card_18_step_in_both_views(client):
+    gid = create(client)
+    card_18_step(client, gid)
+    for seat in ("p1", "p2"):
+        assert view(client, gid, seat)["game"]["card_roll"] == CARD_ROLL_R1
+
+
+def test_card_roll_stays_through_brew_resolve_and_shop_then_resets(client):
+    gid = create(client)
+    session = card_18_step(client, gid)
+    assert view(client, gid)["game"]["card_roll"] == CARD_ROLL_R1  # brew
+    # Resolve of the same round: p1 rolls point_2; the next round's card (card_4) rolls nothing.
+    resolve(client, gid, at_resolve(client, gid, 20, 12), "point_2", "card_4")
+    v = view(client, gid)
+    assert v["game"]["phase"] == "shop"
+    assert v["game"]["last_roll"]["rolls"] == [
+        {"seat": "p1", "face": "point_2", "text": "+2 points"}
+    ]
+    assert v["game"]["card_roll"] == CARD_ROLL_R1
+    joint(client, gid, "done", "done")  # shop
+    v = view(client, gid)
+    assert v["game"]["phase"] == "ruby"
+    assert v["game"]["card_roll"] == CARD_ROLL_R1
+    for seat in v["to_act"]:  # ruby (a seat without rubies waits), then the round-2 card step
+        assert post(client, gid, seat, "done").status_code == 200
+    assert session.state.round == 2
+    v = view(client, gid)
+    assert v["game"]["card"]["id"] == "card_4"
+    assert v["game"]["card_roll"] is None
+
+
 def test_die_text_of_every_v2_3_face():
     texts = {face.id: die_text(face, RS) for face in RS.die}
     assert texts == {

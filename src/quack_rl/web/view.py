@@ -248,16 +248,15 @@ def event_text(event: dict[str, Any], rs: Ruleset) -> str:
     return _sentence(event, rs) or _unknown(event)
 
 
-def _last_roll(session: GameSession) -> dict[str, Any] | None:
-    """The bonus die of the newest resolve, each roll with the text of its face."""
-    if session.last_roll is None:
+def _rolls(session: GameSession, roll_set: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A set of die rolls (`last_roll` or `card_roll`), each roll with the text of its face."""
+    if roll_set is None:
         return None
     faces = {face.id: face for face in session.rs.die}
     rolls = [
-        {**roll, "text": die_text(faces[roll["face"]], session.rs)}
-        for roll in session.last_roll["rolls"]
+        {**roll, "text": die_text(faces[roll["face"]], session.rs)} for roll in roll_set["rolls"]
     ]
-    return {"round": session.last_roll["round"], "rolls": rolls}
+    return {"round": roll_set["round"], "rolls": rolls}
 
 
 def _board(session: GameSession) -> dict[str, Any]:
@@ -282,7 +281,8 @@ def _game(session: GameSession) -> dict[str, Any]:
         "explosion_limit": explosion_limit(state, session.rs),
         "card": _card(session),
         "winner": state.winner,
-        "last_roll": _last_roll(session),
+        "last_roll": _rolls(session, session.last_roll),
+        "card_roll": _rolls(session, session.card_roll),
     }
 
 

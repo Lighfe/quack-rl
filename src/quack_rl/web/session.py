@@ -76,6 +76,9 @@ class GameSession:
         # The bonus die of the newest resolve: its round and its `die` events (seat, face), in
         # event order; None before the first resolve. Die rolls of other steps do not change it.
         self.last_roll: dict[str, Any] | None = None
+        # The die rolls of the newest round card: its round and the `die` events (seat, face) of
+        # the card step, in event order; None when the newest card step rolled no die.
+        self.card_roll: dict[str, Any] | None = None
         self.lock = threading.Lock()
         self.record_file: TextIO | None = None
         self._recorder: GameRecorder | None = None
@@ -194,15 +197,13 @@ class GameSession:
         for event in result.events:
             self.events.append(event)
             self._track_pot(event)
+        rolls = [
+            {"seat": e["seat"], "face": e["face"]} for e in result.events if e["kind"] == "die"
+        ]
         if result.phase is Phase.RESOLVE:
-            self.last_roll = {
-                "round": result.round,
-                "rolls": [
-                    {"seat": e["seat"], "face": e["face"]}
-                    for e in result.events
-                    if e["kind"] == "die"
-                ],
-            }
+            self.last_roll = {"round": result.round, "rolls": rolls}
+        elif result.phase is Phase.CARD:
+            self.card_roll = {"round": result.round, "rolls": rolls} if rolls else None
 
     def _track_pot(self, event: dict[str, Any]) -> None:
         """The first field of each chip in the pot, from the `place` events."""
