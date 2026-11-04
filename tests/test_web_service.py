@@ -650,7 +650,10 @@ def test_last_roll_stays_through_the_shop_phase(client):
 
 
 def test_a_card_step_roll_does_not_change_last_roll(client):
-    gid = create(client)
+    # A fixed seed whose round-1 card rolls no die: a random card_18 (everyone_rolls)
+    # would log 2 more die events at creation.
+    gid = create(client, seed=HUMAN_SEED)
+    assert view(client, gid)["game"]["card"]["id"] == HUMAN_SEED_CARD
     session = resolve(client, gid, at_resolve(client, gid, 20, 12), "point_1")
     before = view(client, gid)["game"]["last_roll"]
     assert before is not None
@@ -658,7 +661,8 @@ def test_a_card_step_roll_does_not_change_last_roll(client):
     session.advance()
     assert session.state.phase is Phase.BREW
     v = view(client, gid)
-    assert any(e["kind"] == "card_draw" and e["card"] == "card_18" for e in v["log"]["events"])
+    draws = [e for e in v["log"]["events"] if e["kind"] == "card_draw"]
+    assert draws[-1]["card"] == "card_18"
     assert [e["kind"] for e in v["log"]["events"]].count("die") == 3  # 1 resolve + 2 card
     assert v["game"]["last_roll"] == before
 
