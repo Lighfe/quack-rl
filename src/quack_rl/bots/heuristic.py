@@ -294,8 +294,8 @@ class HeuristicBot:
         for item_id in self._strategy.ranked():
             if item_id in affordable:
                 return buy(item_id)
-        # The most expensive legal non-points item; on a tie the first in shop order.
-        rest = [i for i in self._rs.shop if i.id in affordable and i.kind != "points"]
+        # The most expensive legal item; on a tie the first in shop order.
+        rest = [i for i in self._rs.shop if i.id in affordable]
         if rest:
             return buy(max(rest, key=lambda i: i.price).id)
         return DONE

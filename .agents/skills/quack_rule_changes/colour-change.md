@@ -64,7 +64,7 @@ Work through these five steps in order. Each step needs the one before it.
 ### 5. What happens to old versions
 
 - Think about: old versions keep their behaviour, their layout number and their saved data. New fields have old-safe defaults. The new version is added to the tests that loop over versions. No default points at it unless an issue makes it the default.
-- Goes wrong: an older version that plays differently because a shared component changed; a loop that was not extended, so the new colour is never run through a generic test; a default that picks the new version by accident; saved runs that load on a layout they were not trained for.
+- Goes wrong: an older version that plays differently because a shared component changed; a loop that was not extended, so the new colour is never run through a generic test; a default that picks the new version by accident.
 - Check: the full test command. The tests of the older versions pass unchanged.
 
 ## Pitfalls

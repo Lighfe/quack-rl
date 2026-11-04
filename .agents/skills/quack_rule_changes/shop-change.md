@@ -20,7 +20,7 @@ Read each step as "if my change touches this". Skip a step on purpose, never by 
 How to read the table:
 
 - Remove: the ruleset file loses the item. The rules document loses its row. The action list is built from the shop of the ruleset, so a removed item drops its buy action. The mask follows the action list, so its length changes and the shop part of the RL layout changes with it.
-- Add: the item needs a row in the shop table, a row in the rules document, and a chip behind it (an existing chip, or a new chip in the chip table and, when the chip is new, in the spellbook). It adds a buy action, so the action list and the mask grow. A new kind of item (not a chip, not points, not a removal) needs engine code for what buying does, and a legality rule.
+- Add: the item needs a row in the shop table, a row in the rules document, and a chip behind it (an existing chip, or a new chip in the chip table and, when the chip is new, in the spellbook). It adds a buy action, so the action list and the mask grow. The model knows only the kind `chip` (`ShopItem.kind` in `src/quack_rl/rules/model.py`), so a new kind of item is first a change of `ShopItem.kind`, then engine code for what buying does, and a legality rule.
 - Price: only the number in the shop table and the matching number in the rules document. The action list stays the same, so the mask and the layout stay the same. Everything that reads a price (the buy prompt in the CLI, the report, the shop rule of the bots) follows the ruleset without a code change.
 
 ## The order of thought
@@ -47,13 +47,13 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 4. The action list and the legal actions
 
-- Think about: the full action list is built from the shop of the ruleset, and its order is the order of the RL mask. Buying is legal when the player can pay and the chip rules allow it. A removal item is legal only when the player owns the chip it removes. A shop without such an item has no such action at all, in the list and in the legal actions.
+- Think about: the full action list is built from the shop of the ruleset, and its order is the order of the RL mask. Buying is legal when the player can pay and the chip rules allow it. An item the shop does not have has no buy action at all, in the list and in the legal actions.
 - Goes wrong: an action name that is hard-coded somewhere and not taken from the ruleset; a legal action for an item the shop does not have; a new item appended in the middle of the list.
 - Check: the tests of the action list for the new version (the buy actions equal the shop, a removed item is absent) and of the legal actions in the shop phase.
 
 ### 5. Bots that buy
 
-- Think about: the shop strategies are lists of item ids. An id that the shop lacks is never legal, so the bot skips it without an error. The bot then plays a different strategy than its name says, for example a strategy built around the removed item buys only what is left. Decide for each strategy whether it still makes sense, and keep the strategies of the older versions working. The points rule and the fallback rule of the bot read the kinds of the items, so check them when a new kind is added.
+- Think about: the shop strategies are lists of item ids. An id that the shop lacks is never legal, so the bot skips it without an error. The bot then plays a different strategy than its name says, for example a strategy built around the removed item buys only what is left. Decide for each strategy whether it still makes sense, and keep the strategies of the older versions working. When no strategy item is legal, the fallback in `_shop` of `src/quack_rl/bots/heuristic.py` buys the most expensive affordable item, so check that fallback when a new kind of item is added.
 - Goes wrong: a strategy that silently degrades after a removal; a new item that no strategy ever buys, so it is never tested in games of bots; a price change that makes a strategy unaffordable at the point where it was meant to buy.
 - Check: the bot tests that play a full game with every strategy on the new version, and the report test that expects a column for each shop item of the ruleset.
 
@@ -91,9 +91,9 @@ Work through these steps in order. Each step needs the one before it.
 Run the narrow tests after each step, and the full test command at the end. These tests exist; copy their shape.
 
 - Ruleset: `tests/test_ruleset_v2_3.py` and `tests/test_ruleset.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
-- Action list and legal actions: `tests/test_state_actions.py`, `test_shop_legal_actions_follow_money`, `test_shop_item_priced_at_money_left_is_legal`, `tests/test_state_actions.py` (the removal rule that old versions keep).
-- Bots: the shop tests in `test_bots` (`test_strategy_priority_before_points_round`).
-- CLI: `test_keys_map_to_legal_actions`, `test_buy_keys_continue_with_letters`, `test_choose_prints_board_and_menu_with_buy_details`.
+- Action list and legal actions: `test_shop_legal_actions_follow_money` and `test_shop_item_priced_at_money_left_is_legal` in `tests/test_state_actions.py`.
+- Bots: the shop tests in `tests/test_bots.py` (`test_strategy_priority_before_points_round`).
+- CLI: `test_keys_map_to_legal_actions`, `test_buy_keys_continue_with_letters` and `test_choose_prints_board_and_menu_with_buy_details` in `tests/test_cli_play.py`.
 - RL: `test_action_mask_equals_legal_actions_at_every_step` in `tests/test_rl_encode.py`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record.py`), and the record tests of the older versions pass unchanged.
-- Defaults: `test_rules_defaults` (every default is `v2.3`).
+- Defaults: `tests/test_rules_defaults.py` (every default is `v2.3`).
