@@ -1,4 +1,4 @@
-"""The training stack and the `policy:` seat are archived: nothing in the package names them."""
+"""No `policy:` seat, and `quack_rl.rl` exports no policy name (import them by module path)."""
 
 import subprocess
 import sys
@@ -9,10 +9,10 @@ import typer
 import quack_rl.rl as rl
 from quack_rl.cli.seats import check_seat
 
-# the names are joined so that a grep of the package finds no mention of the archived code
+# the names are joined so that a grep for them does not hit this test
 MOVED = (
     "Policy" + "Bot",
-    # (`evaluate` is a module of the package again, so hasattr(rl, "evaluate") is no check)
+    # (`evaluate` is a module of the package, so hasattr(rl, "evaluate") is no check)
     "random_policy",
     "check_policy" + "_layout",
     "EvalResult",

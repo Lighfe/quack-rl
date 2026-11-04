@@ -57,7 +57,7 @@ Work through these five steps in order. Each step needs the one before it.
 
 ### 4. How bots, the CLI and the RL layouts cope with a new colour
 
-- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the current layout (`tests/fixtures/layout7/`) from before you change the encoder.
+- Think about: every place that lists or counts colours. Bots need a branch for each new action. The CLI needs a style and a short label for the chip, draws it in the pot and the bag, and has as many buy keys as the shop has items. RL needs the number of colours in the map from the layout in use (`map_colours` in `src/quack_rl/rl/encode.py`), because a count fixed for one layout is wrong for another layout; a new colour count is a new layout, so keep a stored sample of the current layout (`tests/fixtures/golden/layout9_sample.json`) from before you change the encoder.
 - Goes wrong: a chip label that clashes with another colour (`chip_text` in `render.py` uses the first letter of the colour, so black would be `B` like blue; `CHIP_LETTER` holds the exceptions, black is `K`); a colour count fixed for one layout and used for another, which makes the encoder fail or silently shift the vector; a hidden hand that leaks into the opponent view in the observation, the render or the record; buy keys that run out or collide with the fixed keys of other actions; a bot that loops or crashes on a phase it never saw.
 - Check: the layout tests for the new colour count (names, length, bounds, mask), the stored sample of the current layout, the CLI tests with scripted input, and the bot and environment tests with the new version in the list they loop over.
 
@@ -83,7 +83,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 
 - Ruleset: the ruleset test of the version (`tests/test_ruleset_v2_3.py`), the spellbook tests in `tests/test_spellbook.py`.
 - Effect on the pot (case B): `test_only_blue_has_a_place_bonus` in `tests/test_components.py`, `test_pick_red_beats_orange_with_three_orange_in_the_pot` in `tests/test_bots.py`.
-- Hand and pick step (case C): `tests/test_brew.py`, `test_pick_plays_the_highest_advance`, `test_random_bot_answers_all_three_kinds_at_the_pick_step`, `test_view_of_the_other_seat_has_no_hand_and_no_pending_choice`.
+- Hand and pick step (case C): `tests/test_brew.py`, `test_pick_plays_the_highest_advance`, `test_random_bot_answers_all_three_kinds_at_the_pick_step`, and for the view of the other seat `test_opponent_view_has_no_hidden_values` in `tests/test_rl_layout9.py`.
 - CLI: `tests/test_cli_v2_3.py` and `tests/test_cli_play.py` (labels and styles of a colour, a scripted full game with a hidden-hand check); `test_keys_map_to_legal_actions`, `test_own_hand_is_shown_and_the_other_hand_is_not`.
 - RL: `tests/test_rl_layout9.py`, `tests/test_golden_v2_3.py` (the stored layout 9 sample) and `tests/test_rl_encode.py` (names, order, bounds, the other player's hand not in the view, the mask equals the legal actions in every step).
 - Defaults: the tests in `test_rules_defaults` check that every default is the default version (`v2.3`).
