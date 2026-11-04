@@ -25,6 +25,8 @@ QA groups: rl, web
 
 Fast subset for the inner loop: `uv run --with pytest pytest -m "not slow"`. It skips the tests marked `slow` and is not the "done" gate: only the full command above is. The engineer runs the fast subset while working and the full command once before `## Engineer: DONE`.
 
+Do not add `-q` to these test commands: `pyproject.toml` already sets `addopts = "-q"`, and an extra `-q` hides the pass-count line. For a count line under the memory cap, run the command as written or add `-o addopts=""`.
+
 ## Skills and subagents
 
 - Project skills go to `.agents/skills/<name>/SKILL.md`. `.claude/skills` is a directory with one symlink per skill, `.claude/skills/<name>` pointing to `../../.agents/skills/<name>`, added together with each skill.
