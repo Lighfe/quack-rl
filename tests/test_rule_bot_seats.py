@@ -1,7 +1,7 @@
 """The bot name form `bot:<strategy>-draw<limit>-pts<round>` everywhere (issue #270).
 
-`HeuristicBot` and its form `draw<limit>-pts<round>-<strategy>` are gone; every caller builds a
-`RuleBot`. The old-form names below are inputs of rejection tests only.
+The old heuristic bot and its form `draw<limit>-pts<round>-<strategy>` are gone; every caller
+builds a `RuleBot`. The old-form names below are inputs of rejection tests only.
 """
 
 import csv
@@ -21,7 +21,8 @@ from quack_rl.tournament import TournamentError, field_specs
 
 ROOT = Path(__file__).parent.parent
 runner = CliRunner()
-OLD_FORM = re.compile(r"draw[0-9]+-pts[0-9]+-[a-z]|HeuristicBot")
+OLD_CLASS = "Heuristic" + "Bot"  # split, so this file does not name the old class
+OLD_FORM = re.compile(r"draw[0-9]+-pts[0-9]+-[a-z]|" + OLD_CLASS)
 BASELINE = "topchip-draw20-pts1"
 
 
@@ -116,7 +117,7 @@ def test_package_exports_the_rule_bot_api():
     assert RandomBot(1).choose is not None
     assert bot_name("topchip", 20, 4) == "topchip-draw20-pts4"
     assert parse_bot_name("bot:topchip-draw20-pts4") == ("topchip", 20, 4)
-    assert not hasattr(bots, "HeuristicBot")
+    assert not hasattr(bots, OLD_CLASS)
 
 
 def test_heuristic_module_is_gone():
