@@ -4,13 +4,13 @@
     "AGENTS.md": "a056c59236458d313ece2c2ab753b8fa311555eb7c51c7a58c49ffe3c1a60115",
     "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
     "docs/checks/hook-activation.md": "f188f69c2ea386df572ffdc5a45b222ec95460e58e540e902c09d028fb65d6b1",
-    "docs/process.md": "415bba6adc5fb9b2316beea4a5edad884f69ac5883905712d556411f17a4b273",
+    "docs/process.md": "be46447b84edb6ad80d0bfc90e91a3f7b6c37284415122208be9d0ea2187704d",
     "docs/task-template.md": "aee078da298e980fa2d9bafdee6858f4638121f0116be0099dec786e3cc23b65",
-    "docs/team/orchestrator.md": "839ffb8dbdeb512e78b478dbbeaadce6790493fa6915713b6ece1f8e8d48f813",
-    "docs/team/planner.md": "814b76ae3488be879f199823be76470cce7b4abe56731e56a41cf28652f4dbd6",
-    "docs/team/pm.md": "721e2445232e038737eb443bf1dc70229de31efd2fa88e4a34dfa0679c8bd7be",
-    "docs/team/qa-engineer.md": "c484f5a292ceb9b86cf9ddc551f2d1c2e8eaee43ecc15ab427e5a35bd02ee205",
-    "docs/team/software-engineer.md": "f9d680f80ec3655ed26ee7f85b16c015d82e362d52567e1b023a1f016188973b",
+    "docs/team/orchestrator.md": "f642788d7e085999666c9ba2cc52f4cb51c785f08b3ed3a9d781444182db0e58",
+    "docs/team/planner.md": "2984420ccecd7c40dcdd4599b56983744dc79e98c3c7dde8e39fc4f6951bd8f5",
+    "docs/team/pm.md": "f8bdd9745fe8060cf4537717cf6b3f0d43dab714618d4118ded9dec8cc10877b",
+    "docs/team/qa-engineer.md": "de0c33d0edc893761463307a0b04f6b3e2b2c6875cadc4a876e9c2c4d5cab9f8",
+    "docs/team/software-engineer.md": "35824cc154f5a8228947303483c02c8df1c8e5fe5621c692d53b38a8ca8c42b2",
     "scripts/qa-codex": "1d5fdd00fa6986bfc092fa6633118e95b9ae6944e2dc0c0319ad38a78877e26f"
   }
 }
