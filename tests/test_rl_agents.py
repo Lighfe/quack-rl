@@ -75,8 +75,8 @@ def test_missing_folder_names_the_path(tmp_path):
 
 
 def test_other_rules_version_is_refused(tmp_path):
-    fake_agent(tmp_path, "old", rules="v2.2")
-    with pytest.raises(AgentError, match="rules v2.2"):
+    fake_agent(tmp_path, "old", rules="v9.9")
+    with pytest.raises(AgentError, match="rules v9.9"):
         load_agent("old", RS, root=tmp_path)
 
 
