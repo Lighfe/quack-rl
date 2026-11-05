@@ -7,6 +7,7 @@ are imported only when a `ppo`, `bc` or `cql` agent is loaded.
 """
 
 import hashlib
+import pickle
 import re
 import shutil
 import warnings
@@ -188,7 +189,7 @@ def load_agent(
         net = make_mlp(int(s["obs_dim"]), int(s["n_actions"]), int(s.get("hidden", 256)))
         net.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True))
         return OfflinePolicy(net, rules, label)
-    except (KeyError, RuntimeError, OSError, ValueError) as err:
+    except (KeyError, RuntimeError, OSError, ValueError, pickle.UnpicklingError) as err:
         raise AgentError(f"agent {name!r} could not be loaded from {weights}: {err}") from err
 
 

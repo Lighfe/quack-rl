@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import typer
 from rich.console import Console
 
@@ -24,8 +26,9 @@ class HumanSeatRequired(typer.BadParameter):
     """A human seat was given where only bots are allowed."""
 
 
-def check_seat(spec: str, *, allow_human: bool = False) -> None:
-    """Raise when `spec` is not a seat this command accepts."""
+def check_seat(spec: str, *, allow_human: bool = False, agents_root: Path = AGENTS_ROOT) -> None:
+    """Raise when `spec` is not a seat this command accepts. An `agent:<name>` seat is looked
+    up under `agents_root`."""
     if spec == "human" and not allow_human:
         raise HumanSeatRequired("human seats are only allowed in `quack-rl play`")
     if spec in KNOWN_SEATS:
@@ -37,7 +40,7 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
             f"unknown seat {spec!r}: policy: seats are not supported ({known})"
         )
     if spec.startswith(AGENT_PREFIX):
-        _check_agent(spec.removeprefix(AGENT_PREFIX))
+        _check_agent(spec.removeprefix(AGENT_PREFIX), Path(agents_root))
         return
     if spec.startswith("bot:"):
         try:
@@ -48,13 +51,13 @@ def check_seat(spec: str, *, allow_human: bool = False) -> None:
     raise typer.BadParameter(f"unknown seat {spec!r} ({known}){reason}")
 
 
-def _check_agent(name: str) -> None:
+def _check_agent(name: str, root: Path) -> None:
     """Raise when `name` is not an agent name or its folder has no manifest."""
     try:
         check_name(name)
     except AgentError as e:
         raise typer.BadParameter(f"unknown seat {AGENT_PREFIX + name!r}: {e}") from e
-    path = AGENTS_ROOT / name / MANIFEST
+    path = root / name / MANIFEST
     if not path.is_file():
         raise typer.BadParameter(f"unknown agent {name!r}: {path} does not exist")
 
@@ -67,9 +70,11 @@ def parse_seat(
     rs: Ruleset | None = None,
     bag_assist: bool = True,
     label: str = "",
+    agents_root: Path = AGENTS_ROOT,
 ) -> Seat:
-    """Build a seat. A human seat needs a console and a ruleset (only `play` gives them)."""
-    check_seat(spec, allow_human=console is not None and rs is not None)
+    """Build a seat. A human seat needs a console and a ruleset (only `play` gives them). An
+    `agent:<name>` seat is loaded from `agents_root`."""
+    check_seat(spec, allow_human=console is not None and rs is not None, agents_root=agents_root)
     if spec == "human":
         assert console is not None and rs is not None
         return HumanSeat(label, console, bag_assist, rs)
@@ -78,7 +83,7 @@ def parse_seat(
     if spec.startswith(AGENT_PREFIX):
         assert rs is not None, "an agent needs the ruleset"
         try:
-            return load_agent(spec.removeprefix(AGENT_PREFIX), rs, seed)
+            return load_agent(spec.removeprefix(AGENT_PREFIX), rs, seed, root=Path(agents_root))
         except AgentError as e:
             raise typer.BadParameter(f"seat {spec!r}: {e}") from e
     assert rs is not None, "a rule bot needs the ruleset"

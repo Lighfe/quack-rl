@@ -12,6 +12,7 @@ game is over; the record file is closed after the footer.
 import secrets
 import threading
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, TextIO
 
 from quack_rl import __version__
@@ -38,6 +39,7 @@ from quack_rl.record import (
     berlin_iso,
     new_game_id,
 )
+from quack_rl.rl.agents import AGENTS_ROOT
 from quack_rl.rules import Ruleset
 from quack_rl.runner import Seat
 
@@ -92,18 +94,24 @@ class GameSession:
         *,
         store: RecordStore | None = None,
         game_id: str | None = None,
+        agents_root: Path = AGENTS_ROOT,
     ) -> "GameSession":
         """Seat specs as in `quack-rl play`; raises `typer.BadParameter` for an unknown spec.
         The bot seeds follow `quack-rl play`: 2 * seed + 1 for p1, 2 * seed + 2 for p2.
         With a `store`, the game is recorded under the store's web folder with `game_id` as the
-        header game id; an error while creating the record file is raised, not swallowed."""
+        header game id; an error while creating the record file is raised, not swallowed.
+        The `agent:<name>` seats are loaded from `agents_root`."""
         for spec in specs.values():
-            check_seat(spec, allow_human=True)
+            check_seat(spec, allow_human=True, agents_root=agents_root)
         game_seed = seed if seed is not None else secrets.randbelow(2**31)
         seats: dict[str, Seat | None] = {}
         for i, seat in enumerate(SEATS, start=1):
             spec = specs[seat]
-            seats[seat] = None if spec == HUMAN else parse_seat(spec, 2 * game_seed + i, rs=rs)
+            seats[seat] = (
+                None
+                if spec == HUMAN
+                else parse_seat(spec, 2 * game_seed + i, rs=rs, agents_root=agents_root)
+            )
         session = cls(rs, seats, RngChance(game_seed), seed=game_seed)
         if store is not None:
             session._open_record(store, game_id or new_game_id())
