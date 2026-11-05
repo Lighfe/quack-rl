@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pytest
 
-from quack_rl.bots.heuristic import explosion_chance
+from quack_rl.bots.core import explosion_chance
 from quack_rl.engine import (
     TAKE_MONEY,
     RngChance,

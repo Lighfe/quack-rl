@@ -9,7 +9,7 @@ from quack_rl.rl.dataset import ARRAYS, Dataset, build_dataset, concat_files  # 
 from quack_rl.rl.evaluate import evaluate  # noqa: E402
 from quack_rl.rl.offline import train_bc, train_cql  # noqa: E402
 
-BOT = "bot:draw20-pts1-points"
+BOT = "bot:topchip-draw20-pts1"
 
 
 @pytest.fixture(scope="module")

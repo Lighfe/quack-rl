@@ -25,7 +25,7 @@ from quack_rl.rules import Ruleset, load_ruleset
 
 N_STEPS = 1000  # decisions per PPO rollout; 20000 steps per round are then exactly 20 rollouts
 BATCH_SIZE = 50
-HEURISTIC_OPPONENT = "bot:draw20-pts1-points"
+HEURISTIC_OPPONENT = "bot:topchip-draw20-pts1"
 Loader = Callable[[Path], Any]
 
 
@@ -138,8 +138,8 @@ def run_selfplay(
     One model is trained over all rounds (the step counter keeps growing). After round i the model
     is saved as `checkpoint_<i>.zip` in `out` and added to the pool. The agent plays both seats.
     `out` gets `config.json`, `selfplay.csv` (round, steps, mean_reward, pool_size) and
-    `result.json` (the last checkpoint against `bot:random`, the heuristic bot and, with more than
-    one round, the first checkpoint; win rates with the 95% Wilson interval).
+    `result.json` (the last checkpoint against `bot:random`, `HEURISTIC_OPPONENT` and, with more
+    than one round, the first checkpoint; win rates with the 95% Wilson interval).
     """
     if rounds < 1:
         raise ValueError(f"rounds must be at least 1, not {rounds}")

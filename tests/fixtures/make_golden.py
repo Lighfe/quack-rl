@@ -30,8 +30,8 @@ from quack_rl.runner import play_game
 
 GOLDEN = Path(__file__).parent / "golden"
 BOTS = (
-    "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
-    "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
+    "bot:topchip-draw20-pts1,bot:blackpurple-draw20-pts1,bot:topchip-draw20-pts4,"
+    "bot:spendmost-draw30-pts3,bot:blackpurple-draw20-pts6,bot:spendmost-draw30-pts4"
 )
 
 

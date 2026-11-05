@@ -50,7 +50,7 @@ A game is a recorded list of steps; the format is generic.
 
 Every bot must answer every action the engine can offer.
 
-- Think about: the heuristic bot needs a branch for each new action or phase, and must always return a legal action (fall back to the first legal one). Its look-ahead reads the component hooks. The random bot picks among legal actions and needs nothing. If an id is removed from a shop, remove it from the strategies that name it. Statistics code that reads event kinds may need a line when a new event changes money or points.
+- Think about: the shared bot rules (`CoreBot` in `src/quack_rl/bots/core.py`, used by `RuleBot`) need a branch for each new action or phase, and must always return a legal action (fall back to the first legal one). Their look-ahead reads the component hooks. The random bot picks among legal actions and needs nothing. If an id is removed from a shop, remove it from the strategies that name it. Statistics code that reads event kinds may need a line when a new event changes money or points.
 - Goes wrong: a bot that loops forever or crashes on the one phase it never saw; a stop rule computed on the wrong bag (for example, without chips that go back into it); a tie-break that is not deterministic; statistics that silently miss a new event.
 - Check: bot tests on the new version (every bot plays full games without an illegal action), the tournament command on the new version with a small number of games, and the tournament tests. The results header comes from the ruleset, so a new column should appear without code.
 - Does not apply: a change that offers no new action or phase and no new component hook.

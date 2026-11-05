@@ -5,8 +5,8 @@ import pytest
 from gymnasium import spaces
 from gymnasium.utils.env_checker import check_env
 
-from quack_rl.bots.heuristic import HeuristicBot
 from quack_rl.bots.random_bot import RandomBot
+from quack_rl.bots.rule_bot import RuleBot
 from quack_rl.engine import WAIT, action_names, legal_actions
 from quack_rl.engine.state import Phase
 from quack_rl.rl import QuackEnv, observation_bounds, observe, reward, vector_names, vectorize
@@ -55,9 +55,9 @@ def test_check_env_without_warnings_and_bounded_entries(version):
 
 
 @pytest.mark.parametrize("seat", ["p1", "p2"])
-def test_heuristic_opponent_full_game(seat):
+def test_rule_bot_opponent_full_game(seat):
     rs = load_ruleset("v2.3")
-    env = QuackEnv(seat=seat, opponent=HeuristicBot(rs), rules=rs)
+    env = QuackEnv(seat=seat, opponent=RuleBot(rs, "topchip", 20, 1, seed=1), rules=rs)
     steps = play(env, seed=3)
     assert steps[-1][2] is True
 

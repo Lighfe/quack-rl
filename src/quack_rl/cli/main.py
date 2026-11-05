@@ -39,7 +39,7 @@ from quack_rl.tournament import (
 )
 
 PLAY_SEAT_HELP = (
-    "Seat {}: human, bot:random or bot:draw<percent>-pts<round>-<strategy> (see above)."
+    "Seat {}: human, bot:random or bot:<strategy>-draw<percent>-pts<round> (see above)."
 )
 
 app = typer.Typer(no_args_is_help=True, help="Quack RL: play, simulate, replay and verify games.")
@@ -155,9 +155,9 @@ def tournament(
         str | None,
         typer.Option(
             "--field",
-            help="Named field of bots, put before --bots. Known: full "
-            "(24 bots of the balance run plus the baseline = 25), small (17 bots: "
-            "draw 10/20, points round 4/6, 4 strategies, plus the baseline).",
+            help="Named field of bots, put before --bots. Known: full (19 bots: "
+            "3 strategies x draw 0/20/40 x points round 4/6, plus bot:random), small (13 bots: "
+            "3 strategies x draw 10/20 x points round 4/6, plus bot:random).",
         ),
     ] = None,
     games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
@@ -305,7 +305,7 @@ def play(
 ) -> None:
     """Play a recorded game in the terminal (human vs bot, or hot seat with two humans).
 
-    Seat specs for --p1 and --p2: human, bot:random, bot:draw<percent>-pts<round>-<strategy>.
+    Seat specs for --p1 and --p2: human, bot:random, bot:<strategy>-draw<percent>-pts<round>.
     """
     console = Console()
     # Check every input before the record file is created.

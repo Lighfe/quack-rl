@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from quack_rl import __version__
-from quack_rl.bots import bot_name, parse_bot_name
+from quack_rl.bots import STRATEGIES, bot_name, parse_bot_name
 from quack_rl.cli.seats import check_seat
 from quack_rl.engine import GameState
 from quack_rl.record import berlin_iso, berlin_stamp, read_games, verify_game, verify_seed
@@ -35,9 +35,9 @@ from quack_rl.simgame import GameStats, play_sim_game
 
 BOT_SWEEPS = ("draw_limit", "points_round")
 FIELD_DRAW_LIMITS = (0, 20, 40)
-FIELD_POINTS_ROUNDS = (4, 7)
-FIELD_STRATEGIES = ("blue", "green", "cleaner", "balanced")
-FIELD_BASELINE = "draw20-pts1-points"
+FIELD_POINTS_ROUNDS = (4, 6)
+FIELD_STRATEGIES = tuple(STRATEGIES)  # topchip, spendmost, blackpurple
+FIELD_EXTRA = "bot:random"
 SMALL_DRAW_LIMITS = (10, 20)
 SMALL_POINTS_ROUNDS = (4, 6)
 FIELDS = ("full", "small")
@@ -148,12 +148,12 @@ def _spec_for(spec: str, sweep: Sweep | None, value: str) -> str:
     """The seat spec a bot plays with at one sweep value."""
     if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random":
         return spec
-    draw_limit, points_round, strategy = parse_bot_name(spec)
+    strategy, draw_limit, points_round = parse_bot_name(spec)
     if sweep.param == "draw_limit":
         draw_limit = int(value)
     else:
         points_round = int(value)
-    new = bot_name(draw_limit, points_round, strategy)
+    new = bot_name(strategy, draw_limit, points_round)
     parse_bot_name(new)  # a value out of range is an error before any run
     return "bot:" + new
 
@@ -180,12 +180,12 @@ def field_specs(name: str) -> tuple[str, ...]:
     else:
         raise TournamentError(f"unknown field {name!r} (known fields: {', '.join(FIELDS)})")
     specs = [
-        "bot:" + bot_name(limit, rnd, strategy)
+        "bot:" + bot_name(strategy, limit, rnd)
+        for strategy in FIELD_STRATEGIES
         for limit in limits
         for rnd in rounds
-        for strategy in FIELD_STRATEGIES
     ]
-    return (*specs, "bot:" + FIELD_BASELINE)
+    return (*specs, FIELD_EXTRA)
 
 
 def validate(config: TournamentConfig) -> None:

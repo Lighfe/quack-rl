@@ -443,7 +443,7 @@ def test_play_help_names_the_three_seat_forms():
     out = runner.invoke(app, ["play", "--help"]).output
     out = " ".join(out.split())
     assert "human" in out and "bot:random" in out
-    assert "bot:draw<percent>-pts<round>-<strategy>" in out
+    assert "bot:<strategy>-draw<percent>-pts<round>" in out
 
 
 def policy_reader(monkeypatch, prefer, log):
@@ -473,10 +473,10 @@ def policy_reader(monkeypatch, prefer, log):
     monkeypatch.setattr(human, "default_read_key", read)
 
 
-def test_scripted_game_with_heuristic_bot_uses_flask_and_ruby_drop(tmp_path, monkeypatch):
+def test_scripted_game_with_rule_bot_uses_flask_and_ruby_drop(tmp_path, monkeypatch):
     log: list[str] = []
     policy_reader(monkeypatch, ["use_flask", "ruby_drop"], log)
-    result = play(tmp_path, "--p2", "bot:draw20-pts1-points", "--rounds", "4", seed="1")
+    result = play(tmp_path, "--p2", "bot:topchip-draw20-pts1", "--rounds", "4", seed="1")
     assert result.exit_code == 0, result.output
     _, game = only_game(tmp_path)
     assert game.footer is not None and verify_game(game) == []

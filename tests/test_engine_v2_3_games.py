@@ -16,7 +16,7 @@ from quack_rl.simgame import play_sim_game
 
 RS = load_ruleset("v2.3")
 runner = CliRunner()
-HEURISTIC = "bot:draw20-pts1-points"
+RULE_BOT = "bot:topchip-draw20-pts1"
 
 
 def play(p1, p2, seed, stream=None):
@@ -30,9 +30,9 @@ def check_end(final):
     assert final.winner in ("p1", "p2", "draw")
 
 
-def test_heuristic_vs_heuristic_games_end_within_100_points():
+def test_rule_bot_vs_rule_bot_games_end_within_100_points():
     for seed in range(4):
-        check_end(play(HEURISTIC, HEURISTIC, seed))
+        check_end(play(RULE_BOT, RULE_BOT, seed))
 
 
 def test_random_vs_random_games_end_within_100_points():
@@ -59,7 +59,7 @@ def test_masked_random_game_stays_in_the_observation_space():
 def test_recorded_v2_game_reads_back_and_verifies(tmp_path):
     path = tmp_path / "game.jsonl"
     with path.open("w", encoding="utf-8") as f:
-        final = play(HEURISTIC, "bot:random", 3, stream=f)
+        final = play(RULE_BOT, "bot:random", 3, stream=f)
     (game,) = read_games(path)
     assert verify_game(game) == []
     assert '"rat_tail"' in path.read_text(encoding="utf-8")
@@ -69,7 +69,7 @@ def test_recorded_v2_game_reads_back_and_verifies(tmp_path):
 def test_tournament_on_v2_writes_its_result_table(tmp_path):
     result = runner.invoke(
         app,
-        ["tournament", "--rules", "v2.3", "--bots", f"{HEURISTIC},bot:random", "--games", "2",
+        ["tournament", "--rules", "v2.3", "--bots", f"{RULE_BOT},bot:random", "--games", "2",
          "--seed", "5", "--out", str(tmp_path)],
     )
     assert result.exit_code == 0, result.output

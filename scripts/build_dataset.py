@@ -3,7 +3,7 @@
 Usage: uv run python scripts/build_dataset.py --out data/datasets/draw20 [--agent B --opponent B
     --games N --seed S]
 
-With only --out: 2000 games of bot:draw20-pts1-points against bot:random plus 2000 games of the
+With only --out: 2000 games of bot:topchip-draw20-pts1 against bot:random plus 2000 games of the
 same bot against itself, in one file `dataset.npz`, and `dataset-stats.json` next to it.
 Given --agent/--opponent/--games, one such part is built. --out is a folder.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 from quack_rl.rl.dataset import Dataset, build_dataset, concat_files
 
-BOT = "bot:draw20-pts1-points"
+BOT = "bot:topchip-draw20-pts1"
 
 
 def main() -> None:

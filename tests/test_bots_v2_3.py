@@ -1,12 +1,11 @@
-"""Heuristic bots answer every action of v2.3 (issue #190). Balance is not tested."""
+"""Rule bots answer every action of v2.3 (issues #190, #270). Balance is not tested."""
 
 import random
 
 import pytest
 from helpers import RS
 
-from quack_rl.bots import HeuristicBot, RandomBot
-from quack_rl.bots.heuristic import STRATEGIES, STRATEGY_COLOUR, strategy_colour
+from quack_rl.bots import STRATEGIES, RandomBot, RuleBot
 from quack_rl.engine import (
     DONE,
     DRAW,
@@ -74,18 +73,18 @@ def play_forced(card, bots, seed):
 
 
 @pytest.mark.parametrize("card", CARDS)
-def test_every_card_heuristic_vs_heuristic(card):
+def test_every_card_rule_bot_vs_rule_bot(card):
     bots = {
-        "p1": Checked(HeuristicBot(RS, 30, 2, "green", seed=1)),
-        "p2": Checked(HeuristicBot(RS, 20, 1, "balanced", seed=2)),
+        "p1": Checked(RuleBot(RS, "spendmost", 30, 2, seed=1)),
+        "p2": Checked(RuleBot(RS, "blackpurple", 20, 1, seed=2)),
     }
     play_forced(card, bots, seed=7)
 
 
 @pytest.mark.parametrize("card", CARDS)
-def test_every_card_heuristic_vs_random(card):
+def test_every_card_rule_bot_vs_random(card):
     bots = {
-        "p1": Checked(HeuristicBot(RS, 25, 3, "blue", seed=3)),
+        "p1": Checked(RuleBot(RS, "topchip", 25, 3, seed=3)),
         "p2": Checked(RandomBot(seed=4)),
     }
     play_forced(card, bots, seed=11)
@@ -97,30 +96,19 @@ def test_games_use_the_new_actions():
     seen: set[str] = set()
     for seed in range(12):
         bots = {
-            "p1": Checked(HeuristicBot(RS, 10, 1, "cleaner", seed=seed)),
-            "p2": Checked(HeuristicBot(RS, 10, 1, "points", seed=seed)),
+            "p1": Checked(RuleBot(RS, "blackpurple", 10, 1, seed=seed)),
+            "p2": Checked(RuleBot(RS, "topchip", 10, 1, seed=seed)),
         }
         play_forced("card_17", bots, seed)
         seen |= bots["p1"].seen | bots["p2"].seen
     assert "ruby_drop" in seen
 
 
-# --- strategy colour ----------------------------------------------------------
-
-
-def test_strategy_colour_table():
-    assert STRATEGY_COLOUR == {
-        "points": "blue", "blue": "blue", "balanced": "blue", "green": "green", "cleaner": "green",
-    }
-    assert set(STRATEGY_COLOUR) == set(STRATEGIES)
-    assert strategy_colour("unknown") == "blue"
-
-
 # --- hand-built states --------------------------------------------------------
 
 
-def bot(strategy="points", draw=20, pts=1):
-    return HeuristicBot(RS, draw, pts, strategy)
+def bot(strategy="topchip", draw=20, pts=1):
+    return RuleBot(RS, strategy, draw, pts, temperature=0)
 
 
 def brew_state(bag, placed, white_total, **kw):
@@ -172,7 +160,7 @@ def shop_state(rubies, flask_full=True, rnd=1, money=0):
     return state
 
 
-def shop_choice(state, strategy="points"):
+def shop_choice(state, strategy="topchip"):
     return bot(strategy).choose(state, "p1", legal_actions(state, RS, "p1"))
 
 
@@ -211,7 +199,7 @@ def card_state(card, **points):
     return state
 
 
-def card_choice(state, strategy="points", seat="p1"):
+def card_choice(state, strategy="topchip", seat="p1"):
     b = bot(strategy)
     legal = legal_actions(state, RS, seat)
     action = b.choose(state, seat, legal)
@@ -242,21 +230,22 @@ def test_card_10_places_the_lowest_value_chip():
 def test_card_11_upgrades_the_strategy_colour_else_the_first():
     state = card_state("card_11")
     state.players["p1"].card_draw = ["green_1", "blue_1", "white_1"]
-    assert card_choice(state, "blue") == "card_upgrade:blue_1"
-    assert card_choice(state, "cleaner") == "card_upgrade:green_1"
-    state.players["p1"].card_draw = ["red_1", "green_1"]
-    assert card_choice(state, "blue") == "card_upgrade:red_1"
+    assert card_choice(state, "topchip") == "card_upgrade:blue_1"
+    assert card_choice(state, "blackpurple") == "card_upgrade:green_1"  # no red: the first
+    state.players["p1"].card_draw = ["green_1", "red_1"]
+    assert card_choice(state, "blackpurple") == "card_upgrade:red_1"
+    assert card_choice(state, "topchip") == "card_upgrade:green_1"
 
 
 def test_card_12_swaps_for_the_strategy_colour_value_1_chip():
-    assert card_choice(card_state("card_12"), "balanced") == "card_swap:blue_1"
-    assert card_choice(card_state("card_12"), "green") == "card_swap:green_1"
+    assert card_choice(card_state("card_12"), "spendmost") == "card_swap:blue_1"
+    assert card_choice(card_state("card_12"), "blackpurple") == "card_swap:red_1"
 
 
 def test_card_12_declines_without_the_colour_in_the_options():
-    b = bot("green")
+    b = bot("blackpurple")
     state = card_state("card_12")
-    assert b.choose(state, "p1", ["card_swap:red_1", "card_swap_no"]) == "card_swap_no"
+    assert b.choose(state, "p1", ["card_swap:blue_1", "card_swap_no"]) == "card_swap_no"
 
 
 def test_card_14_takes_the_points():
@@ -269,18 +258,10 @@ def test_card_19_points_from_entitlement_3_else_a_chip_of_the_colour():
     near, far = 5, 40
     assert calculate_rat_tails({"p1": 0, "p2": near}, RS)["p1"] < 3
     assert calculate_rat_tails({"p1": 0, "p2": far}, RS)["p1"] >= 3
-    assert card_choice(card_state("card_19", p1=0, p2=near), "blue") == "card_chip4:blue_4"
-    assert card_choice(card_state("card_19", p1=0, p2=near), "green") == "card_chip4:green_4"
+    assert card_choice(card_state("card_19", p1=0, p2=near), "topchip") == "card_chip4:blue_4"
+    assert card_choice(card_state("card_19", p1=0, p2=near), "blackpurple") == "card_chip4:red_4"
     assert card_choice(card_state("card_19", p1=0, p2=far)) == "card_tail_points"
-    assert card_choice(card_state("card_19", p1=7, p2=7), "cleaner") == "card_chip4:green_4"
-
-
-def test_names_and_strategies_are_unchanged():
-    from quack_rl.bots import parse_bot_name
-
-    assert sorted(STRATEGIES) == ["balanced", "blue", "cleaner", "green", "points"]
-    assert parse_bot_name("bot:draw30-pts3-blue") == (30, 3, "blue")
-    assert HeuristicBot(RS, 30, 3, "blue").name == "draw30-pts3-blue"
+    assert card_choice(card_state("card_19", p1=7, p2=7), "blackpurple") == "card_chip4:red_4"
 
 
 def test_random_seeds_play_to_the_end():
@@ -289,8 +270,8 @@ def test_random_seeds_play_to_the_end():
         card = rng.choice(CARDS)
         bots = {
             "p1": Checked(
-                HeuristicBot(RS, rng.choice([0, 20, 60]), 1, rng.choice(list(STRATEGIES)))
+                RuleBot(RS, rng.choice(list(STRATEGIES)), rng.choice([0, 20, 60]), 1)
             ),
-            "p2": Checked(HeuristicBot(RS, 20, 2, "balanced")),
+            "p2": Checked(RuleBot(RS, "blackpurple", 20, 2)),
         }
         assert play_forced(card, bots, rng.randrange(1000)).phase is Phase.GAME_OVER

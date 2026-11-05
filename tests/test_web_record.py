@@ -106,7 +106,7 @@ def test_finished_bot_game_has_a_footer_and_verifies(tmp_path, rounds):
     client = TestClient(create_app(tmp_path))
     r = client.post(
         "/games",
-        json={"p1": "bot:random", "p2": "bot:draw30-pts3-blue", "rounds": rounds, "seed": 5},
+        json={"p1": "bot:random", "p2": "bot:topchip-draw30-pts3", "rounds": rounds, "seed": 5},
     )
     assert r.status_code == 200, r.text
     session = client.app.state.games[r.json()["game_id"]]

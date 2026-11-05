@@ -5,7 +5,6 @@ from collections import Counter
 import pytest
 from helpers import RS
 
-from quack_rl.bots import HeuristicBot
 from quack_rl.bots import rule_bot as rule_bot_module
 from quack_rl.bots.rule_bot import (
     DEFAULT_TEMPERATURE,
@@ -15,7 +14,15 @@ from quack_rl.bots.rule_bot import (
     shop_probabilities,
 )
 from quack_rl.bots.strategy import STRATEGIES
-from quack_rl.engine import BUY_PREFIX, DONE, Phase, RngChance, legal_actions, new_game
+from quack_rl.engine import (
+    BUY_PREFIX,
+    DONE,
+    WAIT,
+    Phase,
+    RngChance,
+    legal_actions,
+    new_game,
+)
 from quack_rl.runner import play_game
 
 NAMES = ("topchip", "spendmost", "blackpurple")
@@ -126,6 +133,15 @@ def test_only_done_legal_gives_done(strategy):
         assert choose(strategy, state, temperature=t) == DONE
 
 
+@pytest.mark.parametrize("strategy", NAMES)
+def test_only_wait_legal_gives_wait(strategy):
+    # A seat whose shop is closed waits while the other seat still shops: no action is scored.
+    state = shop_state(rnd=1, money=20)
+    for t in (0.0, DEFAULT_TEMPERATURE):
+        bot = RuleBot(RS, strategy, 20, 4, seed=1, temperature=t)
+        assert bot.choose(state, "p1", [WAIT]) == WAIT
+
+
 # --- the pseudo-policy -----------------------------------------------------------------------
 
 
@@ -217,44 +233,6 @@ def test_no_two_chips_of_one_colour_in_a_round():
                 assert len(colours) == len(set(colours)), (seed, rnd, colours)
                 assert len(colours) <= 2
     assert buys > 0
-
-
-class Compare:
-    """Wraps a RuleBot; at every non-shop decision a HeuristicBot must choose the same."""
-
-    def __init__(self, bot, reference):
-        self.bot, self.reference = bot, reference
-        self.kind, self.name, self.params = bot.kind, bot.name, bot.params
-        self.checked = 0
-
-    def choose(self, state, seat, legal):
-        action = self.bot.choose(state, seat, legal)
-        if state.phase is not Phase.SHOP:
-            assert self.reference.choose(state, seat, list(legal)) == action, (
-                state.phase,
-                state.card,
-                legal,
-            )
-            self.checked += 1
-        return action
-
-
-@pytest.mark.parametrize(("draw", "pts"), [(20, 4), (0, 6)])
-def test_non_shop_decisions_match_the_heuristic_bot(draw, pts):
-    checked = 0
-    for seed in range(50):
-        names = (("topchip", "spendmost"), ("spendmost", "blackpurple"), ("blackpurple", "topchip"))
-        s1, s2 = names[seed % 3]
-        seats = {}
-        for seat, strategy, offset in (("p1", s1, 0), ("p2", s2, 500)):
-            bot = RuleBot(RS, strategy, draw, pts, seed=seed + offset)
-            if strategy in ("topchip", "spendmost"):
-                seats[seat] = Compare(bot, HeuristicBot(RS, draw, pts, "points"))
-            else:
-                seats[seat] = bot
-        play_game(RS, seats, RngChance(seed))
-        checked += sum(s.checked for s in seats.values() if isinstance(s, Compare))
-    assert checked > 0
 
 
 def test_blackpurple_card_12_swaps_for_red_1():

@@ -320,7 +320,7 @@ def test_two_bot_game_ends_with_a_winner(client):
 
 
 def test_heuristic_bot_seat_plays(client):
-    gid = create(client, "bot:draw20-pts6-blue", "bot:random", rounds=2, seed=4)
+    gid = create(client, "bot:topchip-draw20-pts6", "bot:random", rounds=2, seed=4)
     v = view(client, gid)
     assert v["game"]["phase"] == "game_over"
     assert seat_entry(v, "p2")["kind"] == "random"

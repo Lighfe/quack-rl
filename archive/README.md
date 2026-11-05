@@ -49,3 +49,10 @@ Ruleset v2.3 replaced both (issue #243): its black chip gives droplet +1 and 1 r
 - `archive/tests/test_ruby_step_v2_2.py`, `test_bots_v2_2.py`: the v2.2 forms of the ruby step tests, with the checks that compared v2.2 with v2.1 (the live ports are `tests/test_ruby_step.py` and `tests/test_bots_ruby_step.py`)
 
 `v2.1` and `v2.2` are not known ruleset names any more, and their records (schema version 2) are not read.
+
+## HeuristicBot and the first RL test runs on v2.3
+
+`RuleBot` (`src/quack_rl/bots/rule_bot.py`, names `<strategy>-draw<limit>-pts<round>`) replaced the old heuristic bot and its five strategies (issue #270). Its code is in the git history only. The four reports of the RL runs against the old bot are stale and keep their old path below `archive/`:
+
+- `archive/docs/analysis/2026-10-rl-vs-bots.md`, `2026-10-selfplay.md`, `2026-10-offline-rl.md`: the PPO, self-play and offline RL runs
+- `archive/docs/analysis/2026-10-rl-env-test.md`: the verdict on the RL environment

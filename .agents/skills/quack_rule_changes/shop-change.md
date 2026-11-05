@@ -53,7 +53,7 @@ Work through these steps in order. Each step needs the one before it.
 
 ### 5. Bots that buy
 
-- Think about: the shop strategies are lists of item ids. An id that the shop lacks is never legal, so the bot skips it without an error. The bot then plays a different strategy than its name says, for example a strategy built around the removed item buys only what is left. Decide for each strategy whether it still makes sense, and keep the strategies of the older versions working. When no strategy item is legal, the fallback in `_shop` of `src/quack_rl/bots/heuristic.py` buys the most expensive affordable item, so check that fallback when a new kind of item is added.
+- Think about: the shop strategies of `RuleBot` (`src/quack_rl/bots/strategy.py`) score the legal shop actions from a `ShopView` (prices and colours by item id). `topchip` and `spendmost` read only prices and colours, so a new or changed item changes what they buy without any error. `blackpurple` names item ids (`BLACK`, `PURPLE`) and colours (`PREFERRED_COLOURS`); an id that the shop lacks is never legal, so the strategy silently falls back to its other ranks. Decide for each strategy whether it still makes sense. `MAX_CHIP_BUYS` in `strategy.py` mirrors `max_chip_purchases` of the ruleset.
 - Goes wrong: a strategy that silently degrades after a removal; a new item that no strategy ever buys, so it is never tested in games of bots; a price change that makes a strategy unaffordable at the point where it was meant to buy.
 - Check: the bot tests that play a full game with every strategy on the new version, and the report test that expects a column for each shop item of the ruleset.
 
@@ -92,7 +92,7 @@ Run the narrow tests after each step, and the full test command at the end. Thes
 
 - Ruleset: `tests/test_ruleset_v2_3.py` and `tests/test_ruleset.py` (shop prices; a new file equals the file before it except for the shop), and the doc test that compares the rules document with the file (the shop table text).
 - Action list and legal actions: `test_shop_legal_actions_follow_money` and `test_shop_item_priced_at_money_left_is_legal` in `tests/test_state_actions.py`.
-- Bots: the shop tests in `tests/test_bots.py` (`test_strategy_priority_before_points_round`).
+- Bots: the shop tests in `tests/test_rule_bot.py` (`test_topchip_buys_the_most_expensive_then_done`, `test_blackpurple_rounds`).
 - CLI: `test_keys_map_to_legal_actions`, `test_buy_keys_continue_with_letters` and `test_choose_prints_board_and_menu_with_buy_details` in `tests/test_cli_play.py`.
 - RL: `test_action_mask_equals_legal_actions_at_every_step` in `tests/test_rl_encode.py`.
 - Record and replay: a game of the new version writes, reads and replays to the same final state (`tests/test_record.py`), and the record tests of the older versions pass unchanged.

@@ -33,4 +33,4 @@ def test_evaluate_refuses_an_illegal_choice():
 
 def test_make_opponent_accepts_bot_random():
     assert make_opponent("bot:random", 1).name == "random"
-    assert make_opponent("bot:draw20-pts1-points").name.startswith("draw20")
+    assert make_opponent("bot:topchip-draw20-pts1").name == "topchip-draw20-pts1"

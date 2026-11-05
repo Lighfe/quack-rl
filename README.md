@@ -61,7 +61,7 @@ Requires [uv](https://docs.astral.sh/uv/).
     uv run quack-rl play --p2 human               # hot seat on one keyboard
     uv run quack-rl play --no-bag-assist          # hide the bag contents
     uv run quack-rl play --rounds 4               # a shorter game (default 9)
-    uv run quack-rl play --p2 bot:draw20-pts1-points   # against a heuristic bot
+    uv run quack-rl play --p2 bot:topchip-draw20-pts1  # against a rule bot
 
 The game is played with ruleset `v2.3`, the only ruleset and the default.
 
@@ -73,7 +73,7 @@ Keys: `d` draw, `s` stop, `0` done (shop and ruby step), `1`-`9` and letters buy
 - `l` refill the empty flask for rubies (ruby step)
 - `1`, `2`, ... answer a card question (cards 5, 8, 10, 11, 12, 14, 19)
 
-Seats: `human`, `bot:random` or `bot:draw<percent>-pts<round>-<strategy>`.
+Seats: `human`, `bot:random` or `bot:<strategy>-draw<percent>-pts<round>`, with the strategies `topchip`, `spendmost` and `blackpurple` (`RuleBot`).
 
 ## Web service
 
@@ -135,7 +135,7 @@ Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the train
   - the board block: per seat `<who>.board.marker.<k>` (one-hot, `k` in 0..50), `<who>.board.has_50pts` and `<who>.rat_tail`, then `board.tail.<f>` (1 when a rat tail lies after field `f`). All of it is open information
   - the look-ahead window: for `k` in 0..`K` (default `K = 10`) the field `scoring field + k` as `ahead.<k>.money`, `ahead.<k>.points`, `ahead.<k>.ruby`. `k = 0` is what the seat gets if it stops now. Past the last field the window repeats the last field. There is no table of all fields: the field values are constants of the ruleset
   - the map as the last block: one row per field `0..track_end` and `map_channels(rs)` channels (20): for `own` and for `opponent` one flag per colour, `value` and `order` of the chip that lies on the field (all zero without a chip; `order` is 1 for the first chip of the round; if several chips land on the last field the later one fills it). Reshape it with `vec[map_slice(rs)].reshape(rs.track_end + 1, map_channels(rs))`
-  - Derived features (`derived(state, rs, seat)` in `quack_rl.rl.derive`), per seat as `own.<name>` and `opponent.<name>`: `scoring_field`, `ruby_at_scoring_field`, `money_if_stop` (money table at the scoring field, 0 in the last round; no bonus die, no round-end bonus), `limit_distance` (explosion limit minus white total, negative after an explosion), `explosion_chance` (of the next draw, same function as the heuristic bot; 0 for an empty bag), `rolls_die` (1 when the seat is not exploded and its scoring field is the best among non-exploded seats; a tie gives both seats 1), `chips_placed`; plus the shared `field_gap` and `points_gap` (own minus opponent), and `own.field_points` and `last_round`. They use the engine helpers and the ruleset tables, no rule code is copied.
+  - Derived features (`derived(state, rs, seat)` in `quack_rl.rl.derive`), per seat as `own.<name>` and `opponent.<name>`: `scoring_field`, `ruby_at_scoring_field`, `money_if_stop` (money table at the scoring field, 0 in the last round; no bonus die, no round-end bonus), `limit_distance` (explosion limit minus white total, negative after an explosion), `explosion_chance` (of the next draw, same function as the rule bots; 0 for an empty bag), `rolls_die` (1 when the seat is not exploded and its scoring field is the best among non-exploded seats; a tie gives both seats 1), `chips_placed`; plus the shared `field_gap` and `points_gap` (own minus opponent), and `own.field_points` and `last_round`. They use the engine helpers and the ruleset tables, no rule code is copied.
   - Rule of thumb: generic rules (fields, the money table, rubies, the explosion limit, the die, points) are derived; specific rules (what one colour or chip does, the round-end ruby bonus, the buy options) are not. The model learns those from the map and the Shop mask.
   - `money` is the budget in the Shop phase and the value of the last Resolve otherwise. Values are raw, not scaled.
   - `observation_bounds(rs)` gives `(low, high)`: finite for flags, fields and ruleset constants, `inf` where there is no real bound (points, money, bag counts); both envs use it in their observation space.
@@ -147,18 +147,18 @@ The training stack is in the repo again, on ruleset v2.3 (the default) and obser
 
 ## Testing the RL environment
 
-Three tests of the env, each with a script. The training scripts need the `rl` dependency group (`--group rl`); the dataset builder does not. The budgets are the defaults of the scripts; the run times are those of the full runs in `docs/analysis/` (`2026-10-rl-vs-bots.md`, `2026-10-selfplay.md`, `2026-10-offline-rl.md`). The results and the verdict are in `docs/analysis/2026-10-rl-env-test.md`. Run data goes to `data/` (not committed). A full run takes minutes to half an hour, so check a command first with a tiny budget (for example `--steps 512 --eval-games 10`).
+Three tests of the env, each with a script. The training scripts need the `rl` dependency group (`--group rl`); the dataset builder does not. The budgets are the defaults of the scripts; the run times are those of the full runs against the old heuristic bot, in `archive/docs/analysis/2026-10-rl-vs-bots.md`, `archive/docs/analysis/2026-10-selfplay.md` and `archive/docs/analysis/2026-10-offline-rl.md`. Their results and verdict (`archive/docs/analysis/2026-10-rl-env-test.md`) are stale: that bot is retired. Run data goes to `data/` (not committed). A full run takes minutes to half an hour, so check a command first with a tiny budget (for example `--steps 512 --eval-games 10`).
 
-(a) PPO against the random bot and against a heuristic bot. Default budget `--steps 200000 --eval-games 500 --seed 0`; about 24 min (random bot) and 32 min (heuristic bot), peak 0.8 GB:
+(a) PPO against the random bot and against a rule bot. Default budget `--steps 200000 --eval-games 500 --seed 0`; about 24 min (random bot) and 32 min (the old heuristic bot), peak 0.8 GB:
 
     uv run --group rl python scripts/train_ppo.py --opponent bot:random --out data/runs/ppo-vs-random
-    uv run --group rl python scripts/train_ppo.py --opponent bot:draw20-pts1-points --out data/runs/ppo-vs-draw20-pts1-points
+    uv run --group rl python scripts/train_ppo.py --opponent bot:topchip-draw20-pts1 --out data/runs/ppo-vs-topchip-draw20-pts1
 
 (b) Self-play against a pool of earlier checkpoints. Default budget `--rounds 5 --steps-per-round 20000 --pool-size 4 --eval-games 500 --seed 0`; about 23 min, peak 0.85 GB:
 
     uv run --group rl python scripts/train_selfplay.py --out data/runs/selfplay
 
-(c) Dataset, behaviour cloning and offline RL (CQL). The dataset default is 2000 games of `bot:draw20-pts1-points` against `bot:random` plus 2000 mirror games (about 28 min, peak 6.6 GB, a 5.4 GB file; give it a memory cap). Then BC with the default `--epochs 5` (about 10 min) and CQL with the default `--steps 20000` (about 12 min), each with `--eval-games 500`, peak 5.9 GB:
+(c) Dataset, behaviour cloning and offline RL (CQL). The dataset default is 2000 games of `bot:topchip-draw20-pts1` against `bot:random` plus 2000 mirror games (about 28 min, peak 6.6 GB, a 5.4 GB file; give it a memory cap). Then BC with the default `--epochs 5` (about 10 min) and CQL with the default `--steps 20000` (about 12 min), each with `--eval-games 500`, peak 5.9 GB:
 
     uv run python scripts/build_dataset.py --out data/datasets/draw20
     uv run --group rl python scripts/train_offline.py --dataset data/datasets/draw20/dataset.npz --method bc --out data/runs/bc
@@ -201,7 +201,7 @@ Each tournament run writes its own folder under `data/tournaments/` (not committ
 - `report.txt` - the balance report, written by `quack-rl report <run folder>`
 - `records/` - gzipped game records, only with `--keep-records`
 
-Named fields (`--field`): `full` (25 bots) and `small` (17 bots: draw limit 10/20, points round 4/6, strategies blue, green, cleaner, balanced, plus the baseline `draw20-pts1-points`).
+Named fields (`--field`): `full` (19 bots: the strategies topchip, spendmost and blackpurple x draw limit 0/20/40 x points round 4/6, plus `bot:random`) and `small` (13 bots: the three strategies x draw limit 10/20 x points round 4/6, plus `bot:random`). The report's baseline is `topchip-draw20-pts1`.
 
 ### `seats.parquet`
 

@@ -7,7 +7,7 @@ board. The rule code stays in the engine and the bots: this module calls `scorin
 `explosion_chance` and the ruleset tables.
 """
 
-from quack_rl.bots.heuristic import explosion_chance
+from quack_rl.bots.core import explosion_chance
 from quack_rl.engine import SEATS, GameState, Status, explosion_limit
 from quack_rl.engine.state import PlayerState, scoring_field
 from quack_rl.rules import Ruleset

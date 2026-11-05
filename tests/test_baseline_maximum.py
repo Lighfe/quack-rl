@@ -2,7 +2,7 @@
 
 `realistic_baseline_maximum` (src/quack_rl/report.py) is "points of the field table, without
 chip purchases and cards", calculated from the ruleset only. This file plays many games of the
-`points` strategy (points round 1) on v2.3 with 9 rounds and an empty shop (so nobody buys
+`topchip` rule bot (points round 1) on v2.3 with 9 rounds and an empty shop (so nobody buys
 chips), one draw limit after the other, and compares the averages with it:
 
 - (a) the best simulated average over the draw limits is at least the calculation minus 3
@@ -19,7 +19,7 @@ no end-of-game ruby points either (rubies // `last_round_ruby_divisor`, issue #2
 ruleset turns them off: `last_round_ruby_divisor` is set to NO_RUBY_POINTS, far above any ruby
 count. The number is not an upper bound of the real baseline bot.
 
-The opponent is `draw100-pts9-points`: it draws until it explodes, so it never rolls the bonus
+The opponent is `topchip-draw100-pts9`: it draws until it explodes, so it never rolls the bonus
 die and the bot under test always rolls it when it does not explode, as the calculation assumes.
 """
 
@@ -31,7 +31,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import pytest
 
-from quack_rl.bots.heuristic import HeuristicBot
+from quack_rl.bots.rule_bot import RuleBot
 from quack_rl.engine import DONE, RngChance
 from quack_rl.report import baseline_maximum, realistic_baseline_maximum
 from quack_rl.rules import load_ruleset, with_rounds
@@ -40,7 +40,7 @@ from quack_rl.runner import play_game
 CARD_MARGIN = 0.50
 GAMES = 1000
 DRAW_LIMITS = (0, 10, 20, 30, 40, 50)
-OPPONENT = dict(draw_limit=100, points_round=9, strategy="points")
+OPPONENT = dict(strategy="topchip", draw_limit=100, points_round=9)
 
 # No end-of-game ruby points (issue #202): the divisor is far above any ruby count, so the
 # rubies the bot keeps give 0 points, as in the calculation.
@@ -50,8 +50,8 @@ RS = with_rounds(load_ruleset("v2.3"), 9).model_copy(
 )
 
 
-class KeepRubiesBot(HeuristicBot):
-    """The `points` bot that never spends rubies: the shop is empty, so it only says done, and
+class KeepRubiesBot(RuleBot):
+    """The `topchip` bot that never spends rubies: the shop is empty, so it only says done, and
     in the ruby step after the shop it says done too."""
 
     def _shop(self, state, seat, legal):
@@ -69,8 +69,8 @@ def play_chunk(draw_limit: int, first: int) -> list[int]:
     points = []
     for game in range(first, first + CHUNK):
         seats = {
-            "p1": KeepRubiesBot(RS, draw_limit, 1, "points", seed=2 * game + 1),
-            "p2": HeuristicBot(RS, seed=2 * game + 2, **OPPONENT),
+            "p1": KeepRubiesBot(RS, "topchip", draw_limit, 1, seed=2 * game + 1),
+            "p2": RuleBot(RS, seed=2 * game + 2, **OPPONENT),
         }
         final = play_game(RS, seats, RngChance(game))
         points.append(final.players["p1"].points)

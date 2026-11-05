@@ -4,14 +4,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from quack_rl.bots import (
-    BASELINE_NAME,
-    HeuristicBot,
-    UnknownStrategy,
-    explosion_chance,
-    load_strategy,
-    parse_bot_name,
-)
+from quack_rl.bots import STRATEGIES, RuleBot, explosion_chance
 from quack_rl.cli.main import app
 from quack_rl.engine import DONE, DRAW, STOP, Phase, ScriptedChance, new_game, step
 from quack_rl.rules import load_ruleset
@@ -75,12 +68,12 @@ BAG = {"white_3": 2, "white_1": 3}
     "limit,expected", [(50, DRAW), (40, DRAW), (39, STOP), (30, STOP), (0, STOP), (100, DRAW)]
 )
 def test_draw_rule_below_equal_above_limit(limit, expected):
-    bot = HeuristicBot(RS, limit, 1, "points", seed=1)
+    bot = RuleBot(RS, "topchip", limit, 1, seed=1)
     assert bot.choose(brew_state(BAG, 5), "p1", [DRAW, STOP]) == expected
 
 
 def test_draw_when_stop_not_legal():
-    bot = HeuristicBot(RS, 0, 1, "points", seed=1)
+    bot = RuleBot(RS, "topchip", 0, 1, seed=1)
     state = brew_state(BAG, 5, placed=())
     assert bot.choose(state, "p1", [DRAW]) == DRAW
 
@@ -88,61 +81,20 @@ def test_draw_when_stop_not_legal():
 # --- shop rule ----------------------------------------------------------------
 
 
-
-
-
-
-
-
-def test_strategy_priority_before_points_round():
-    from quack_rl.bots import Strategy
-
-    bot = HeuristicBot(RS, 30, 5, Strategy("t", ("blue_1", "green_1")), seed=1)
-    state = shop_state(10, rnd=1)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:blue_1"
-
-
-def test_done_when_nothing_affordable():
-    bot = HeuristicBot(RS, 30, 1, "points", seed=1)
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
+def test_done_when_nothing_affordable(strategy):
+    bot = RuleBot(RS, strategy, 30, 1, seed=1)
     state = shop_state(2)
     assert bot.choose(state, "p1", shop_legal(state)) == DONE
 
 
-
-
-def test_bot_returns_only_legal_actions():
-    bot = HeuristicBot(RS, 30, 1, "points", seed=1)
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
+def test_bot_returns_only_legal_actions(strategy):
+    bot = RuleBot(RS, strategy, 30, 1, seed=1)
     for money in range(0, 40):
         state = shop_state(money)
         legal = shop_legal(state)
         assert bot.choose(state, "p1", legal) in legal
-
-
-# --- strategies and names -----------------------------------------------------
-
-
-def test_load_strategy_points():
-    assert load_strategy("points").priority == ()
-
-
-def test_unknown_strategy_names_it():
-    with pytest.raises(UnknownStrategy, match="nosuch"):
-        load_strategy("nosuch")
-
-
-def test_baseline_name_and_params():
-    bot = HeuristicBot(RS)
-    assert bot.name == BASELINE_NAME == "draw20-pts1-points"
-    assert bot.params["draw_limit"] == 20
-    assert bot.params["points_round"] == 1
-    assert bot.params["strategy"] == "points"
-
-
-def test_parse_bot_name():
-    assert parse_bot_name("draw30-pts1-points") == (30, 1, "points")
-    for bad in ("draw30", "draw30-pts3-nosuch", "drawx-pts3-points", "draw30-pts0-points"):
-        with pytest.raises(ValueError):
-            parse_bot_name(bad)
 
 
 # --- CLI ----------------------------------------------------------------------
@@ -162,7 +114,9 @@ def records(out: Path):
     return lines
 
 
-@pytest.mark.parametrize("spec", ["bot:draw30", "bot:draw30-pts3-nosuch", "bot:drawx-pts3-points"])
+@pytest.mark.parametrize(
+    "spec", ["bot:topchip-draw30", "bot:nosuch-draw30-pts3", "bot:topchip-drawx-pts3"]
+)
 def test_bad_bot_spec_fails_clean(tmp_path, spec):
     result = sim(tmp_path, spec, "bot:random")
     assert result.exit_code != 0
@@ -173,17 +127,17 @@ def test_bad_bot_spec_fails_clean(tmp_path, spec):
 
 def test_bad_bot_spec_in_play(tmp_path):
     result = runner.invoke(
-        app, ["play", "--p1", "bot:draw30", "--p2", "bot:random", "--out", str(tmp_path)]
+        app, ["play", "--p1", "bot:topchip-draw30", "--p2", "bot:random", "--out", str(tmp_path)]
     )
     assert result.exit_code != 0
-    assert "bot:draw30" in result.output
+    assert "bot:topchip-draw30" in result.output
     assert "Traceback" not in result.output
 
 
 def test_simulate_same_seed_same_records(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     for out in (a, b):
-        r = sim(out, "bot:draw30-pts1-points", "bot:draw50-pts3-points")
+        r = sim(out, "bot:topchip-draw30-pts1", "bot:topchip-draw50-pts3")
         assert r.exit_code == 0, r.output
 
     def strip(lines):
@@ -196,19 +150,19 @@ def test_simulate_same_seed_same_records(tmp_path):
 
 
 def test_header_has_bot_params(tmp_path):
-    r = sim(tmp_path, "bot:draw30-pts1-points", "bot:draw50-pts3-points", games="1")
+    r = sim(tmp_path, "bot:topchip-draw30-pts1", "bot:topchip-draw50-pts3", games="1")
     assert r.exit_code == 0, r.output
     header = records(tmp_path)[0]
     p1 = header["seats"]["p1"]
-    assert p1["name"] == "draw30-pts1-points"
+    assert p1["name"] == "topchip-draw30-pts1"
     assert p1["params"]["draw_limit"] == 30
     assert p1["params"]["points_round"] == 1
-    assert p1["params"]["strategy"] == "points"
+    assert p1["params"]["strategy"] == "topchip"
     assert header["seats"]["p2"]["params"]["draw_limit"] == 50
 
 
 def test_verify_passes_on_bot_game(tmp_path):
-    r = sim(tmp_path, "bot:draw30-pts1-points", "bot:draw50-pts1-points", games="3")
+    r = sim(tmp_path, "bot:topchip-draw30-pts1", "bot:topchip-draw50-pts1", games="3")
     assert r.exit_code == 0, r.output
     (shard,) = tmp_path.glob("**/shard-0001.jsonl")
     v = runner.invoke(app, ["verify", str(shard)])
@@ -216,36 +170,12 @@ def test_verify_passes_on_bot_game(tmp_path):
     assert "3 games ok" in v.output
 
 
-# --- strategy weights, seeded ties, spending after points -------------------------
-
-
-def test_strategy_weights_rank_before_priority_order():
-    from quack_rl.bots import Strategy
-
-    s = Strategy("t", ("orange_1", "blue_1", "green_1"), (("green_1", 2.0), ("blue_1", 1.0)))
-    assert s.ranked() == ["green_1", "blue_1", "orange_1"]
-    assert Strategy("u", ("orange_1", "blue_1")).ranked() == ["orange_1", "blue_1"]
-
-
-def test_weights_change_what_the_bot_buys():
-    from quack_rl.bots import Strategy
-
-    s = Strategy("t", ("orange_1", "green_1"), (("green_1", 1.0),))
-    bot = HeuristicBot(RS, 30, 5, s, seed=1)
-    state = shop_state(10, rnd=1)
-    assert bot.choose(state, "p1", shop_legal(state)) == "buy:green_1"
-
-
-
-
-
-
 def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
     # game_id is random and the times are clock values, by design (verify --game selects
     # by id). Everything else must be identical, including the full step lines.
     a, b = tmp_path / "a", tmp_path / "b"
     for out in (a, b):
-        r = sim(out, "bot:draw30-pts1-points", "bot:draw50-pts3-points")
+        r = sim(out, "bot:topchip-draw30-pts1", "bot:topchip-draw50-pts3")
         assert r.exit_code == 0, r.output
     ra, rb = records(a), records(b)
     assert len(ra) == len(rb) > 1
@@ -257,123 +187,24 @@ def test_simulate_same_seed_only_ids_and_times_differ(tmp_path):
         assert x == y
 
 
-# --- the four shop strategies -----------------------------------------------------
-
-from quack_rl.bots import STRATEGIES  # noqa: E402
-
-BLUE = {"blue_1", "blue_2", "blue_4"}
-GREEN = {"green_1", "green_2", "green_4"}
+# --- the three shop strategies -----------------------------------------------------
 
 
-def test_strategies_registry_keys_and_names():
-    assert set(STRATEGIES) == {"points", "blue", "green", "cleaner", "balanced"}
-    for key, s in STRATEGIES.items():
-        assert s.name == key
-        assert load_strategy(key) is s
-
-
-def test_blue_strategy_data():
-    s = load_strategy("blue")
-    assert set(s.priority) == BLUE
-    assert s.ranked()[0] == "blue_4"
-
-
-def test_green_strategy_data():
-    s = load_strategy("green")
-    assert set(s.priority) == GREEN | {"droplet_1"}
-    assert set(s.ranked()) == GREEN | {"droplet_1"}
-
-
-def test_cleaner_strategy_data():
-    s = load_strategy("cleaner")
-    assert s.ranked()[0] == "remove_white_1"
-    assert len(set(s.priority) - {"remove_white_1"}) >= 1
-    assert "droplet_1" not in s.priority
-
-
-def test_balanced_strategy_data():
-    p = set(load_strategy("balanced").priority)
-    assert "orange_1" in p and "remove_white_1" in p and "droplet_1" in p
-    assert p & BLUE and p & GREEN
-
-
-def test_only_points_strategy_lists_points_items():
-    for key, s in STRATEGIES.items():
-        if key != "points":
-            assert not any(i.startswith("points_") for i in s.priority)
-
-
-@pytest.mark.parametrize("draw", [15, 30, 50])
-@pytest.mark.parametrize("pts", [3, 8])
-@pytest.mark.parametrize("strategy", ["points", "blue", "green", "cleaner", "balanced"])
-def test_all_bot_specs_are_accepted(draw, pts, strategy):
-    name = f"draw{draw}-pts{pts}-{strategy}"
-    assert parse_bot_name(name) == (draw, pts, strategy)
-    assert HeuristicBot(RS, draw, pts, strategy).name == name
-    assert parse_bot_name(f"bot:{name}") == (draw, pts, strategy)
-
-
-def test_unknown_strategy_lists_known_ones():
-    with pytest.raises(UnknownStrategy) as e:
-        parse_bot_name("draw30-pts3-nosuch")
-    for key in STRATEGIES:
-        assert key in str(e.value)
-    with pytest.raises(UnknownStrategy) as e:
-        parse_bot_name("bot:draw30-pts3-nosuch")
-    for key in STRATEGIES:
-        assert key in str(e.value)
-
-
-def test_all_24_specs_run_as_seats(tmp_path):
-    for draw in (15, 30, 50):
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
+def test_all_specs_run_as_seats(tmp_path, strategy):
+    for draw in (15, 50):
         for pts in (3, 8):
-            for strategy in ("blue", "green", "cleaner", "balanced"):
-                spec = f"bot:draw{draw}-pts{pts}-{strategy}"
-                r = sim(tmp_path / spec.replace(":", "_"), spec, "bot:random", games="1")
-                assert r.exit_code == 0, r.output
-                header = records(tmp_path / spec.replace(":", "_"))[0]
-                assert f"bot:{header['seats']['p1']['name']}" == spec
+            spec = f"bot:{strategy}-draw{draw}-pts{pts}"
+            out = tmp_path / spec.replace(":", "_")
+            r = sim(out, spec, "bot:random", games="1")
+            assert r.exit_code == 0, r.output
+            header = records(out)[0]
+            assert f"bot:{header['seats']['p1']['name']}" == spec
 
 
-def purchases(out: Path) -> list[list[str]]:
-    """Per game, the bought item ids of both seats."""
-    games: dict[str, list[str]] = {}
-    for line in records(out):
-        if line.get("type") != "step":
-            continue
-        bought = [e["item"] for e in line["events"] if e["kind"] == "buy"]
-        games.setdefault(line["game_id"], []).extend(bought)
-    return list(games.values())
-
-
-@pytest.fixture(scope="module")
-def batches(tmp_path_factory):
-    out = {}
-    for strategy in ("blue", "green", "cleaner", "balanced"):
-        d = tmp_path_factory.mktemp(strategy)
-        spec = f"bot:draw30-pts8-{strategy}"
-        r = sim(d, spec, spec, seed="7", games="30")
-        assert r.exit_code == 0, r.output
-        out[strategy] = purchases(d)
-        assert len(out[strategy]) == 30
-    return out
-
-
-def flat(games):
-    return [i for g in games for i in g]
-
-
-
-
-
-
-
-
-
-
-@pytest.mark.parametrize("strategy", ["blue", "green", "cleaner", "balanced"])
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
 def test_strategy_games_verify(tmp_path, strategy):
-    r = sim(tmp_path, f"bot:draw30-pts3-{strategy}", "bot:random", games="3")
+    r = sim(tmp_path, f"bot:{strategy}-draw30-pts3", "bot:random", games="3")
     assert r.exit_code == 0, r.output
     (shard,) = tmp_path.glob("**/shard-0001.jsonl")
     v = runner.invoke(app, ["verify", str(shard)])
@@ -425,53 +256,23 @@ def play_shop(bot, state, rs=RS, limit=20):
     raise AssertionError(f"no done after {limit} actions: {actions}")
 
 
-
-
-
-
-
-
-def test_v1_1_before_points_round_strategy_list_first():
-    bot = HeuristicBot(RS, 20, 4, "blue", seed=1)
-    state = shop_state11(20, rnd=2)
-    assert bot.choose(state, "p1", legal11(state)) == "buy:blue_4"
-
-
-
-
-
-
-
-
-@pytest.mark.parametrize("strategy", ["green", "balanced"])
-@pytest.mark.parametrize("rnd", [2, 4])
-def test_v1_1_items_not_in_the_shop_are_skipped(strategy, rnd):
-    assert "droplet_1" in load_strategy(strategy).priority
-    for money in range(0, 41):
-        bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
-        actions = play_shop(bot, shop_state11(money, rnd=rnd))
-        assert "buy:droplet_1" not in actions
-
-
-@pytest.mark.parametrize("strategy", ["points", "blue", "green", "cleaner", "balanced"])
+@pytest.mark.parametrize("strategy", sorted(STRATEGIES))
 @pytest.mark.parametrize("rnd", [2, 4])
 def test_v1_1_shop_is_legal_and_ends(strategy, rnd):
     for money in range(0, 41):
-        bot = HeuristicBot(RS, 20, 4, strategy, seed=1)
+        bot = RuleBot(RS, strategy, 20, 4, seed=1)
         state = shop_state11(money, rnd=rnd)
         actions = play_shop(bot, state)
         assert state.phase is Phase.SHOP and state.players["p1"].shop_done
         assert DONE not in actions[:-1] and len(actions) <= 20
 
 
-
-
 # --- v1 games unchanged (golden results.csv) ----------------------------------
 
 GOLDEN_V1 = Path(__file__).parent / "fixtures" / "golden" / "v2_3_bots_results.csv"
 GOLDEN_V1_BOTS = (
-    "bot:draw20-pts1-points,bot:draw20-pts1-cleaner,bot:draw20-pts4-blue,"
-    "bot:draw30-pts3-green,bot:draw20-pts6-cleaner,bot:draw30-pts4-balanced"
+    "bot:topchip-draw20-pts1,bot:blackpurple-draw20-pts1,bot:topchip-draw20-pts4,"
+    "bot:spendmost-draw30-pts3,bot:blackpurple-draw20-pts6,bot:spendmost-draw30-pts4"
 )
 
 
@@ -541,27 +342,27 @@ def choice_action(bot, rnd):
 
 
 def test_v18_choice_money_before_points_round_points_from_it():
-    bot = HeuristicBot(RS, 20, 4, "green", seed=1)
-    assert bot.name == "draw20-pts4-green"
+    bot = RuleBot(RS, "spendmost", 20, 4, seed=1)
+    assert bot.name == "spendmost-draw20-pts4"
     assert choice_action(bot, 3) == TAKE_MONEY
     assert choice_action(bot, 4) == TAKE_POINTS
     assert choice_action(bot, 9) == TAKE_POINTS
 
 
 def test_v18_pts1_takes_points_every_round():
-    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    bot = RuleBot(RS, "topchip", 20, 1, seed=1)
     assert all(choice_action(bot, r) == TAKE_POINTS for r in range(1, RS.rounds + 1))
 
 
 def test_v18_points_round_beyond_last_round_takes_money_every_round():
-    bot = HeuristicBot(RS, 20, 12, "points", seed=1)
+    bot = RuleBot(RS, "topchip", 20, 12, seed=1)
     assert all(choice_action(bot, r) == TAKE_MONEY for r in range(1, RS.rounds + 1))
 
 
 def test_v18_choice_wait_for_a_player_who_did_not_explode():
     state = choice_state(2)
     state.players["p1"].status = Status.STOPPED
-    bot = HeuristicBot(RS, 20, 1, "points", seed=1)
+    bot = RuleBot(RS, "topchip", 20, 1, seed=1)
     assert bot.choose(state, "p1", legal_actions(state, RS, "p1")) == WAIT
 
 
@@ -576,7 +377,7 @@ def v18_shop_state(money, rnd):
 def test_v18_shop_never_buys_points():
     shop_ids = {i.id for i in RS.shop}
     for strategy in STRATEGIES:
-        bot = HeuristicBot(RS, 20, 1, strategy, seed=1)
+        bot = RuleBot(RS, strategy, 20, 1, seed=1)
         for rnd in range(1, RS.rounds):  # the last round has no shop
             for money in range(0, 40):
                 state = v18_shop_state(money, rnd)
@@ -592,8 +393,8 @@ def test_v18_shop_never_buys_points():
 def test_v18_game_with_each_strategy_has_no_illegal_action(strategy):
     for seed in range(5):
         seats = {
-            "p1": HeuristicBot(RS, 30, 4, strategy, seed=seed),
-            "p2": HeuristicBot(RS, 20, 1, "points", seed=seed + 100),
+            "p1": RuleBot(RS, strategy, 30, 4, seed=seed),
+            "p2": RuleBot(RS, "topchip", 20, 1, seed=seed + 100),
         }
         bought = []
 
@@ -629,7 +430,7 @@ def pick_state(hand, bag=None, white_total=0, field=0, placed=(), pot_field=None
 
 
 def pick(state, draw_limit=20):
-    bot = HeuristicBot(RS, draw_limit=draw_limit)
+    bot = RuleBot(RS, "topchip", draw_limit, 1)
     return bot.choose(state, "p1", PICK_LEGAL)
 
 
@@ -685,18 +486,14 @@ def test_random_bot_answers_all_three_kinds_at_the_pick_step():
     assert kinds == {"play", "put_back_draw", "put_back_stop"}
 
 
-def test_parse_bot_name_is_unchanged():
-    assert parse_bot_name("bot:draw30-pts3-blue") == (30, 3, "blue")
-
-
 # --- v1.9: full games -----------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     "p1,p2",
     [
-        ("bot:draw20-pts1-blue", "bot:draw30-pts3-balanced"),
-        ("bot:draw20-pts1-blue", "bot:random"),
+        ("bot:topchip-draw20-pts1", "bot:blackpurple-draw30-pts3"),
+        ("bot:topchip-draw20-pts1", "bot:random"),
         ("bot:random", "bot:random"),
     ],
 )
@@ -734,7 +531,7 @@ def test_v1_9_tournament_runs_all_pairs(tmp_path):
             "--out",
             str(tmp_path),
             "--bots",
-            "bot:draw20-pts1-blue,bot:draw30-pts3-balanced,bot:random",
+            "bot:topchip-draw20-pts1,bot:blackpurple-draw30-pts3,bot:random",
         ],
     )
     assert result.exit_code == 0, result.output

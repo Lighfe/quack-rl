@@ -229,7 +229,7 @@ def test_bot_games_give_plain_lines_and_only_known_kinds(tmp_path):
     found: set[str] = set()
     for seed in SEEDS:
         r = client.post(
-            "/games", json={"p1": "bot:random", "p2": "bot:draw30-pts3-blue", "seed": seed}
+            "/games", json={"p1": "bot:random", "p2": "bot:topchip-draw30-pts3", "seed": seed}
         )
         assert r.status_code == 200, r.text
         gid = r.json()["game_id"]

@@ -28,7 +28,7 @@ from quack_rl.rules import Ruleset, load_ruleset
 
 MASK_FILL = -1e9
 RANDOM_OPPONENT = "bot:random"
-HEURISTIC_OPPONENT = "bot:draw20-pts1-points"
+HEURISTIC_OPPONENT = "bot:topchip-draw20-pts1"
 
 
 def make_mlp(obs_dim: int, n_actions: int, hidden: int = 256) -> nn.Module:
@@ -206,7 +206,7 @@ def run_offline_experiment(
     on_progress: Callable[[int, float], None] | None = None,
 ) -> OfflineResult:
     """Train `method` ("bc" or "cql") on the dataset file, evaluate against `bot:random` and
-    `bot:draw20-pts1-points`, and write `config.json`, `metrics.csv` and `result.json` to `out`."""
+    `bot:topchip-draw20-pts1`, and write `config.json`, `metrics.csv` and `result.json` to `out`."""
     if method not in ("bc", "cql"):
         raise ValueError(f"method must be 'bc' or 'cql', not {method!r}")
     data = Dataset.load(dataset_path)

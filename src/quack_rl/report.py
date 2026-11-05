@@ -9,14 +9,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from quack_rl.bots import parse_bot_name
-from quack_rl.bots.heuristic import BASELINE_NAME
+from quack_rl.bots import STRATEGIES, parse_bot_name
 from quack_rl.components import Component, get_component, pot_effects
 from quack_rl.rules import Ruleset, load_ruleset
 from quack_rl.tournament import BASE_COLUMNS, SEAT_CHECK_PREFIX, Sweep, TournamentConfig, _rules_for
 
 Z95 = 1.959964  # two-sided 95% normal quantile
-SWEEP_STRATEGIES = ("blue", "green", "cleaner", "balanced")
+SWEEP_STRATEGIES = tuple(STRATEGIES)  # topchip, spendmost, blackpurple
+# The baseline bot of the report: the draw rule of 20 percent, points from round 1.
+BASELINE_NAME = "topchip-draw20-pts1"
 NEEDED_COLUMNS = [*BASE_COLUMNS, "p1_draws", "p2_draws"]
 
 
@@ -72,7 +73,7 @@ def _brew_outcomes(
 ) -> dict[tuple[int, bool, int, int], float]:
     """Chance of each end of a brew for a bot with `draw_limit`.
 
-    The key is (advance, exploded, droplet steps, points). The bot rule of `HeuristicBot`: the
+    The key is (advance, exploded, droplet steps, points). The draw rule of `CoreBot`: the
     first chip is always drawn; then it stops when the chance to explode is more than the draw
     limit. A brew also ends on an explosion or an empty bag. The advance is the sum of the chip
     advances (blue bonus included), so the final field is `min(start field + advance, track_end)`.
@@ -204,7 +205,7 @@ def _draw_limit_classes(rs: Ruleset) -> list[int]:
 
 
 def _expected_points(rs: Ruleset, draw_limit: int) -> float:
-    """Average final points of the `points` bot (points round 1) with one draw limit.
+    """Average final points of a bot (points round 1) that buys no chips, with one draw limit.
 
     The chain state is (droplet, bag, points). The points follow the engine order of a
     round: pot effects, the bonus die face, the points of the scoring field, and in the last
@@ -256,10 +257,10 @@ def _expected_points(rs: Ruleset, draw_limit: int) -> float:
 def realistic_baseline_maximum(rs: Ruleset) -> float:
     """Points of the field table, without chip purchases and cards.
 
-    The best average final points of a bot with strategy `points` that plays alone and buys no
-    chips. The bot has any draw limit (0 to 100 percent) and points round 1. The number is
-    calculated from the ruleset only, no simulation: for each draw limit, the chance of every
-    end of a brew is summed over all draw orders of the bag, and the rounds are followed as a
+    The best average final points of a bot that plays alone and buys no chips. The bot has
+    any draw limit (0 to 100 percent) and points round 1. The number is calculated from the
+    ruleset only, no simulation: for each draw limit, the chance of every end of a brew is
+    summed over all draw orders of the bag, and the rounds are followed as a
     chain over (droplet position, bag, points); the result is the best draw limit.
 
     It is not an upper bound of the real baseline bot: that bot buys chips, and cards add points
@@ -374,7 +375,7 @@ class Data:
 def label_of(bot: str) -> str:
     """Strategy of a bot name, `random` for the random bot."""
     try:
-        return parse_bot_name(bot)[2]
+        return parse_bot_name(bot)[0]
     except ValueError:
         return bot
 
@@ -468,7 +469,7 @@ def _by_params(data: Data, strategy: str) -> dict[tuple[int, int], Agg]:
     out: dict[tuple[int, int], Agg] = {}
     for bot, agg in data.bots.items():
         try:
-            draw_limit, points_round, strat = parse_bot_name(bot)
+            strat, draw_limit, points_round = parse_bot_name(bot)
         except ValueError:
             continue
         if strat == strategy:
@@ -515,7 +516,7 @@ def section_sweeps(data: Data) -> list[str]:
             ),
         ]
     if not out:
-        return ["== Sweeps ==", "No heuristic bot of the four strategies in this run."]
+        return ["== Sweeps ==", "No rule bot of the three strategies in this run."]
     return out
 
 
@@ -544,7 +545,7 @@ def section_items(data: Data) -> list[str]:
 
 
 def _label_key(label: str) -> tuple[int, str]:
-    order = [*SWEEP_STRATEGIES, "points", "random"]
+    order = [*SWEEP_STRATEGIES, "random"]
     return (order.index(label) if label in order else len(order), label)
 
 

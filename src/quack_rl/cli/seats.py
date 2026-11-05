@@ -1,14 +1,14 @@
 import typer
 from rich.console import Console
 
-from quack_rl.bots import HeuristicBot, RandomBot, parse_bot_name
+from quack_rl.bots import RandomBot, RuleBot, parse_bot_name
 from quack_rl.cli.human import HumanSeat
 from quack_rl.record import SeatInfo
 from quack_rl.rules import Ruleset
 from quack_rl.runner import Seat
 
 KNOWN_SEATS = ("bot:random", "human")
-BOT_FORM = "bot:draw<percent>-pts<round>-<strategy>"
+BOT_FORM = "bot:<strategy>-draw<percent>-pts<round>"
 
 
 class HumanSeatRequired(typer.BadParameter):
@@ -52,9 +52,9 @@ def parse_seat(
         return HumanSeat(label, console, bag_assist, rs)
     if spec == "bot:random":
         return RandomBot(seed)
-    assert rs is not None, "a heuristic bot needs the ruleset"
-    draw_limit, points_round, strategy = parse_bot_name(spec.removeprefix("bot:"))
-    return HeuristicBot(rs, draw_limit, points_round, strategy, seed)
+    assert rs is not None, "a rule bot needs the ruleset"
+    strategy, draw_limit, points_round = parse_bot_name(spec.removeprefix("bot:"))
+    return RuleBot(rs, strategy, draw_limit, points_round, seed)
 
 
 def seat_info(seat: Seat) -> SeatInfo:

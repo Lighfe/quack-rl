@@ -16,10 +16,9 @@ from quack_rl.simgame import play_sim_game
 
 BOTS = (
     "bot:random",
-    "bot:draw30-pts3-blue",
-    "bot:draw30-pts3-green",
-    "bot:draw30-pts3-cleaner",
-    "bot:draw30-pts3-balanced",
+    "bot:topchip-draw30-pts3",
+    "bot:spendmost-draw30-pts3",
+    "bot:blackpurple-draw30-pts3",
 )
 
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from quack_rl.bots import HeuristicBot, RandomBot
-from quack_rl.bots.heuristic import REFILL_RESERVE
+from quack_rl.bots import RandomBot, RuleBot
+from quack_rl.bots.core import REFILL_RESERVE
 from quack_rl.engine import (
     DONE,
     REFILL_FLASK,
@@ -31,8 +31,8 @@ def phase_state(rs, phase, rubies, flask_full):
 
 @pytest.mark.parametrize("rubies", range(0, 7))
 @pytest.mark.parametrize("flask_full", [True, False])
-def test_heuristic_ruby_step_rule(rubies, flask_full):
-    bot = HeuristicBot(RS, 20, 1, "points", seed=0)
+def test_rule_bot_ruby_step_rule(rubies, flask_full):
+    bot = RuleBot(RS, "topchip", 20, 1, seed=0)
     ruby = phase_state(RS, Phase.RUBY, rubies, flask_full)
     got = bot.choose(ruby, "p1", legal_actions(ruby, RS, "p1"))
     if not flask_full and rubies >= RS.ruby_cost and rubies - RS.ruby_cost >= REFILL_RESERVE:
@@ -43,8 +43,8 @@ def test_heuristic_ruby_step_rule(rubies, flask_full):
         assert got == DONE
 
 
-def test_heuristic_v2_3_shop_buys_chips_without_ruby_spends():
-    bot = HeuristicBot(RS, 20, 1, "points", seed=0)
+def test_rule_bot_v2_3_shop_buys_chips_without_ruby_spends():
+    bot = RuleBot(RS, "topchip", 20, 1, seed=0, temperature=0)
     state = phase_state(RS, Phase.SHOP, 6, False)
     state.players["p1"].money = 20
     legal = legal_actions(state, RS, "p1")
@@ -69,12 +69,12 @@ def _play(bots, seed):
     return phases
 
 
-def test_heuristic_and_random_play_full_v2_3_games():
+def test_rule_bot_and_random_play_full_v2_3_games():
     phases = set()
     for seed in range(4):
         bots = {
-            "p1": HeuristicBot(RS, 20, 1, "points", seed=seed),
-            "p2": RandomBot(seed=seed) if seed % 2 else HeuristicBot(RS, 30, 2, "green", seed=seed),
+            "p1": RuleBot(RS, "topchip", 20, 1, seed=seed),
+            "p2": RandomBot(seed=seed) if seed % 2 else RuleBot(RS, "spendmost", 30, 2, seed=seed),
         }
         phases |= _play(bots, seed)
     assert Phase.RUBY in phases

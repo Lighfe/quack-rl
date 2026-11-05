@@ -17,7 +17,11 @@ def progress(point: CurvePoint) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--opponent", default="bot:random", help="bot:random or a heuristic bot")
+    parser.add_argument(
+        "--opponent",
+        default="bot:random",
+        help="bot:random or a rule bot, bot:<strategy>-draw<percent>-pts<round>",
+    )
     parser.add_argument("--steps", type=int, default=200_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--eval-games", type=int, default=500)

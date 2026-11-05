@@ -21,7 +21,7 @@ from quack_rl.tournament import (
 
 CSV_COLUMNS = csv_columns(load_ruleset("v2.3"))
 runner = CliRunner()
-BOTS = "bot:draw30-pts3-blue,bot:draw15-pts8-cleaner,bot:random"
+BOTS = "bot:topchip-draw30-pts3,bot:blackpurple-draw15-pts8,bot:random"
 TRACEBACK = "Traceback (most recent call last)"
 
 
@@ -78,7 +78,7 @@ def test_run_writes_config_and_results(tmp_path):
     assert not (run / "records").exists()  # no records by default
     assert not (run / "report.txt").exists()
     row = rows[0]
-    assert row["pairing"] == "draw30-pts3-blue vs draw15-pts8-cleaner"
+    assert row["pairing"] == "topchip-draw30-pts3 vs blackpurple-draw15-pts8"
     assert (row["game"], row["seed"]) == ("0", "5")
 
 
@@ -99,9 +99,9 @@ def test_sweep_over_bot_parameter_rewrites_bot_names(tmp_path):
     assert {r["sweep_value"] for r in rows} == {"2", "5"}
     for r in rows:
         if r["sweep_value"] == "5":
-            assert "-pts5-" in r["p1"]
+            assert r["p1"].endswith("-pts5")
         if r["p2"] != "random":
-            assert f"-pts{r['sweep_value']}-" in r["p2"]
+            assert r["p2"].endswith(f"-pts{r['sweep_value']}")
 
 
 def test_sweep_over_ruleset_override_is_recorded_in_the_rows(tmp_path):
@@ -126,7 +126,7 @@ def test_bad_sweep_values_are_rejected_without_a_run_folder(tmp_path):
 
 @pytest.mark.parametrize(
     "bots",
-    ["bot:random", "bot:random,bot:random", "bot:random,bot:draw30-pts3-blue,bot:random"],
+    ["bot:random", "bot:random,bot:random", "bot:random,bot:topchip-draw30-pts3,bot:random"],
 )
 def test_one_bot_or_repeated_bot_is_rejected_with_no_run_folder(tmp_path, bots):
     result = tour(tmp_path, bots=bots)
@@ -213,7 +213,7 @@ def test_sample_mismatch_exits_non_zero_and_names_the_game(tmp_path, monkeypatch
 
 
 def test_verify_sample_unit_reports_a_changed_row():
-    config = TournamentConfig(bots=("bot:random", "bot:draw30-pts3-blue"), games=2, seed=1)
+    config = TournamentConfig(bots=("bot:random", "bot:topchip-draw30-pts3"), games=2, seed=1)
     from quack_rl.tournament import run_games
 
     rows = run_games(config)
@@ -268,7 +268,7 @@ def test_parse_sweep():
 
 def test_validate_rejects_sweep_that_is_also_set():
     config = TournamentConfig(
-        bots=("bot:random", "bot:draw30-pts3-blue"),
+        bots=("bot:random", "bot:topchip-draw30-pts3"),
         games=1,
         seed=0,
         overrides={"shop.orange_1.price": "9"},
@@ -278,21 +278,21 @@ def test_validate_rejects_sweep_that_is_also_set():
         validate(config)
 
 
-def test_full_field_is_the_25_specs_in_order():
+def test_full_field_is_the_19_specs_in_order():
     from quack_rl.bots import parse_bot_name
     from quack_rl.tournament import field_specs
 
     specs = field_specs("full")
     expected = [
-        f"bot:draw{limit}-pts{rnd}-{strategy}"
+        f"bot:{strategy}-draw{limit}-pts{rnd}"
+        for strategy in ("topchip", "spendmost", "blackpurple")
         for limit in (0, 20, 40)
-        for rnd in (4, 7)
-        for strategy in ("blue", "green", "cleaner", "balanced")
-    ] + ["bot:draw20-pts1-points"]
+        for rnd in (4, 6)
+    ] + ["bot:random"]
     assert list(specs) == expected
-    assert len(specs) == 25 and len(set(specs)) == 25
-    assert specs[0] == "bot:draw0-pts4-blue" and specs[23] == "bot:draw40-pts7-balanced"
-    for spec in specs:
+    assert len(specs) == 19 and len(set(specs)) == 19
+    assert specs[0] == "bot:topchip-draw0-pts4" and specs[17] == "bot:blackpurple-draw40-pts6"
+    for spec in specs[:-1]:
         parse_bot_name(spec)
 
 
@@ -307,7 +307,7 @@ def _capture_config(monkeypatch):
     return seen
 
 
-def test_field_full_without_bots_expands_to_25_specs(monkeypatch, tmp_path):
+def test_field_full_without_bots_expands_to_19_specs(monkeypatch, tmp_path):
     from quack_rl.tournament import field_specs
 
     seen = _capture_config(monkeypatch)
@@ -318,16 +318,20 @@ def test_field_full_without_bots_expands_to_25_specs(monkeypatch, tmp_path):
 def test_field_then_bots_adds_extra_bot_after_the_field(monkeypatch, tmp_path):
     seen = _capture_config(monkeypatch)
     runner.invoke(
-        app, ["tournament", "--field", "full", "--bots", "bot:random", "--out", str(tmp_path)]
+        app,
+        ["tournament", "--field", "full", "--bots", "bot:topchip-draw50-pts2"]
+        + ["--out", str(tmp_path)],
     )
     bots = seen["config"].bots
-    assert len(bots) == 26 and bots[-1] == "bot:random" and bots[0] == "bot:draw0-pts4-blue"
+    assert len(bots) == 20 and bots[-1] == "bot:topchip-draw50-pts2"
+    assert bots[0] == "bot:topchip-draw0-pts4"
 
 
 def test_field_with_a_bot_of_the_field_is_a_duplicate_error(tmp_path):
     result = runner.invoke(
         app,
-        ["tournament", "--field", "full", "--bots", "bot:draw0-pts4-blue", "--out", str(tmp_path)],
+        ["tournament", "--field", "full", "--bots", "bot:topchip-draw0-pts4"]
+        + ["--out", str(tmp_path)],
     )
     assert result.exit_code == 2
     assert "Error:" in result.output and "the field lists a bot twice" in result.output
@@ -402,7 +406,7 @@ def test_keep_records_with_new_seeds_pass_seed_check(tmp_path):
         assert runner.invoke(app, ["verify", str(shard), "--seed-check"]).exit_code == 0
 
 
-def _play(seed, p1="bot:draw30-pts3-blue", p2="bot:random"):
+def _play(seed, p1="bot:topchip-draw30-pts3", p2="bot:random"):
     import io
 
     from quack_rl.rules import load_ruleset
@@ -435,7 +439,7 @@ def test_results_csv_is_byte_identical_for_one_and_two_workers(tmp_path):
 
 # --- seats.parquet (issue #43) ---------------------------------------------------------------
 
-TWO_BOTS = "bot:draw30-pts3-blue,bot:draw15-pts8-cleaner"
+TWO_BOTS = "bot:topchip-draw30-pts3,bot:blackpurple-draw15-pts8"
 
 
 def _expected_schema(rounds: int, rules: str = "v2.3"):
@@ -680,21 +684,21 @@ def test_seats_parquet_is_equal_for_one_and_two_workers(tmp_path):
         assert name not in ta.schema.names
 
 
-def test_small_field_is_the_17_specs_in_order():
+def test_small_field_is_the_13_specs_in_order():
     from quack_rl.bots import parse_bot_name
     from quack_rl.tournament import field_specs
 
     specs = field_specs("small")
     expected = [
-        f"bot:draw{limit}-pts{rnd}-{strategy}"
+        f"bot:{strategy}-draw{limit}-pts{rnd}"
+        for strategy in ("topchip", "spendmost", "blackpurple")
         for limit in (10, 20)
         for rnd in (4, 6)
-        for strategy in ("blue", "green", "cleaner", "balanced")
-    ] + ["bot:draw20-pts1-points"]
+    ] + ["bot:random"]
     assert list(specs) == expected
-    assert len(specs) == 17
-    assert specs[0] == "bot:draw10-pts4-blue" and specs[15] == "bot:draw20-pts6-balanced"
-    for spec in specs:
+    assert len(specs) == 13
+    assert specs[0] == "bot:topchip-draw10-pts4" and specs[11] == "bot:blackpurple-draw20-pts6"
+    for spec in specs[:-1]:
         parse_bot_name(spec)
 
 
@@ -708,10 +712,11 @@ def test_unknown_field_error_lists_full_and_small():
 
 def test_help_names_the_small_field():
     result = runner.invoke(app, ["tournament", "--help"])
-    assert "small" in result.output and "17 bots" in result.output
+    text = " ".join(result.output.replace("│", " ").split())  # the help box wraps lines
+    assert "small" in text and "13 bots" in text and "19 bots" in text
 
 
-def test_small_field_run_has_136_pairings(tmp_path):
+def test_small_field_run_has_78_pairings(tmp_path):
     result = runner.invoke(
         app,
         [
@@ -730,8 +735,8 @@ def test_small_field_run_has_136_pairings(tmp_path):
     )
     assert result.exit_code == 0, result.output
     (run,) = runs(tmp_path)
-    assert len(read_rows(run)) == 136
-    assert read_seats(run).num_rows == 272
+    assert len(read_rows(run)) == 78
+    assert read_seats(run).num_rows == 156
 
 
 def test_report_works_on_a_run_with_seats_parquet(tmp_path):
@@ -763,7 +768,7 @@ def test_cli_and_worker_modules_do_not_import_pyarrow():
 
 
 def test_v2_3_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
-    bots = "bot:draw20-pts4-green,bot:draw30-pts1-points,bot:random"
+    bots = "bot:spendmost-draw20-pts4,bot:topchip-draw30-pts1,bot:random"
     result = tour(tmp_path, "--rules", "v2.3", bots=bots, games="50")
     assert result.exit_code == 0, result.output
     assert TRACEBACK not in result.output

@@ -69,8 +69,10 @@ def shop_view(rs: Ruleset, state: GameState, seat: str, legal: list[str]) -> Sho
 
 
 def softmax(scores: dict[str, float], legal: list[str], temperature: float) -> dict[str, float]:
-    """Probabilities over `legal`; temperature 0 puts all on the first best action."""
-    if temperature == 0:
+    """Probabilities over `legal`; temperature 0 puts all on the first best action.
+
+    When no legal action has a finite score (only `wait` is legal), all goes on the first one."""
+    if temperature == 0 or all(scores[a] == -math.inf for a in legal):
         best = max(legal, key=lambda a: scores[a])  # max keeps the first of equal scores
         return {a: 1.0 if a == best else 0.0 for a in legal}
     top = max(scores[a] for a in legal)

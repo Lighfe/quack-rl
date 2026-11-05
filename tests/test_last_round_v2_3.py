@@ -1,6 +1,6 @@
 """Ruleset v2.3: the last round has no shop, and rubies become points at game end (issue #202)."""
 
-from quack_rl.bots.heuristic import HeuristicBot
+from quack_rl.bots.rule_bot import RuleBot
 from quack_rl.engine import (
     TAKE_MONEY,
     WAIT,
@@ -151,8 +151,8 @@ def test_full_bot_game_has_no_shop_in_the_last_round():
                 seen.append(result)
 
         seats = {
-            "p1": HeuristicBot(RS, 30, 1, "points", seed=seed),
-            "p2": HeuristicBot(RS, 20, 4, "points", seed=seed + 50),
+            "p1": RuleBot(RS, "topchip", 30, 1, seed=seed),
+            "p2": RuleBot(RS, "spendmost", 20, 4, seed=seed + 50),
         }
         final = play_game(RS, seats, RngChance(seed), on_step)
         assert final.phase is Phase.GAME_OVER

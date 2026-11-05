@@ -40,7 +40,7 @@ def main() -> None:
     )
     for label, ev in (
         ("bot:random", result.against_random),
-        ("bot:draw20-pts1-points", result.against_heuristic),
+        ("bot:topchip-draw20-pts1", result.against_heuristic),
         ("first checkpoint", result.against_first),
     ):
         if ev is not None:
