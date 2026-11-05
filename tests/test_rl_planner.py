@@ -7,6 +7,7 @@ Every agent is written under `tmp_path`. All tests but the `slow` one use a smal
 import copy
 import io
 import json
+import logging
 import random
 import subprocess
 import sys
@@ -34,6 +35,7 @@ from quack_rl.rl.agents import AgentManifest, load_agent, save_agent
 from quack_rl.rl.determinize import determinize
 from quack_rl.rl.encode import BOARD_LAYOUT
 from quack_rl.rl.planner import (
+    CAPPED_MESSAGE,
     DEFAULT_MAX_SECONDS,
     DEFAULT_ROLLOUT,
     DEFAULT_SIMULATIONS,
@@ -191,12 +193,14 @@ def test_the_best_mean_wins_and_a_tie_goes_to_the_first_action(monkeypatch):
     assert planner.choose(state, "p1", ["a", "b", "c"]) == "b"
 
 
-def test_the_clock_cap_stops_a_decision_and_counts_it():
+def test_the_clock_cap_stops_a_decision_and_counts_it(caplog):
     state = shop_state()
     planner = PlannerBot(RS, simulations=10_000, seed=0, max_seconds=0.05)
     legal = legal_actions(state, RS, "p1")
-    assert planner.choose(state, "p1", legal) in legal
+    with caplog.at_level(logging.WARNING, logger="quack_rl.rl.planner"):
+        assert planner.choose(state, "p1", legal) in legal
     assert planner.time_capped == 1
+    assert [r.getMessage().startswith(CAPPED_MESSAGE) for r in caplog.records] == [True]
 
 
 # --- full games ---------------------------------------------------------------------------------

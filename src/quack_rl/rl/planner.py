@@ -12,13 +12,15 @@ random numbers), so the actions are compared on the same luck.
 
 The planner never reads the opponent's hand or `card_draw`, never the real game's chance source
 and never the global `random` module, so a seeded planner plays the same game again.
-`max_seconds` is a safety cap only: a decision that hits it stops early and counts in
-`time_capped`. At the defaults of `scripts/make_planner_agent.py` it is not reached.
+`max_seconds` is a safety cap only: a decision that hits it stops early, counts in
+`time_capped` and logs a warning (`CAPPED_MESSAGE`, also from a tournament worker). At the
+defaults of `scripts/make_planner_agent.py` it is not reached.
 
 Importing this module registers the planner as `agents.PLANNER_FACTORY`, so `load_agent` can
 build an `agent:<name>` seat of kind `planner` in any process.
 """
 
+import logging
 import random
 import time
 from typing import Any
@@ -44,6 +46,9 @@ DEFAULT_SIMULATIONS = 60
 DEFAULT_ROLLOUT = "bot:topchip-draw20-pts6"
 DEFAULT_MAX_SECONDS = 2.0
 RANDOM_ROLLOUT = "bot:random"
+CAPPED_MESSAGE = "planner decision stopped by the clock"
+
+log = logging.getLogger(__name__)
 
 
 def check_rollout(spec: str) -> None:
@@ -131,6 +136,13 @@ class PlannerBot:
                 break
         if capped:
             self.time_capped += 1
+            log.warning(
+                "%s after %.1f s (%d of %d simulations)",
+                CAPPED_MESSAGE,
+                self.max_seconds,
+                sum(counts),
+                len(seeds) * len(legal),
+            )
         means = [t / c if c else -1.0 for t, c in zip(totals, counts, strict=True)]
         best = max(range(len(legal)), key=lambda i: means[i])  # max keeps the first of a tie
         return legal[best]
