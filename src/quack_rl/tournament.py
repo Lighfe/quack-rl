@@ -30,6 +30,7 @@ from quack_rl.bots import STRATEGIES, bot_name, parse_bot_name
 from quack_rl.cli.seats import check_seat
 from quack_rl.engine import GameState
 from quack_rl.record import berlin_iso, berlin_stamp, read_games, verify_game, verify_seed
+from quack_rl.rl.agents import AGENT_PREFIX, checked_manifest
 from quack_rl.rules import Ruleset, apply_overrides, load_ruleset, with_rounds
 from quack_rl.simgame import GameStats, play_sim_game
 
@@ -90,7 +91,7 @@ class Sweep:
 
 @dataclass(frozen=True)
 class TournamentConfig:
-    bots: tuple[str, ...]  # seat specs, `bot:<name>`
+    bots: tuple[str, ...]  # seat specs, `bot:<name>` or `agent:<name>`
     games: int  # games per pairing
     seed: int
     rules: str = "v2.3"
@@ -135,18 +136,23 @@ def parse_sweep(text: str) -> Sweep:
 
 
 def _label(spec: str) -> str:
-    """The name of a seat in the result rows: a bot spec without `bot:`."""
+    """The name of a seat in the result rows: a bot spec without `bot:`, an agent spec as is."""
     return spec.removeprefix("bot:")
 
 
 def _spec_of(label: str) -> str:
     """The seat spec of a name in the result rows (the inverse of `_label`)."""
-    return "bot:" + label
+    return label if label.startswith(AGENT_PREFIX) else "bot:" + label
 
 
 def _spec_for(spec: str, sweep: Sweep | None, value: str) -> str:
-    """The seat spec a bot plays with at one sweep value."""
-    if sweep is None or sweep.param not in BOT_SWEEPS or spec == "bot:random":
+    """The seat spec a bot plays with at one sweep value. An agent seat stays unchanged."""
+    if (
+        sweep is None
+        or sweep.param not in BOT_SWEEPS
+        or spec == "bot:random"
+        or spec.startswith(AGENT_PREFIX)
+    ):
         return spec
     strategy, draw_limit, points_round = parse_bot_name(spec)
     if sweep.param == "draw_limit":
@@ -201,8 +207,10 @@ def validate(config: TournamentConfig) -> None:
     if not _NAME_OK.fullmatch(config.name):
         raise TournamentError(f"run name {config.name!r} may only use letters, digits, . _ -")
     for spec in config.bots:
-        if not spec.startswith("bot:"):
-            raise TournamentError(f"bot {spec!r} must be a seat spec (bot:random, bot:<name>)")
+        if not spec.startswith(("bot:", AGENT_PREFIX)):
+            raise TournamentError(
+                f"bot {spec!r} must be a seat spec (bot:random, bot:<name>, agent:<name>)"
+            )
         try:
             check_seat(spec)
         except ValueError as e:
@@ -227,8 +235,19 @@ def validate(config: TournamentConfig) -> None:
             _rules_for(config, value)
             for spec in config.bots:
                 _spec_for(spec, sweep, value)
+        _agent_manifests(config)
     except ValueError as e:
         raise TournamentError(str(e)) from e
+
+
+def _agent_manifests(config: TournamentConfig) -> dict[str, dict[str, Any]]:
+    """The manifest of each agent seat, by seat spec. Raises AgentError for a bad agent."""
+    rs = _rules_for(config, config.sweep.values[0] if config.sweep else "")
+    return {
+        spec: checked_manifest(spec.removeprefix(AGENT_PREFIX), rs).model_dump()
+        for spec in config.bots
+        if spec.startswith(AGENT_PREFIX)
+    }
 
 
 def _tasks(config: TournamentConfig) -> list[_Task]:
@@ -423,6 +442,7 @@ def results_csv(rows: Sequence[dict[str, Any]], columns: Sequence[str] | None = 
 def _config_json(config: TournamentConfig, created_at: str) -> str:
     data = asdict(config)
     data["bots"] = list(config.bots)
+    data["agents"] = _agent_manifests(config)
     data["seed_scheme"] = SEED_SCHEME
     data["engine_version"] = __version__
     data["created_at"] = created_at

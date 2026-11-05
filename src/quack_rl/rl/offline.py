@@ -206,7 +206,8 @@ def run_offline_experiment(
     on_progress: Callable[[int, float], None] | None = None,
 ) -> OfflineResult:
     """Train `method` ("bc" or "cql") on the dataset file, evaluate against `bot:random` and
-    `bot:topchip-draw20-pts1`, and write `config.json`, `metrics.csv` and `result.json` to `out`."""
+    `bot:topchip-draw20-pts1`, and write `config.json`, `metrics.csv`, `result.json` and
+    `model.pt` (the state dict of the network) to `out`."""
     if method not in ("bc", "cql"):
         raise ValueError(f"method must be 'bc' or 'cql', not {method!r}")
     data = Dataset.load(dataset_path)
@@ -219,6 +220,8 @@ def run_offline_experiment(
         "seed": seed,
         "eval_games": eval_games,
         "rules": rules,
+        "obs_dim": int(data.obs.shape[1]),
+        "n_actions": int(data.mask.shape[1]),
         "versions": library_versions(),
     }
     if method == "bc":
@@ -232,6 +235,7 @@ def run_offline_experiment(
     else:
         policy = train_cql(data, steps, seed, alpha, rules, on_progress=on_progress)
     train_seconds = time.monotonic() - started
+    torch.save(policy.net.state_dict(), out / "model.pt")
     with (out / "metrics.csv").open("w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["step" if method == "cql" else "epoch", "loss"])
