@@ -1,103 +1,133 @@
+"""The old heuristic bot and its strategy API (kept until the callers move to `RuleBot`)."""
+
 import random
 import re
+from dataclasses import dataclass
 from typing import Any
 
-from quack_rl.bots.strategy import Strategy, load_strategy, strategy_colour
-from quack_rl.components import get_component
-from quack_rl.engine import (
-    BUY_PREFIX,
-    CARD_DROP_2,
-    CARD_RUBIES,
-    CONTINUE,
-    DONE,
-    DRAW,
-    PUT_BACK_DRAW,
-    PUT_BACK_STOP,
-    RESTART,
-    STOP,
-    TAKE_MONEY,
-    TAKE_POINTS,
-    GameState,
-    Phase,
-    buy,
-    explosion_limit,
-    play,
-    start_field,
+from quack_rl.bots.core import (
+    REFILL_RESERVE,
+    RESTART_BELOW,
+    TAIL_POINTS_FROM,
+    CoreBot,
+    explosion_chance,
 )
-from quack_rl.engine.actions import (
-    CARD_CHIP4_PREFIX,
-    CARD_PLACE_PREFIX,
-    CARD_POINTS,
-    CARD_SWAP_NO,
-    CARD_SWAP_PREFIX,
-    CARD_TAIL_POINTS,
-    CARD_TAILS_PREFIX,
-    CARD_UPGRADE_PREFIX,
-    REFILL_FLASK,
-    RUBY_DROP,
-    USE_CARD_17,
-    USE_FLASK,
-)
-from quack_rl.engine.board import calculate_rat_tails
+from quack_rl.engine import BUY_PREFIX, DONE, GameState, buy
 from quack_rl.rules import Ruleset
 
+__all__ = [
+    "BASELINE_NAME",
+    "DEFAULT_COLOUR",
+    "REFILL_RESERVE",
+    "RESTART_BELOW",
+    "STRATEGIES",
+    "STRATEGY_COLOUR",
+    "TAIL_POINTS_FROM",
+    "HeuristicBot",
+    "Strategy",
+    "UnknownStrategy",
+    "bot_name",
+    "explosion_chance",
+    "load_strategy",
+    "parse_bot_name",
+    "strategy_colour",
+]
+
 BASELINE_NAME = "draw20-pts1-points"
-REFILL_RESERVE = 2  # refill_flask: rubies that must be left over after the refill is paid
-TAIL_POINTS_FROM = 3  # card 19: take the points when the rat tail entitlement is at least this
-RESTART_BELOW = 8  # card 2: the bot restarts only a pot that moved it fewer fields than this
 _NAME = re.compile(r"draw(\d+)-pts(\d+)-(.+)")
 
 
-def _total_after(chip_id: str, white_total: int, last: str | None, rs: Ruleset) -> int:
-    """The white total after the chip is placed behind `last` (None: first chip of the pot).
-
-    As the engine does it: the chip's weight is added, and when the chip puts the chip before it
-    back into the bag (yellow after white), that chip's weight leaves the total."""
-    chip = rs.chip(chip_id)
-    component = get_component(rs.component_name(chip))
-    total = white_total + component.explosion_weight(chip)
-    if last is not None:
-        previous = rs.chip(last)
-        if component.puts_back_previous(chip, previous):
-            total -= get_component(rs.component_name(previous)).explosion_weight(previous)
-    return total
+# --- the old strategy API (moved unchanged from `bots/strategy.py`) ----------------------------
 
 
-def _explosive_chips(
-    bag: dict[str, int],
-    white_total: int,
-    rs: Ruleset,
-    last: str | None = None,
-    limit: int | None = None,
-) -> tuple[int, int]:
-    """(chips that would push the white total over the limit, bag size).
-
-    `last` is the chip placed last in the pot; with it the yellow put-back is counted.
-    `limit` is the explosion limit of the round (card 4); the ruleset limit when None."""
-    limit = rs.explosion_limit if limit is None else limit
-    bad = 0
-    size = 0
-    for chip_id, count in bag.items():
-        size += count
-        if _total_after(chip_id, white_total, last, rs) > limit:
-            bad += count
-    return bad, size
+class UnknownStrategy(ValueError):
+    """A strategy name that is not in `STRATEGIES`."""
 
 
-def explosion_chance(
-    bag: dict[str, int],
-    white_total: int,
-    rs: Ruleset,
-    last: str | None = None,
-    limit: int | None = None,
-) -> float:
-    """Chance that the next draw explodes. The bag is public. An empty bag gives 0."""
-    bad, size = _explosive_chips(bag, white_total, rs, last, limit)
-    return bad / size if size else 0.0
+@dataclass(frozen=True)
+class Strategy:
+    """A strategy is data: the shop items it buys, best first, and optional weights.
+
+    `priority` lists the items in order. `weights` maps an item id to a weight
+    (default 0): a higher weight ranks first, equal weights keep the priority order.
+    """
+
+    name: str
+    priority: tuple[str, ...] = ()
+    weights: tuple[tuple[str, float], ...] = ()
+
+    def ranked(self) -> list[str]:
+        """The priority items, best first (weight descending, then priority order)."""
+        weight = dict(self.weights)
+        order = {item: i for i, item in enumerate(self.priority)}
+        return sorted(self.priority, key=lambda item: (-weight.get(item, 0.0), order[item]))
 
 
-def _last(p: Any) -> str | None:
-    return p.placed[-1] if p.placed else None
+STRATEGIES: dict[str, Strategy] = {
+    "points": Strategy("points"),
+    # First guesses, not tuned. Points are bought by the points rule of the bot core.
+    "blue": Strategy(
+        "blue",
+        priority=("blue_4", "blue_2", "blue_1"),
+        weights=(("blue_4", 3.0), ("blue_2", 2.0), ("blue_1", 1.0)),
+    ),
+    "green": Strategy(
+        "green",
+        priority=("green_4", "droplet_1", "green_2", "green_1"),
+        weights=(("green_4", 3.0), ("droplet_1", 2.5), ("green_2", 2.0), ("green_1", 1.0)),
+    ),
+    # No droplet: removing white makes the bag better, so each added chip is drawn more often.
+    "cleaner": Strategy(
+        "cleaner",
+        priority=("remove_white_1", "orange_1"),
+        weights=(("remove_white_1", 3.0), ("orange_1", 1.0)),
+    ),
+    "balanced": Strategy(
+        "balanced",
+        priority=(
+            "droplet_1",
+            "blue_2",
+            "green_2",
+            "orange_1",
+            "remove_white_1",
+            "blue_1",
+            "green_1",
+        ),
+        weights=(
+            ("remove_white_1", 3.0),
+            ("droplet_1", 2.5),
+            ("blue_2", 2.0),
+            ("green_2", 1.5),
+            ("orange_1", 1.0),
+        ),
+    ),
+}
+
+
+# The colour a strategy takes when a card or the flask offers a coloured chip (cards 11, 12, 19).
+# The shop lists of the strategies above carry no colour, so the table is here.
+STRATEGY_COLOUR: dict[str, str] = {
+    "points": "blue",
+    "blue": "blue",
+    "balanced": "blue",
+    "green": "green",
+    "cleaner": "green",
+}
+DEFAULT_COLOUR = "blue"
+
+
+def strategy_colour(name: str) -> str:
+    """The chip colour of a strategy (`STRATEGY_COLOUR`); blue for a strategy not in the table."""
+    return STRATEGY_COLOUR.get(name, DEFAULT_COLOUR)
+
+
+def load_strategy(name: str) -> Strategy:
+    try:
+        return STRATEGIES[name]
+    except KeyError:
+        raise UnknownStrategy(
+            f"unknown strategy {name!r} (known: {', '.join(sorted(STRATEGIES))})"
+        ) from None
 
 
 def bot_name(draw_limit: int, points_round: int, strategy: str) -> str:
@@ -121,45 +151,14 @@ def parse_bot_name(name: str) -> tuple[int, int, str]:
     return draw_limit, points_round, strategy
 
 
-class HeuristicBot:
+class HeuristicBot(CoreBot):
     """Draw or Stop by the chance to explode; buy points from a round on, then by strategy.
 
-    Explosion choice: after an explosion take money before the points round and points from it
-    on; the shop has no points items.
-
-    Cards: the explosion look-ahead uses the explosion limit of the round (card 4).
-    Card 6 and card 5: take the drop (card 6 `card_drop_2`, card 5 `card_drop_end`), which
-    risks no chip in the bag. Card 2 (restart offered at 5 chips in the pot): restart when the
-    next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
-    bot fewer than `RESTART_BELOW` fields; else continue.
-
-    Rules for the actions of v2.3 (simple, not tuned). The ruby spends are made in the ruby
-    step after the shop (`done` when neither is chosen). The
+    Every decision outside the shop follows the shared rules of `CoreBot`. The
     strategy colour is blue for `points`, `blue` and `balanced`, green for `green` and `cleaner`
-    (`STRATEGY_COLOUR` in `bots/strategy.py`).
-
-    | action                    | rule                                                          |
-    |---------------------------|---------------------------------------------------------------|
-    | `use_card_17`, `use_flask`| use it when the explosion chance of the next draw is above   |
-    |                           | the draw limit and would be at or below it without the last   |
-    |                           | (white) chip; card 17 first, it costs no flask; else Draw/Stop |
-    | `ruby_drop`               | spend rubies on a droplet +1 while it can pay                 |
-    | `refill_flask`            | only when the flask is empty and, after the refill is paid,   |
-    |                           | `REFILL_RESERVE` (2) rubies are left; it comes before the drop |
-    | card 5                    | 3 rubies (`card_rubies`)                                      |
-    | card 6                    | drop +2 (`card_drop_2`)                                       |
-    | card 8                    | give up the largest allowed number of rat tails               |
-    | card 10                   | place the offered chip with the lowest value (first on a tie) |
-    | card 11                   | upgrade the drawn chip of the strategy colour, else the first |
-    |                           | allowed upgrade                                               |
-    | card 12                   | swap the ruby for the value-1 chip of the strategy colour,    |
-    |                           | else decline                                                  |
-    | card 14                   | the 4 points (`card_points`)                                  |
-    | card 19                   | the points when the entitlement is at least                   |
-    |                           | `TAIL_POINTS_FROM` (3), else the value-4 chip of the colour   |
+    (`STRATEGY_COLOUR`). The shop buys the first legal item of the strategy list, else the most
+    expensive legal item.
     """
-
-    kind = "bot"
 
     def __init__(
         self,
@@ -169,10 +168,8 @@ class HeuristicBot:
         strategy: str | Strategy = "points",
         seed: int | None = None,
     ):
-        self._rs = rs
         self._strategy = strategy if isinstance(strategy, Strategy) else load_strategy(strategy)
-        self.draw_limit = draw_limit
-        self.points_round = points_round
+        super().__init__(rs, draw_limit, points_round, strategy_colour(self._strategy.name))
         self._rng = random.Random(seed)
         self.name = bot_name(draw_limit, points_round, self._strategy.name)
         self.params: dict[str, Any] = {
@@ -181,112 +178,6 @@ class HeuristicBot:
             "strategy": self._strategy.name,
             "seed": seed,
         }
-
-    def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
-        if state.phase is Phase.BREW and state.players[seat].hand:
-            action = self._pick(state, seat)
-            return action if action in legal else legal[0]
-        if state.phase is Phase.BREW:
-            action = self._brew(state, seat, legal)
-            return action if action in legal else DRAW if DRAW in legal else legal[0]
-        if state.phase is Phase.SHOP:
-            action = self._shop(state, seat, legal)
-            return action if action in legal else DONE if DONE in legal else legal[0]
-        if state.phase is Phase.RUBY:
-            action = self._ruby(state, seat, legal) or DONE
-            return action if action in legal else legal[0]
-        if state.phase is Phase.CARD_CHOICE:
-            action = self._card_choice(state, seat, legal)
-            return action if action in legal else legal[0]
-        if state.phase is Phase.RESTART:
-            return (
-                RESTART
-                if self._restart(state, seat) and RESTART in legal
-                else (CONTINUE if CONTINUE in legal else legal[0])
-            )
-        if state.phase is Phase.CHOICE:
-            action = TAKE_POINTS if state.round >= self.points_round else TAKE_MONEY
-            return action if action in legal else legal[0]
-        return legal[0]
-
-    def _too_risky(self, bad: int, size: int) -> bool:
-        # chance > limit, in exact integer arithmetic: bad / size > percent / 100
-        return bad * 100 > self.draw_limit * size
-
-    def _brew(self, state: GameState, seat: str, legal: list[str]) -> str:
-        p = state.players[seat]
-        limit = explosion_limit(state, self._rs)
-        bad, size = _explosive_chips(p.bag, p.white_total, self._rs, _last(p), limit)
-        if not self._too_risky(bad, size):
-            return DRAW
-        take_back = [a for a in (USE_CARD_17, USE_FLASK) if a in legal]
-        if take_back and self._safe_without_last(p, limit):
-            return take_back[0]
-        return STOP
-
-    def _safe_without_last(self, p: Any, limit: int) -> bool:
-        """True when the next draw is not too risky once the last chip is back in the bag."""
-        last = p.placed[-1]
-        chip = self._rs.chip(last)
-        weight = get_component(self._rs.component_name(chip)).explosion_weight(chip)
-        bag = dict(p.bag)
-        bag[last] = bag.get(last, 0) + 1
-        before = p.placed[-2] if len(p.placed) > 1 else None
-        bad, size = _explosive_chips(bag, p.white_total - weight, self._rs, before, limit)
-        return not self._too_risky(bad, size)
-
-    def _restart(self, state: GameState, seat: str) -> bool:
-        """Card 2: restart a pot that would be stopped now and has moved the bot little."""
-        p = state.players[seat]
-        bad, size = _explosive_chips(
-            p.bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
-        )
-        moved = p.field - start_field(p, self._rs)
-        return bad * 100 > self.draw_limit * size and moved < RESTART_BELOW
-
-    def _advance(self, chip_id: str, p: Any) -> int:
-        """How far the engine would move the player if the chip were played now."""
-        chip = self._rs.chip(chip_id)
-        component = get_component(self._rs.component_name(chip))
-        previous = self._rs.chip(p.placed[-1]) if p.placed else None
-        bonus = component.place_bonus(chip, previous, [self._rs.chip(c) for c in p.placed])
-        return min(p.field + chip.value + bonus, self._rs.track_end) - p.field
-
-    def _pick(self, state: GameState, seat: str) -> str:
-        """Pick step: play the safe chip with the highest advance; else put back and Draw or Stop.
-
-        The stop rule is computed on the bag with the whole hand put back."""
-        p = state.players[seat]
-        best_slot, best_advance = None, 0
-        all_explode = True
-        limit = explosion_limit(state, self._rs)
-        for slot, chip_id in enumerate(p.hand):
-            if _total_after(chip_id, p.white_total, _last(p), self._rs) > limit:
-                continue
-            all_explode = False
-            advance = self._advance(chip_id, p)
-            if advance > best_advance:  # strictly: on a tie the lowest slot stays
-                best_slot, best_advance = slot, advance
-        if best_slot is not None:
-            return play(best_slot)
-        if all_explode:
-            return PUT_BACK_STOP
-        bag = dict(p.bag)
-        for chip_id in p.hand:
-            bag[chip_id] = bag.get(chip_id, 0) + 1
-        bad, size = _explosive_chips(
-            bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
-        )
-        return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
-
-    def _ruby(self, state: GameState, seat: str, legal: list[str]) -> str | None:
-        """The ruby spend to make (the refill before the drop), or None."""
-        p = state.players[seat]
-        if REFILL_FLASK in legal and p.rubies - self._rs.ruby_cost >= REFILL_RESERVE:
-            return REFILL_FLASK
-        if RUBY_DROP in legal:
-            return RUBY_DROP
-        return None
 
     def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
         affordable = [a.removeprefix(BUY_PREFIX) for a in legal if a.startswith(BUY_PREFIX)]
@@ -299,48 +190,3 @@ class HeuristicBot:
         if rest:
             return buy(max(rest, key=lambda i: i.price).id)
         return DONE
-
-    def _card_choice(self, state: GameState, seat: str, legal: list[str]) -> str:
-        """The card choices (cards 5, 6, 8, 10, 11, 12, 14, 19); see the class docstring."""
-        rs = self._rs
-        colour = strategy_colour(self._strategy.name)
-        if CARD_DROP_2 in legal:
-            return CARD_DROP_2
-        if CARD_RUBIES in legal:
-            return CARD_RUBIES
-        if CARD_POINTS in legal:
-            return CARD_POINTS
-        tails = [a for a in legal if a.startswith(CARD_TAILS_PREFIX)]
-        if tails:
-            return max(tails, key=lambda a: int(a.removeprefix(CARD_TAILS_PREFIX)))
-        placing = [a for a in legal if a.startswith(CARD_PLACE_PREFIX)]
-        if placing:  # min keeps the first of equal values
-            return min(placing, key=lambda a: rs.chip(a.removeprefix(CARD_PLACE_PREFIX)).value)
-        upgrades = [a for a in legal if a.startswith(CARD_UPGRADE_PREFIX)]
-        if upgrades:
-            of_colour = [
-                a for a in upgrades if rs.chip(a.removeprefix(CARD_UPGRADE_PREFIX)).colour == colour
-            ]
-            return (of_colour or upgrades)[0]
-        if CARD_SWAP_NO in legal:
-            swaps = [
-                a
-                for a in legal
-                if a.startswith(CARD_SWAP_PREFIX)
-                and (chip := rs.chip(a.removeprefix(CARD_SWAP_PREFIX))).colour == colour
-                and chip.value == 1
-            ]
-            return swaps[0] if swaps else CARD_SWAP_NO
-        if any(a.startswith(CARD_CHIP4_PREFIX) for a in legal):
-            points = {s: state.players[s].points for s in state.players}
-            entitlement = calculate_rat_tails(points, rs)[seat]
-            if CARD_TAIL_POINTS in legal and entitlement >= TAIL_POINTS_FROM:
-                return CARD_TAIL_POINTS
-            chips = [
-                a
-                for a in legal
-                if a.startswith(CARD_CHIP4_PREFIX)
-                and rs.chip(a.removeprefix(CARD_CHIP4_PREFIX)).colour == colour
-            ]
-            return chips[0] if chips else legal[0]
-        return legal[0]

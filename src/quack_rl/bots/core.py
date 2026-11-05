@@ -1,0 +1,297 @@
+"""The shared rules of the bots outside the shop (draw, pick, cards, flask, rubies)."""
+
+from typing import Any
+
+from quack_rl.components import get_component
+from quack_rl.engine import (
+    CARD_DROP_2,
+    CARD_RUBIES,
+    CONTINUE,
+    DONE,
+    DRAW,
+    PUT_BACK_DRAW,
+    PUT_BACK_STOP,
+    RESTART,
+    STOP,
+    TAKE_MONEY,
+    TAKE_POINTS,
+    GameState,
+    Phase,
+    explosion_limit,
+    play,
+    start_field,
+)
+from quack_rl.engine.actions import (
+    CARD_CHIP4_PREFIX,
+    CARD_PLACE_PREFIX,
+    CARD_POINTS,
+    CARD_SWAP_NO,
+    CARD_SWAP_PREFIX,
+    CARD_TAIL_POINTS,
+    CARD_TAILS_PREFIX,
+    CARD_UPGRADE_PREFIX,
+    REFILL_FLASK,
+    RUBY_DROP,
+    USE_CARD_17,
+    USE_FLASK,
+)
+from quack_rl.engine.board import calculate_rat_tails
+from quack_rl.rules import Ruleset
+
+REFILL_RESERVE = 2  # refill_flask: rubies that must be left over after the refill is paid
+TAIL_POINTS_FROM = 3  # card 19: take the points when the rat tail entitlement is at least this
+RESTART_BELOW = 8  # card 2: the bot restarts only a pot that moved it fewer fields than this
+
+
+def _total_after(chip_id: str, white_total: int, last: str | None, rs: Ruleset) -> int:
+    """The white total after the chip is placed behind `last` (None: first chip of the pot).
+
+    As the engine does it: the chip's weight is added, and when the chip puts the chip before it
+    back into the bag (yellow after white), that chip's weight leaves the total."""
+    chip = rs.chip(chip_id)
+    component = get_component(rs.component_name(chip))
+    total = white_total + component.explosion_weight(chip)
+    if last is not None:
+        previous = rs.chip(last)
+        if component.puts_back_previous(chip, previous):
+            total -= get_component(rs.component_name(previous)).explosion_weight(previous)
+    return total
+
+
+def _explosive_chips(
+    bag: dict[str, int],
+    white_total: int,
+    rs: Ruleset,
+    last: str | None = None,
+    limit: int | None = None,
+) -> tuple[int, int]:
+    """(chips that would push the white total over the limit, bag size).
+
+    `last` is the chip placed last in the pot; with it the yellow put-back is counted.
+    `limit` is the explosion limit of the round (card 4); the ruleset limit when None."""
+    limit = rs.explosion_limit if limit is None else limit
+    bad = 0
+    size = 0
+    for chip_id, count in bag.items():
+        size += count
+        if _total_after(chip_id, white_total, last, rs) > limit:
+            bad += count
+    return bad, size
+
+
+def explosion_chance(
+    bag: dict[str, int],
+    white_total: int,
+    rs: Ruleset,
+    last: str | None = None,
+    limit: int | None = None,
+) -> float:
+    """Chance that the next draw explodes. The bag is public. An empty bag gives 0."""
+    bad, size = _explosive_chips(bag, white_total, rs, last, limit)
+    return bad / size if size else 0.0
+
+
+def _last(p: Any) -> str | None:
+    return p.placed[-1] if p.placed else None
+
+
+class CoreBot:
+    """The shared rules of the bots for every decision outside the shop.
+
+    A subclass gives the shop choice (`_shop`). The rules read only the draw limit, the points
+    round and the chip colour (`colour`, cards 11, 12, 19); there is no branch per strategy.
+
+    Explosion choice: after an explosion take money before the points round and points from it
+    on; the shop has no points items.
+
+    Cards: the explosion look-ahead uses the explosion limit of the round (card 4).
+    Card 6 and card 5: take the drop (card 6 `card_drop_2`, card 5 `card_drop_end`), which
+    risks no chip in the bag. Card 2 (restart offered at 5 chips in the pot): restart when the
+    next draw explodes with more than the draw limit (the bot would stop) and the pot moved the
+    bot fewer than `RESTART_BELOW` fields; else continue.
+
+    Rules for the actions of v2.3 (simple, not tuned). The ruby spends are made in the ruby
+    step after the shop (`done` when neither is chosen). The strategy colour is `colour`.
+
+    | action                    | rule                                                          |
+    |---------------------------|---------------------------------------------------------------|
+    | `use_card_17`, `use_flask`| use it when the explosion chance of the next draw is above   |
+    |                           | the draw limit and would be at or below it without the last   |
+    |                           | (white) chip; card 17 first, it costs no flask; else Draw/Stop |
+    | `ruby_drop`               | spend rubies on a droplet +1 while it can pay                 |
+    | `refill_flask`            | only when the flask is empty and, after the refill is paid,   |
+    |                           | `REFILL_RESERVE` (2) rubies are left; it comes before the drop |
+    | card 5                    | 3 rubies (`card_rubies`)                                      |
+    | card 6                    | drop +2 (`card_drop_2`)                                       |
+    | card 8                    | give up the largest allowed number of rat tails               |
+    | card 10                   | place the offered chip with the lowest value (first on a tie) |
+    | card 11                   | upgrade the drawn chip of the strategy colour, else the first |
+    |                           | allowed upgrade                                               |
+    | card 12                   | swap the ruby for the value-1 chip of the strategy colour,    |
+    |                           | else decline                                                  |
+    | card 14                   | the 4 points (`card_points`)                                  |
+    | card 19                   | the points when the entitlement is at least                   |
+    |                           | `TAIL_POINTS_FROM` (3), else the value-4 chip of the colour   |
+    """
+
+    kind = "bot"
+
+    def __init__(self, rs: Ruleset, draw_limit: int, points_round: int, colour: str):
+        self._rs = rs
+        self.draw_limit = draw_limit
+        self.points_round = points_round
+        self.colour = colour
+
+    def _shop(self, state: GameState, seat: str, legal: list[str]) -> str:
+        raise NotImplementedError
+
+    def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
+        if state.phase is Phase.BREW and state.players[seat].hand:
+            action = self._pick(state, seat)
+            return action if action in legal else legal[0]
+        if state.phase is Phase.BREW:
+            action = self._brew(state, seat, legal)
+            return action if action in legal else DRAW if DRAW in legal else legal[0]
+        if state.phase is Phase.SHOP:
+            action = self._shop(state, seat, legal)
+            return action if action in legal else DONE if DONE in legal else legal[0]
+        if state.phase is Phase.RUBY:
+            action = self._ruby(state, seat, legal) or DONE
+            return action if action in legal else legal[0]
+        if state.phase is Phase.CARD_CHOICE:
+            action = self._card_choice(state, seat, legal)
+            return action if action in legal else legal[0]
+        if state.phase is Phase.RESTART:
+            return (
+                RESTART
+                if self._restart(state, seat) and RESTART in legal
+                else (CONTINUE if CONTINUE in legal else legal[0])
+            )
+        if state.phase is Phase.CHOICE:
+            action = TAKE_POINTS if state.round >= self.points_round else TAKE_MONEY
+            return action if action in legal else legal[0]
+        return legal[0]
+
+    def _too_risky(self, bad: int, size: int) -> bool:
+        # chance > limit, in exact integer arithmetic: bad / size > percent / 100
+        return bad * 100 > self.draw_limit * size
+
+    def _brew(self, state: GameState, seat: str, legal: list[str]) -> str:
+        p = state.players[seat]
+        limit = explosion_limit(state, self._rs)
+        bad, size = _explosive_chips(p.bag, p.white_total, self._rs, _last(p), limit)
+        if not self._too_risky(bad, size):
+            return DRAW
+        take_back = [a for a in (USE_CARD_17, USE_FLASK) if a in legal]
+        if take_back and self._safe_without_last(p, limit):
+            return take_back[0]
+        return STOP
+
+    def _safe_without_last(self, p: Any, limit: int) -> bool:
+        """True when the next draw is not too risky once the last chip is back in the bag."""
+        last = p.placed[-1]
+        chip = self._rs.chip(last)
+        weight = get_component(self._rs.component_name(chip)).explosion_weight(chip)
+        bag = dict(p.bag)
+        bag[last] = bag.get(last, 0) + 1
+        before = p.placed[-2] if len(p.placed) > 1 else None
+        bad, size = _explosive_chips(bag, p.white_total - weight, self._rs, before, limit)
+        return not self._too_risky(bad, size)
+
+    def _restart(self, state: GameState, seat: str) -> bool:
+        """Card 2: restart a pot that would be stopped now and has moved the bot little."""
+        p = state.players[seat]
+        bad, size = _explosive_chips(
+            p.bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
+        )
+        moved = p.field - start_field(p, self._rs)
+        return bad * 100 > self.draw_limit * size and moved < RESTART_BELOW
+
+    def _advance(self, chip_id: str, p: Any) -> int:
+        """How far the engine would move the player if the chip were played now."""
+        chip = self._rs.chip(chip_id)
+        component = get_component(self._rs.component_name(chip))
+        previous = self._rs.chip(p.placed[-1]) if p.placed else None
+        bonus = component.place_bonus(chip, previous, [self._rs.chip(c) for c in p.placed])
+        return min(p.field + chip.value + bonus, self._rs.track_end) - p.field
+
+    def _pick(self, state: GameState, seat: str) -> str:
+        """Pick step: play the safe chip with the highest advance; else put back and Draw or Stop.
+
+        The stop rule is computed on the bag with the whole hand put back."""
+        p = state.players[seat]
+        best_slot, best_advance = None, 0
+        all_explode = True
+        limit = explosion_limit(state, self._rs)
+        for slot, chip_id in enumerate(p.hand):
+            if _total_after(chip_id, p.white_total, _last(p), self._rs) > limit:
+                continue
+            all_explode = False
+            advance = self._advance(chip_id, p)
+            if advance > best_advance:  # strictly: on a tie the lowest slot stays
+                best_slot, best_advance = slot, advance
+        if best_slot is not None:
+            return play(best_slot)
+        if all_explode:
+            return PUT_BACK_STOP
+        bag = dict(p.bag)
+        for chip_id in p.hand:
+            bag[chip_id] = bag.get(chip_id, 0) + 1
+        bad, size = _explosive_chips(
+            bag, p.white_total, self._rs, _last(p), explosion_limit(state, self._rs)
+        )
+        return PUT_BACK_STOP if bad * 100 > self.draw_limit * size else PUT_BACK_DRAW
+
+    def _ruby(self, state: GameState, seat: str, legal: list[str]) -> str | None:
+        """The ruby spend to make (the refill before the drop), or None."""
+        p = state.players[seat]
+        if REFILL_FLASK in legal and p.rubies - self._rs.ruby_cost >= REFILL_RESERVE:
+            return REFILL_FLASK
+        if RUBY_DROP in legal:
+            return RUBY_DROP
+        return None
+
+    def _card_choice(self, state: GameState, seat: str, legal: list[str]) -> str:
+        """The card choices (cards 5, 6, 8, 10, 11, 12, 14, 19); see the class docstring."""
+        rs = self._rs
+        colour = self.colour
+        if CARD_DROP_2 in legal:
+            return CARD_DROP_2
+        if CARD_RUBIES in legal:
+            return CARD_RUBIES
+        if CARD_POINTS in legal:
+            return CARD_POINTS
+        tails = [a for a in legal if a.startswith(CARD_TAILS_PREFIX)]
+        if tails:
+            return max(tails, key=lambda a: int(a.removeprefix(CARD_TAILS_PREFIX)))
+        placing = [a for a in legal if a.startswith(CARD_PLACE_PREFIX)]
+        if placing:  # min keeps the first of equal values
+            return min(placing, key=lambda a: rs.chip(a.removeprefix(CARD_PLACE_PREFIX)).value)
+        upgrades = [a for a in legal if a.startswith(CARD_UPGRADE_PREFIX)]
+        if upgrades:
+            of_colour = [
+                a for a in upgrades if rs.chip(a.removeprefix(CARD_UPGRADE_PREFIX)).colour == colour
+            ]
+            return (of_colour or upgrades)[0]
+        if CARD_SWAP_NO in legal:
+            swaps = [
+                a
+                for a in legal
+                if a.startswith(CARD_SWAP_PREFIX)
+                and (chip := rs.chip(a.removeprefix(CARD_SWAP_PREFIX))).colour == colour
+                and chip.value == 1
+            ]
+            return swaps[0] if swaps else CARD_SWAP_NO
+        if any(a.startswith(CARD_CHIP4_PREFIX) for a in legal):
+            points = {s: state.players[s].points for s in state.players}
+            entitlement = calculate_rat_tails(points, rs)[seat]
+            if CARD_TAIL_POINTS in legal and entitlement >= TAIL_POINTS_FROM:
+                return CARD_TAIL_POINTS
+            chips = [
+                a
+                for a in legal
+                if a.startswith(CARD_CHIP4_PREFIX)
+                and rs.chip(a.removeprefix(CARD_CHIP4_PREFIX)).colour == colour
+            ]
+            return chips[0] if chips else legal[0]
+        return legal[0]

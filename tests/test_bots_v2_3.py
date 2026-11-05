@@ -6,7 +6,7 @@ import pytest
 from helpers import RS
 
 from quack_rl.bots import HeuristicBot, RandomBot
-from quack_rl.bots.strategy import STRATEGIES, STRATEGY_COLOUR, strategy_colour
+from quack_rl.bots.heuristic import STRATEGIES, STRATEGY_COLOUR, strategy_colour
 from quack_rl.engine import (
     DONE,
     DRAW,
