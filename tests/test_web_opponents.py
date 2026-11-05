@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+import quack_rl.rl.planner  # noqa: F401  # sets PLANNER_FACTORY before any monkeypatch
+
 pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient  # noqa: E402

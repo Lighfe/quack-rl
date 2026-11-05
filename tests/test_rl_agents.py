@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import typer
 
+import quack_rl.rl.planner  # noqa: F401  # sets PLANNER_FACTORY before any monkeypatch
 from quack_rl.bots import RandomBot
 from quack_rl.cli.seats import check_seat, parse_seat
 from quack_rl.rl import agents

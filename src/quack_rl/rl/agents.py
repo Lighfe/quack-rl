@@ -45,7 +45,8 @@ class AgentManifest(BaseModel):
     created_at: str
 
 
-# The planner issue (#273) fills this in: (rules, manifest, seed) -> seat.
+# (rules, manifest, seed) -> seat. `quack_rl.rl.planner` sets it when it is imported, and
+# `load_agent` imports that module for a `planner` manifest.
 PLANNER_FACTORY: Callable[[Ruleset, AgentManifest, int | None], Seat] | None = None
 
 
@@ -168,6 +169,8 @@ def load_agent(
     manifest = checked_manifest(name, rules, root)
     label = AGENT_PREFIX + name
     if manifest.kind == "planner":
+        import quack_rl.rl.planner  # noqa: F401  # registers PLANNER_FACTORY on import
+
         if PLANNER_FACTORY is None:
             raise AgentError(f"agent {name!r} is a planner, and no planner is available yet")
         return PLANNER_FACTORY(rules, manifest, seed)
