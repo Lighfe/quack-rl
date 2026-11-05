@@ -1,7 +1,7 @@
 """Write the agent folder of a planner (flat Monte Carlo search, no weights).
 
 Usage: uv run python scripts/make_planner_agent.py --name planner \
-    [--simulations 60] [--rollout bot:topchip-draw20-pts6]
+    [--simulations 40] [--rollout bot:topchip-draw20-pts6]
 
 Writes data/agents/<name>/agent.json (kind `planner`); the seat `agent:<name>` then plays with it
 in the CLI, the tournament and the web service. The defaults keep a decision under 2 s.
