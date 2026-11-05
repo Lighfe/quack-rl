@@ -126,7 +126,7 @@ Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the train
     obs, infos = penv.reset(seed=0)                          # obs[seat]["observation"], ["action_mask"]
 
 - `QuackEnv`: `seat` is `"p1"`, `"p2"` or `"random"` (per episode). `opponent` is any bot with `choose(state, seat, legal)`; `None` is `RandomBot`. The opponent acts inside `step`, and steps where the agent can only `Wait` are skipped. `info["action_mask"]` and `env.action_masks()` (for `MaskablePPO`) give the legal actions; at the terminal step the mask is all zero (no legal action).
-- Observation: a flat `float32` vector of the agent's view, called observation layout 9 (`BOARD_LAYOUT = 9` in `quack_rl.rl`; layout 8 with the droplet in whole steps). No hidden information: the draw order of the bag, the opponent's hand and the opponent's pending choice never appear; both bags and the placed chips are public. The entry names, in order, are `vector_names(rs)` (1529 entries for v2.3); the layout depends only on the ruleset and the window size `K`. The groups, in order:
+- Observation: a flat `float32` vector of the agent's view, called observation layout 10 (`BOARD_LAYOUT = 10` in `quack_rl.rl`; the names of layout 9, which is layout 8 with the droplet in whole steps). No hidden information: the draw order of the bag, the opponent's hand and the opponent's pending choice never appear, and the opponent's hand chips count as in its bag (its bag counts and its explosion chance); both bags and the placed chips are public. The entry names, in order, are `vector_names(rs)` (1529 entries for v2.3); the layout depends only on the ruleset and the window size `K`. The groups, in order:
   - shared: `round`, `rounds` (total number of rounds), `explosion_limit`, phase (one-hot; the card phases and `phase.ruby` are in it, for every ruleset)
   - own seat, then the opponent: status (one-hot), chip colours bought this round, `money`, `rubies`, `flask_full`, `white_total`, `points`, `droplet` (whole steps), `purchases`, `chip_purchases`, `shop_done`, and per chip id `bag.remaining.<id>` (still in the bag) and `bag.owned.<id>` (bag plus placed chips)
   - the derived features (below), including the gaps `field_gap` and `points_gap`
@@ -143,7 +143,7 @@ Two environments over the same engine (`quack_rl.rl`). `PolicyBot` and the train
 
 ## Training
 
-The training stack is in the repo again, on ruleset v2.3 (the default) and observation layout 9: `PolicyBot` (`quack_rl.rl.policy_bot`, a trained model as a bot), the trainers (`quack_rl.rl.train`, `selfplay`, `offline`), the dataset builder (`dataset`) and the evaluator (`evaluate`). The scripts in `scripts/` call them. What is not ported is listed in `archive/README.md`. How to run them and what they showed: "Testing the RL environment" below.
+The training stack is in the repo again, on ruleset v2.3 (the default) and observation layout 10: `PolicyBot` (`quack_rl.rl.policy_bot`, a trained model as a bot), the trainers (`quack_rl.rl.train`, `selfplay`, `offline`), the dataset builder (`dataset`) and the evaluator (`evaluate`). The scripts in `scripts/` call them. What is not ported is listed in `archive/README.md`. How to run them and what they showed: "Testing the RL environment" below.
 
 ## Testing the RL environment
 

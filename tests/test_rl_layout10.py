@@ -1,4 +1,5 @@
-"""Observation layout 9 (rules v2.3): look-ahead window, gaps, no field table, bounds."""
+"""Observation layout 10 (rules v2.3): look-ahead window, gaps, no field table, bounds, and the
+opponent's hidden hand counted as in its bag."""
 
 import copy
 import random
@@ -182,7 +183,7 @@ def states(seed):
 
 
 def test_layout_number_and_pinned_names():
-    assert BOARD_LAYOUT == observation_layout(RS) == 9
+    assert BOARD_LAYOUT == observation_layout(RS) == 10
     names = vector_names(RS)
     sl = map_slice(RS)
     assert names[: sl.start] == PREFIX
@@ -300,13 +301,70 @@ def test_opponent_view_has_no_hidden_values():
             assert "ahead" in view and not [k for k in view["opponent"] if k.startswith("ahead")]
             changed = copy.deepcopy(state)
             q = changed.players[other]
-            q.hand = []
             q.card_draw = []
             q.restart_pending = not q.restart_pending
             q.bag = dict(reversed(list(q.bag.items())))
             assert np.array_equal(
                 vectorize(view, RS), vectorize(observe(changed, RS, seat), RS)
             )
+
+
+def state_with_hand(seat="p1", size=2):
+    """A state of a masked random v2.3 game where `seat` holds a hand of at least `size` chips."""
+    for seed in range(20):
+        for state in states(seed):
+            if len(state.players[seat].hand) >= size:
+                return state
+    raise AssertionError("no state with a hand found")
+
+
+def with_hand_in_bag(state, seat):
+    """A copy of `state` where the hand chips of `seat` are put back into its bag."""
+    changed = copy.deepcopy(state)
+    p = changed.players[seat]
+    for chip in p.hand:
+        p.bag[chip] = p.bag.get(chip, 0) + 1
+    p.hand = []
+    return changed
+
+
+def test_opponent_bag_counts_the_hidden_hand_as_in_the_bag():
+    state = state_with_hand("p1")
+    p1 = state.players["p1"]
+    assert len(p1.hand) >= 2
+    view = observe(state, RS, "p2")["opponent"]
+    for c in RS.chips:
+        in_hand = p1.hand.count(c.id)
+        assert view["bag_remaining"][c.id] == p1.bag.get(c.id, 0) + in_hand
+        assert view["bag_owned"][c.id] == p1.owned(c.id) + in_hand
+
+
+def test_opponent_view_does_not_change_with_the_hand():
+    found = 0
+    for seed in range(20):
+        for state in states(seed):
+            if not state.players["p1"].hand:
+                continue
+            found += 1
+            back = with_hand_in_bag(state, "p1")
+            a = vectorize(observe(state, RS, "p2"), RS)
+            b = vectorize(observe(back, RS, "p2"), RS)
+            assert np.array_equal(a, b)
+            names = vector_names(RS)
+            i = names.index("opponent.explosion_chance")
+            assert a[i] == b[i]
+    assert found
+
+
+def test_own_view_keeps_the_hand_out_of_the_bag():
+    state = state_with_hand("p1")
+    p1 = state.players["p1"]
+    own = observe(state, RS, "p1")["own"]
+    assert own["hand"] == p1.hand
+    for c in RS.chips:
+        assert own["bag_remaining"][c.id] == p1.bag.get(c.id, 0)
+        assert own["bag_owned"][c.id] == p1.owned(c.id)
+    assert any(own["bag_remaining"][c] < p1.bag.get(c, 0) + p1.hand.count(c) for c in p1.hand)
 
 
 def test_bounds_hold_in_masked_games():

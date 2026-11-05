@@ -1,13 +1,15 @@
 """Observation of one seat: a readable dict, a flat float32 vector and an action mask.
 
 The view holds only what the seat may know: no draw order, no opponent bag, no simultaneous
-choice of the opponent. The one observation layout is number 9 (`BOARD_LAYOUT`): a look-ahead
-window of the fields from the own scoring field on (money, points, ruby), a board map of the
-placed chips (no static field table), both bags (remaining and complete), the rule scalars,
-derived features with the field and points gaps, the hand, the shop, the card block and the point
-board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`). Layout 9 is layout 8 with the
-droplet in whole steps (`own.droplet`, `opponent.droplet`; spec:
-`docs/specs/2026-10-27-game-parts-and-ruleset-v2-3.md`).
+choice of the opponent, no opponent hand. The one observation layout is number 10
+(`BOARD_LAYOUT`): a look-ahead window of the fields from the own scoring field on (money,
+points, ruby), a board map of the placed chips (no static field table), both bags (remaining
+and complete), the rule scalars, derived features with the field and points gaps, the hand, the
+shop, the card block and the point board block (`docs/specs/2026-10-23-ruleset-v2-1-design.md`).
+Layout 9 is layout 8 with the droplet in whole steps (`own.droplet`, `opponent.droplet`; spec:
+`docs/specs/2026-10-27-game-parts-and-ruleset-v2-3.md`). Layout 10 has the names of layout 9;
+the opponent's hidden hand counts as in its bag (`opponent.bag.*`, `opponent.explosion_chance`;
+issue #212). The layout 9 sample is archived in `archive/tests/fixtures/golden/`.
 The layouts 2 to 6 are archived in `archive/src/quack_rl/rl/encode.py`, layout 7 in
 `archive/src/quack_rl/rl/encode_layout7.py`.
 """
@@ -31,10 +33,10 @@ from quack_rl.engine import (
 )
 from quack_rl.engine.board import board_position, has_50pts
 from quack_rl.engine.state import PlayerState, scoring_field
-from quack_rl.rl.derive import derived, derived_names
+from quack_rl.rl.derive import derived, derived_names, opponent_bag
 from quack_rl.rules import Ruleset
 
-BOARD_LAYOUT = 9
+BOARD_LAYOUT = 10
 LOOKAHEAD = 10  # default K: the window holds the fields k = 0 ... K
 PHASES = [p.value for p in Phase]
 RESTART_EFFECT = "restart_after_5"
@@ -56,7 +58,7 @@ MAP_COLOURS = 8  # colour flags per chip in the map: the eight colours of the ru
 
 
 def observation_layout(rs: Ruleset) -> int:
-    """The layout number of a ruleset: always 9, the only layout. The version name is not read."""
+    """The layout number of a ruleset: always 10, the only layout. The version name is not read."""
     return BOARD_LAYOUT
 
 
@@ -136,7 +138,10 @@ def _ahead(p: PlayerState, rs: Ruleset, k_max: int) -> list[dict[str, int]]:
     return [{"money": f.money, "points": f.points, "ruby": int(f.ruby)} for f in cells]
 
 
-def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
+def _public(p: PlayerState, rs: Ruleset, *, hide_hand: bool = False) -> dict[str, Any]:
+    """The public values of a player. With `hide_hand` (the opponent's view) the hand counts as
+    in the bag: the hand is hidden, so the bag counts must not drop by its chips."""
+    bag = opponent_bag(p) if hide_hand else p.bag
     return {
         "money": p.money,
         "rubies": p.rubies,
@@ -149,18 +154,20 @@ def _public(p: PlayerState, rs: Ruleset) -> dict[str, Any]:
         "chip_purchases": p.chip_purchases,
         "chip_colours": {c: p.chip_colours.count(c) for c in _colours(rs)},
         "shop_done": p.shop_done,
-        "bag_remaining": {c.id: p.bag.get(c.id, 0) for c in rs.chips},
-        "bag_owned": {c.id: p.owned(c.id) for c in rs.chips},
+        "bag_remaining": {c.id: bag.get(c.id, 0) for c in rs.chips},
+        "bag_owned": {c.id: bag.get(c.id, 0) + p.placed.count(c.id) for c in rs.chips},
         "board": _board(p),
     }
 
 
 def observe(state: GameState, rs: Ruleset, seat: str, k_max: int = LOOKAHEAD) -> dict[str, Any]:
     """The view of `seat`. The draw order of the bags and the opponent's pending choice are
-    not part of it; both bags and the placed chips are public. `ahead` is the look-ahead window
-    of `seat` with `k_max + 1` cells; the opponent has none (`field_gap` covers it)."""
+    not part of it; both bags and the placed chips are public. The opponent's hand is hidden:
+    its chips count as in the opponent's bag (`bag_remaining`, `bag_owned`). `ahead` is the
+    look-ahead window of `seat` with `k_max + 1` cells; the opponent has none (`field_gap`
+    covers it)."""
     own = _public(state.players[seat], rs)
-    opponent = _public(state.players[other_seat(seat)], rs)
+    opponent = _public(state.players[other_seat(seat)], rs, hide_hand=True)
     if has_hand(rs):
         own["hand"] = list(state.players[seat].hand)
     obs: dict[str, Any] = {

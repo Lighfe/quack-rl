@@ -89,9 +89,21 @@ def test_observation_is_mirrored_between_seats(version):
         assert observe(state, rs, "p1") == observe(swapped, rs, "p2")
         o1 = observe(state, rs, "p1")
         o2 = observe(state, rs, "p2")
-        # the hand is private: only the own view has it
-        assert {k: v for k, v in o1["own"].items() if k != "hand"} == o2["opponent"]
-        assert o1["opponent"] == {k: v for k, v in o2["own"].items() if k != "hand"}
+        # the hand is private: only the own view has it, and the opponent's view counts the
+        # hand chips as in the bag
+        bags = ("hand", "bag_remaining", "bag_owned")
+        assert {k: v for k, v in o1["own"].items() if k not in bags} == {
+            k: v for k, v in o2["opponent"].items() if k not in bags[1:]
+        }
+        assert {k: v for k, v in o1["opponent"].items() if k not in bags[1:]} == {
+            k: v for k, v in o2["own"].items() if k not in bags
+        }
+        for o_own, o_opp in ((o1, o2), (o2, o1)):
+            hand = o_own["own"].get("hand", [])
+            for key in bags[1:]:
+                assert o_opp["opponent"][key] == {
+                    c: n + hand.count(c) for c, n in o_own["own"][key].items()
+                }
 
 
 def test_observation_content():
@@ -182,7 +194,7 @@ def _place_events(rs, seed):
 def test_names_unique_and_layout_version(version):
     rs = load_ruleset(version)
     names = vector_names(rs)
-    assert observation_layout(rs) == 9
+    assert observation_layout(rs) == 10
     assert len(set(names)) == len(names)
     assert names == vector_names(load_ruleset(version))
     sl = map_slice(rs)
@@ -211,7 +223,7 @@ def test_map_matches_place_events(version):
                     for order, e in enumerate(events[s], start=1):
                         expected[who][e["to"]] = (rs.chip(e["chip"]), order)
                 for f in range(rs.track_end + 1):
-                    # layout 9: the cells of both seats, no field table
+                    # layout 10: the cells of both seats, no field table
                     for k, who in enumerate(("own", "opponent")):
                         cell = grid[f, k * (len(colours) + 2) :][: len(colours) + 2]
                         if f in expected[who]:
@@ -247,8 +259,11 @@ def test_bags_of_both_seats(version):
         for who, seat in (("own", "p1"), ("opponent", "p2")):
             p = state.players[seat]
             for c in rs.chips:
-                assert vec[names.index(f"{who}.bag.remaining.{c.id}")] == p.bag.get(c.id, 0)
-                assert vec[names.index(f"{who}.bag.owned.{c.id}")] == p.owned(c.id)
+                # the opponent's hand is hidden: its chips count as in its bag
+                hidden = p.hand.count(c.id) if who == "opponent" else 0
+                remaining = vec[names.index(f"{who}.bag.remaining.{c.id}")]
+                assert remaining == p.bag.get(c.id, 0) + hidden
+                assert vec[names.index(f"{who}.bag.owned.{c.id}")] == p.owned(c.id) + hidden
 
 
 def test_rule_scalars_follow_the_ruleset():

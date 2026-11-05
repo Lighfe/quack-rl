@@ -1,6 +1,6 @@
-"""Golden replay of a stored v2.3 game, the layout 9 sample and RL on v2.3.
+"""Golden replay of a stored v2.3 game, the layout 10 sample and RL on v2.3.
 
-The files are `tests/fixtures/golden/v2_3_random_seed7.jsonl` and `layout9_sample.json`
+The files are `tests/fixtures/golden/v2_3_random_seed7.jsonl` and `layout10_sample.json`
 (regenerate them on purpose with `uv run python tests/fixtures/make_golden.py`). A rule number or
 an engine step that changes the outcome fails here.
 """
@@ -13,14 +13,23 @@ import numpy as np
 
 from quack_rl.engine import Phase, legal_actions, new_game, step
 from quack_rl.record import RecordedChance, read_games, verify_game, verify_seed
-from quack_rl.rl import BOARD_LAYOUT, QuackParallelEnv, observe, vector_names, vectorize
+from quack_rl.rl import (
+    BOARD_LAYOUT,
+    QuackParallelEnv,
+    observation_layout,
+    observe,
+    vector_names,
+    vectorize,
+)
 from quack_rl.rules import load_ruleset
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "tests" / "fixtures" / "golden"
 RECORD = GOLDEN / "v2_3_random_seed7.jsonl"
-SAMPLE = GOLDEN / "layout9_sample.json"
-LAYOUT8_SAMPLE = ROOT / "archive" / "tests" / "fixtures" / "golden" / "layout8_sample.json"
+SAMPLE = GOLDEN / "layout10_sample.json"
+ARCHIVE = ROOT / "archive" / "tests" / "fixtures" / "golden"
+LAYOUT9_SAMPLE = ARCHIVE / "layout9_sample.json"
+LAYOUT8_SAMPLE = ARCHIVE / "layout8_sample.json"
 RS = load_ruleset("v2.3")
 
 # Stored result of the game (the footer of the record)
@@ -70,20 +79,26 @@ def test_a_changed_rule_number_changes_the_outcome():
     assert verify_game(game)
 
 
-# --- the stored layout 9 sample ----------------------------------------------------------
+# --- the stored layout 10 sample and the archived layout 9 and 8 samples ---------------------
 
 
-def test_layout9_names_are_the_layout8_names_with_whole_step_droplets():
-    sample = json.loads(SAMPLE.read_text(encoding="utf-8"))
-    old = json.loads(LAYOUT8_SAMPLE.read_text(encoding="utf-8"))
-    assert sample["layout"] == BOARD_LAYOUT == 9
-    assert sample["record"] == RECORD.name
+def test_archived_layout9_names_are_the_layout8_names_with_whole_step_droplets():
+    old9 = json.loads(LAYOUT9_SAMPLE.read_text(encoding="utf-8"))
+    old8 = json.loads(LAYOUT8_SAMPLE.read_text(encoding="utf-8"))
+    assert old9["layout"] == 9
     renamed = {"own.droplet_halves": "own.droplet", "opponent.droplet_halves": "opponent.droplet"}
-    assert sample["names"] == [renamed.get(n, n) for n in old["names"]]
-    assert vector_names(RS) == sample["names"]
+    assert old9["names"] == [renamed.get(n, n) for n in old8["names"]]
 
 
-def test_layout9_sample_matches_the_encoder_value_for_value():
+def test_layout10_names_are_the_layout9_names():
+    sample = json.loads(SAMPLE.read_text(encoding="utf-8"))
+    old = json.loads(LAYOUT9_SAMPLE.read_text(encoding="utf-8"))
+    assert sample["layout"] == BOARD_LAYOUT == observation_layout(RS) == 10
+    assert sample["record"] == RECORD.name
+    assert vector_names(RS) == old["names"] == sample["names"]
+
+
+def test_layout10_sample_matches_the_encoder_value_for_value():
     sample = json.loads(SAMPLE.read_text(encoding="utf-8"))
     state = new_game(RS)
     for line in golden().steps[: sample["after_step"]]:

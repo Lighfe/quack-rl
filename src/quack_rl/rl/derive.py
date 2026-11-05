@@ -35,6 +35,14 @@ def derived_names() -> list[str]:
     ]
 
 
+def opponent_bag(p: PlayerState) -> dict[str, int]:
+    """The bag of `p` as its opponent sees it: the hidden hand counts as in the bag."""
+    bag = dict(p.bag)
+    for chip_id in p.hand:
+        bag[chip_id] = bag.get(chip_id, 0) + 1
+    return bag
+
+
 def _money_if_stop(p: PlayerState, state: GameState, rs: Ruleset) -> int:
     """The money table at the scoring field; 0 in the last round, where the money becomes
     points at once. The bonus die and the round-end bonus are not included."""
@@ -61,7 +69,8 @@ def derived(state: GameState, rs: Ruleset, seat: str) -> dict[str, float]:
         out[f"{who}.ruby_at_scoring_field"] = float(rs.fields[fields[who]].ruby)
         out[f"{who}.money_if_stop"] = _money_if_stop(p, state, rs)
         out[f"{who}.limit_distance"] = limit - p.white_total
-        out[f"{who}.explosion_chance"] = explosion_chance(p.bag, p.white_total, rs, limit=limit)
+        bag = p.bag if who == "own" else opponent_bag(p)
+        out[f"{who}.explosion_chance"] = explosion_chance(bag, p.white_total, rs, limit=limit)
         out[f"{who}.rolls_die"] = float(p.status is not Status.EXPLODED and fields[who] == best)
         out[f"{who}.chips_placed"] = len(p.placed)
     out["field_gap"] = players["own"].field - players["opponent"].field

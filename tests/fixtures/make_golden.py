@@ -1,8 +1,8 @@
 """Regenerate the golden files. Run this only on purpose: the files pin rules behavior.
 
-uv run python tests/fixtures/make_golden.py          # v2.3: the game record, the bots results.csv and the layout 9 sample
+uv run python tests/fixtures/make_golden.py          # v2.3: the game record, the bots results.csv and the layout 10 sample
 uv run python tests/fixtures/make_golden.py v2.3     # the same
-uv run python tests/fixtures/make_golden.py layout9  # only the layout 9 sample (from the v2.3 record)
+uv run python tests/fixtures/make_golden.py layout10  # only the layout 10 sample (from the v2.3 record)
 
 The generator of the archived v2.1 and v2.2 files is in the git history; the files are in
 `archive/tests/fixtures/golden/`.
@@ -73,7 +73,7 @@ SAMPLE_STEP = 30  # a brew step of round 3 in the golden record
 SAMPLE_SEAT = "p1"
 
 
-def write_layout9_sample(record: Path, out: Path) -> None:
+def write_layout10_sample(record: Path, out: Path) -> None:
     """The state after step SAMPLE_STEP of the golden record, as seen by SAMPLE_SEAT: names and values."""
     (game,) = read_games(record)
     rs = load_ruleset(game.header.rules_version)
@@ -81,7 +81,7 @@ def write_layout9_sample(record: Path, out: Path) -> None:
     for line in game.steps[:SAMPLE_STEP]:
         state = step(state, rs, line.actions, RecordedChance(line.chance)).state
     sample = {
-        "layout": 9,
+        "layout": 10,
         "record": record.name,
         "after_step": SAMPLE_STEP,
         "seat": SAMPLE_SEAT,
@@ -96,11 +96,11 @@ def main(argv: list[str]) -> None:
     if mode == "v2.3":
         write_record("v2.3", GOLDEN / "v2_3_random_seed7.jsonl")
         write_bots_results("v2.3", GOLDEN / "v2_3_bots_results.csv")
-        write_layout9_sample(GOLDEN / "v2_3_random_seed7.jsonl", GOLDEN / "layout9_sample.json")
-    elif mode == "layout9":
-        write_layout9_sample(GOLDEN / "v2_3_random_seed7.jsonl", GOLDEN / "layout9_sample.json")
+        write_layout10_sample(GOLDEN / "v2_3_random_seed7.jsonl", GOLDEN / "layout10_sample.json")
+    elif mode == "layout10":
+        write_layout10_sample(GOLDEN / "v2_3_random_seed7.jsonl", GOLDEN / "layout10_sample.json")
     else:
-        raise SystemExit("usage: make_golden.py [v2.3|layout9]")
+        raise SystemExit("usage: make_golden.py [v2.3|layout10]")
 
 
 if __name__ == "__main__":
