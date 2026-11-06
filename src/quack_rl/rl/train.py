@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from quack_rl.rl.evaluate import EvalResult, evaluate
-from quack_rl.rl.opponents import make_opponent
+from quack_rl.rl.opponents import RANDOM_NAMES, OpponentMix, distinct_specs, make_opponent
 from quack_rl.rl.policy_bot import PolicyBot
 from quack_rl.rl.single_env import QuackEnv
 
@@ -42,8 +42,19 @@ class TrainResult:
 class ExperimentResult:
     out: Path
     train_seconds: float
-    against_opponent: EvalResult
+    against_opponent: EvalResult | None  # None when trained against a list of specs
     against_random: EvalResult
+    evaluations: dict[str, EvalResult] = field(default_factory=dict)  # by opponent spec
+
+
+Opponent = str | list[str]
+
+
+def training_opponent(opponent: Opponent, seed: int, rules: str) -> Any:
+    """The bot to train against: one spec gives its bot, a list gives an `OpponentMix`."""
+    if isinstance(opponent, str):
+        return make_opponent(opponent, seed, rules)
+    return OpponentMix(opponent, seed, rules)
 
 
 def _import_sb3():
@@ -58,15 +69,17 @@ def _import_sb3():
 
 
 def train_ppo(
-    opponent: str,
+    opponent: Opponent,
     steps: int,
     seed: int = 0,
     rules: str = "v2.3",
     on_progress: Callable[[CurvePoint], None] | None = None,
 ) -> TrainResult:
-    """Train MaskablePPO for `steps` decisions against `opponent` (a bot name), on the CPU.
+    """Train MaskablePPO for `steps` decisions against `opponent`, on the CPU.
 
-    The agent sits at a random seat each game. `on_progress` gets each curve point as it is made.
+    `opponent` is a bot name, or a list of bot names: then each game is played against one of
+    them, sampled with a generator seeded with `seed`. The agent sits at a random seat each game.
+    `on_progress` gets each curve point as it is made.
     """
     if steps < 1:
         raise ValueError(f"steps must be at least 1, not {steps}")
@@ -93,7 +106,7 @@ def train_ppo(
             if on_progress is not None:
                 on_progress(point)
 
-    env = QuackEnv(seat="random", opponent=make_opponent(opponent, seed, rules), rules=rules)
+    env = QuackEnv(seat="random", opponent=training_opponent(opponent, seed, rules), rules=rules)
     model = MaskablePPO(
         "MlpPolicy", env, n_steps=N_STEPS, batch_size=BATCH_SIZE, seed=seed, device="cpu"
     )
@@ -112,7 +125,7 @@ def library_versions() -> dict[str, str]:
 
 
 def run_ppo_experiment(
-    opponent: str,
+    opponent: Opponent,
     steps: int,
     seed: int,
     eval_games: int,
@@ -120,11 +133,15 @@ def run_ppo_experiment(
     rules: str = "v2.3",
     on_progress: Callable[[CurvePoint], None] | None = None,
 ) -> ExperimentResult:
-    """Train, evaluate against the training opponent and against `bot:random`, write the files.
+    """Train, evaluate against each training opponent and against `bot:random`, write the files.
 
-    `out` gets `config.json` (inputs and library versions), `metrics.csv` (the curve),
-    `result.json` (both evaluations, with the 95% Wilson interval) and `model.zip`.
+    `opponent` is one bot name or a list of them (see `train_ppo`). `out` gets `config.json`
+    (inputs and library versions), `metrics.csv` (the curve), `result.json` (the evaluations, with
+    the 95% Wilson interval) and `model.zip`. `result.json` has `evaluations`, one entry per
+    distinct opponent and `bot:random` (once); with one bot name it also has `against_opponent`
+    and `against_random`.
     """
+    training_opponent(opponent, seed, rules)  # raises ValueError on a bad name, before any file
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     config = {
@@ -147,17 +164,16 @@ def run_ppo_experiment(
         writer.writerow(["steps", "mean_reward"])
         writer.writerows((p.steps, p.mean_reward) for p in trained.curve)
     bot = PolicyBot(trained.model, rules)
-    against_opponent = evaluate(bot, opponent, eval_games, seed, rules)
-    against_random = (
-        against_opponent
-        if opponent in ("random", RANDOM_OPPONENT)
-        else evaluate(bot, RANDOM_OPPONENT, eval_games, seed, rules)
-    )
-    result = {
-        "opponent": opponent,
-        "train_seconds": round(train_seconds, 1),
-        "against_opponent": against_opponent.to_dict(),
-        "against_random": against_random.to_dict(),
+    specs = [opponent] if isinstance(opponent, str) else opponent
+    evaluations = {
+        spec: evaluate(bot, spec, eval_games, seed, rules) for spec in distinct_specs(specs)
     }
+    against_random = next(ev for spec, ev in evaluations.items() if spec in RANDOM_NAMES)
+    against_opponent = evaluations[opponent] if isinstance(opponent, str) else None
+    result: dict[str, Any] = {"opponent": opponent, "train_seconds": round(train_seconds, 1)}
+    if against_opponent is not None:
+        result["against_opponent"] = against_opponent.to_dict()
+        result["against_random"] = against_random.to_dict()
+    result["evaluations"] = {spec: ev.to_dict() for spec, ev in evaluations.items()}
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-    return ExperimentResult(out, train_seconds, against_opponent, against_random)
+    return ExperimentResult(out, train_seconds, against_opponent, against_random, evaluations)
