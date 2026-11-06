@@ -42,7 +42,8 @@ from quack_rl.rl.determinize import determinize
 from quack_rl.rules import Ruleset
 from quack_rl.runner import Seat
 
-DEFAULT_SIMULATIONS = 40  # about 0.8 s for the slowest decision on one free core
+# Slowest decision: 0.8-1.2 s on one free core, below the 2 s cap with two runs in parallel.
+DEFAULT_SIMULATIONS = 40
 DEFAULT_ROLLOUT = "bot:topchip-draw20-pts6"
 DEFAULT_MAX_SECONDS = 2.0
 RANDOM_ROLLOUT = "bot:random"
