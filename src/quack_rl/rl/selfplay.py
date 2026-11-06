@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from quack_rl.bots import RandomBot
+from quack_rl.bots.presets import PRESET_BOTS
 from quack_rl.engine import GameState
 from quack_rl.rl.evaluate import EvalResult, evaluate
 from quack_rl.rl.policy_bot import PolicyBot
@@ -27,7 +28,6 @@ from quack_rl.rules import Ruleset, load_ruleset
 
 N_STEPS = 1000  # decisions per PPO rollout; 20000 steps per round are then exactly 20 rollouts
 BATCH_SIZE = 50
-HEURISTIC_OPPONENT = "bot:topchip-draw20-pts1"
 Loader = Callable[[Path], Any]
 CSV_HEADER = ["round", "steps", "mean_reward", "pool_size"]
 CHECKPOINT_RE = re.compile(r"checkpoint_(\d+)\.zip")
@@ -127,8 +127,8 @@ class SelfplayResult:
     train_seconds: float
     rounds: list[RoundPoint] = field(default_factory=list)
     against_random: EvalResult | None = None
-    against_heuristic: EvalResult | None = None
     against_first: EvalResult | None = None  # None with one round
+    against_presets: dict[str, EvalResult] = field(default_factory=dict)  # by spec
 
 
 def _require_sb3() -> tuple[Any, Any]:
@@ -198,8 +198,9 @@ def run_selfplay(
     is saved as `checkpoint_<i>.zip` in `out`, added to the pool, and its row is added to
     `selfplay.csv` (round, steps, mean_reward, pool_size). The agent plays both seats. `out` also
     gets `config.json` (at the start) and `result.json` (the last checkpoint against `bot:random`,
-    `HEURISTIC_OPPONENT` and, with more than one round, the first checkpoint; win rates with the
-    95% Wilson interval). An interrupted run is continued with `resume_selfplay`.
+    each of `PRESET_BOTS` (under `against_presets`, keyed by spec) and, with more than one round,
+    the first checkpoint; win rates with the 95% Wilson interval). An interrupted run is continued
+    with `resume_selfplay`.
     """
     if rounds < 1:
         raise ValueError(f"rounds must be at least 1, not {rounds}")
@@ -315,11 +316,13 @@ def _train_and_evaluate(
     last = PolicyBot(load_checkpoint(last_path), rules, last_path.stem)
     result = SelfplayResult(out, train_seconds, points)
     result.against_random = evaluate(last, RANDOM_OPPONENT, eval_games, seed, rules)
-    result.against_heuristic = evaluate(last, HEURISTIC_OPPONENT, eval_games, seed, rules)
+    result.against_presets = {
+        spec: evaluate(last, spec, eval_games, seed, rules) for spec in PRESET_BOTS
+    }
     data: dict[str, Any] = {
         "train_seconds": round(train_seconds, 1),
         "against_random": result.against_random.to_dict(),
-        "against_heuristic": result.against_heuristic.to_dict(),
+        "against_presets": {spec: ev.to_dict() for spec, ev in result.against_presets.items()},
     }
     if rounds > 1:
         first = PolicyBot(load_checkpoint(first_path), rules, first_path.stem)

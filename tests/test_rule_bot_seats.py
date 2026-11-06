@@ -200,10 +200,13 @@ def test_report_baseline_is_topchip_draw20_pts1():
     assert report.SWEEP_STRATEGIES == ("topchip", "spendmost", "blackpurple")
 
 
-def test_selfplay_evaluation_opponent():
+def test_selfplay_evaluates_against_the_presets():
+    from quack_rl.bots.presets import PRESET_BOTS
     from quack_rl.rl import selfplay
 
-    assert selfplay.HEURISTIC_OPPONENT == f"bot:{BASELINE}"
+    assert selfplay.PRESET_BOTS == PRESET_BOTS
+    assert not hasattr(selfplay, "HEURISTIC_OPPONENT")
+    assert "heuristic" not in (ROOT / "src" / "quack_rl" / "rl" / "selfplay.py").read_text()
 
 
 def test_offline_evaluation_opponent():
@@ -218,9 +221,9 @@ def test_build_dataset_bot():
 
 
 def test_train_selfplay_evaluation_label():
-    assert f'("bot:{BASELINE}", result.against_heuristic)' in (
-        ROOT / "scripts" / "train_selfplay.py"
-    ).read_text()
+    text = (ROOT / "scripts" / "train_selfplay.py").read_text()
+    assert "result.against_presets.items()" in text
+    assert "heuristic" not in text and BASELINE not in text
 
 
 def test_readme_play_example():

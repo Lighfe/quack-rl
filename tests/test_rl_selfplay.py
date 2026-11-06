@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from quack_rl.bots import RandomBot
+from quack_rl.bots.presets import PRESET_BOTS
 from quack_rl.rl import QuackEnv
 from quack_rl.rl.selfplay import CheckpointPool, PoolOpponent
 
@@ -83,8 +84,15 @@ def test_selfplay_two_rounds(tmp_path):
     assert [int(r[1]) for r in rows[1:]] == [1000, 2000]  # the counter keeps growing
     assert [r[3] for r in rows[1:]] == ["1", "2"] and len(seen) == 2
     data = json.loads((tmp_path / "result.json").read_text())
-    assert set(data) >= {"against_random", "against_heuristic", "against_first"}
+    assert set(data) == {"train_seconds", "against_random", "against_first", "against_presets"}
     assert data["against_first"]["games"] == 2 and result.against_first is not None
+    assert list(data["against_presets"]) == list(PRESET_BOTS)
+    assert list(result.against_presets) == list(PRESET_BOTS)
+    keys = {"games", "wins", "draws", "losses", "win_rate", "ci_low", "ci_high"}
+    for spec in PRESET_BOTS:
+        entry = data["against_presets"][spec]
+        assert set(entry) == keys and entry["games"] == 2
+        assert entry == result.against_presets[spec].to_dict()
 
     pool = CheckpointPool()
     pool.add(tmp_path / "checkpoint_2.zip")

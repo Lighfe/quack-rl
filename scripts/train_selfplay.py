@@ -84,8 +84,8 @@ def main() -> None:
             on_progress=progress,
         )
     for label, ev in (
+        *result.against_presets.items(),
         ("bot:random", result.against_random),
-        ("bot:topchip-draw20-pts1", result.against_heuristic),
         ("first checkpoint", result.against_first),
     ):
         if ev is not None:
