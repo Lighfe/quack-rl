@@ -7,7 +7,9 @@ dependency group (`uv run --group rl ...`). Nothing here prints or exits: progre
 
 import csv
 import json
+import os
 import random
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -27,6 +29,12 @@ N_STEPS = 1000  # decisions per PPO rollout; 20000 steps per round are then exac
 BATCH_SIZE = 50
 HEURISTIC_OPPONENT = "bot:topchip-draw20-pts1"
 Loader = Callable[[Path], Any]
+CSV_HEADER = ["round", "steps", "mean_reward", "pool_size"]
+CHECKPOINT_RE = re.compile(r"checkpoint_(\d+)\.zip")
+
+
+class ResumeError(ValueError):
+    """A run folder that cannot be resumed (no `config.json` or no checkpoint)."""
 
 
 def load_checkpoint(path: Path | str) -> Any:
@@ -123,6 +131,57 @@ class SelfplayResult:
     against_first: EvalResult | None = None  # None with one round
 
 
+def _require_sb3() -> tuple[Any, Any]:
+    try:
+        from sb3_contrib import MaskablePPO
+        from stable_baselines3.common.callbacks import BaseCallback
+    except ImportError as err:
+        raise ImportError(
+            "self-play needs stable-baselines3, sb3-contrib and torch: run with `uv run --group rl`"
+        ) from err
+    return MaskablePPO, BaseCallback
+
+
+def newest_checkpoint(out: Path | str) -> int | None:
+    """The highest i of the files `checkpoint_<i>.zip` in `out` (by number), None if there is none.
+
+    Only names that match `checkpoint_<int>.zip` count, so a temporary file of an interrupted save
+    (`checkpoint_<i>.tmp.zip`) is not found.
+    """
+    numbers = [
+        int(m.group(1))
+        for p in Path(out).iterdir()
+        if p.is_file() and (m := CHECKPOINT_RE.fullmatch(p.name))
+    ]
+    return max(numbers, default=None)
+
+
+def _write_csv(path: Path, rows: list[list[str]]) -> None:
+    """Write `selfplay.csv` (header and `rows`) through a temporary file, then rename it."""
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(CSV_HEADER)
+        writer.writerows(rows)
+    os.replace(tmp, path)
+
+
+def _append_csv(path: Path, point: RoundPoint) -> None:
+    with path.open("a", newline="") as handle:
+        csv.writer(handle).writerow(
+            [
+                point.round,
+                point.steps,
+                "" if point.mean_reward is None else point.mean_reward,
+                point.pool_size,
+            ]
+        )
+
+
+def _point(row: list[str]) -> RoundPoint:
+    return RoundPoint(int(row[0]), int(row[1]), float(row[2]) if row[2] else None, int(row[3]))
+
+
 def run_selfplay(
     out: Path | str,
     rounds: int = 5,
@@ -136,22 +195,17 @@ def run_selfplay(
     """Train for `rounds` rounds, each against the pool, and evaluate the last checkpoint.
 
     One model is trained over all rounds (the step counter keeps growing). After round i the model
-    is saved as `checkpoint_<i>.zip` in `out` and added to the pool. The agent plays both seats.
-    `out` gets `config.json`, `selfplay.csv` (round, steps, mean_reward, pool_size) and
-    `result.json` (the last checkpoint against `bot:random`, `HEURISTIC_OPPONENT` and, with more
-    than one round, the first checkpoint; win rates with the 95% Wilson interval).
+    is saved as `checkpoint_<i>.zip` in `out`, added to the pool, and its row is added to
+    `selfplay.csv` (round, steps, mean_reward, pool_size). The agent plays both seats. `out` also
+    gets `config.json` (at the start) and `result.json` (the last checkpoint against `bot:random`,
+    `HEURISTIC_OPPONENT` and, with more than one round, the first checkpoint; win rates with the
+    95% Wilson interval). An interrupted run is continued with `resume_selfplay`.
     """
     if rounds < 1:
         raise ValueError(f"rounds must be at least 1, not {rounds}")
     if steps_per_round < 1:
         raise ValueError(f"steps_per_round must be at least 1, not {steps_per_round}")
-    try:
-        from sb3_contrib import MaskablePPO
-        from stable_baselines3.common.callbacks import BaseCallback
-    except ImportError as err:
-        raise ImportError(
-            "self-play needs stable-baselines3, sb3-contrib and torch: run with `uv run --group rl`"
-        ) from err
+    MaskablePPO, _ = _require_sb3()
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     config = {
@@ -166,6 +220,68 @@ def run_selfplay(
         "versions": library_versions(),
     }
     (out / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    _write_csv(out / "selfplay.csv", [])
+    pool = CheckpointPool(pool_size)
+    env = QuackEnv(seat="random", opponent=PoolOpponent(pool, rules, seed), rules=rules)
+    model = MaskablePPO(
+        "MlpPolicy", env, n_steps=N_STEPS, batch_size=BATCH_SIZE, seed=seed, device="cpu"
+    )
+    return _train_and_evaluate(out, config, model, pool, 0, [], on_progress)
+
+
+def resume_selfplay(
+    out: Path | str, on_progress: Callable[[RoundPoint], None] | None = None
+) -> SelfplayResult:
+    """Continue the self-play run in `out` from its newest checkpoint, with its `config.json`.
+
+    With the newest checkpoint i, the pool gets the last `pool_size` checkpoints up to i (oldest
+    first), `selfplay.csv` is cut back to the rows of rounds 1 to i, and rounds i+1 to `rounds`
+    are trained; then `result.json` is written as in a fresh run. With i = `rounds` nothing is
+    trained. Raises `ResumeError` (before any training) when `config.json` or every checkpoint is
+    missing.
+    """
+    out = Path(out)
+    if not (out / "config.json").is_file():
+        raise ResumeError(f"cannot resume {out}: no config.json")
+    newest = newest_checkpoint(out)
+    if newest is None:
+        raise ResumeError(f"cannot resume {out}: no checkpoint_<i>.zip")
+    config = json.loads((out / "config.json").read_text())
+    rounds, pool_size, seed, rules = (
+        config["rounds"],
+        config["pool_size"],
+        config["seed"],
+        config["rules"],
+    )
+    if newest > rounds:
+        raise ResumeError(f"cannot resume {out}: checkpoint_{newest}.zip but rounds is {rounds}")
+    MaskablePPO, _ = _require_sb3()
+    pool = CheckpointPool(pool_size)
+    for i in range(max(1, newest - pool_size + 1), newest + 1):
+        pool.add(out / f"checkpoint_{i}.zip")
+    csv_path = out / "selfplay.csv"
+    rows = list(csv.reader(csv_path.open(newline=""))) if csv_path.is_file() else []
+    kept = [r for r in rows[1:] if r and int(r[0]) <= newest]
+    _write_csv(csv_path, kept)
+    points = [_point(r) for r in kept]
+    env = QuackEnv(seat="random", opponent=PoolOpponent(pool, rules, seed), rules=rules)
+    model = MaskablePPO.load(str(out / f"checkpoint_{newest}.zip"), env=env, device="cpu")
+    return _train_and_evaluate(out, config, model, pool, newest, points, on_progress)
+
+
+def _train_and_evaluate(
+    out: Path,
+    config: dict[str, Any],
+    model: Any,
+    pool: CheckpointPool,
+    done: int,
+    points: list[RoundPoint],
+    on_progress: Callable[[RoundPoint], None] | None,
+) -> SelfplayResult:
+    """Train rounds `done`+1 to `rounds` of `config`, then evaluate and write `result.json`."""
+    _, BaseCallback = _require_sb3()
+    rounds, steps_per_round, seed = config["rounds"], config["steps_per_round"], config["seed"]
+    eval_games, rules = config["eval_games"], config["rules"]
 
     class Finished(BaseCallback):
         def __init__(self) -> None:
@@ -173,41 +289,30 @@ def run_selfplay(
             self.rewards: list[float] = []
 
         def _on_step(self) -> bool:
-            for reward, done in zip(self.locals["rewards"], self.locals["dones"], strict=True):
-                if done:  # the reward is paid once, at the end of the game
+            for reward, ended in zip(self.locals["rewards"], self.locals["dones"], strict=True):
+                if ended:  # the reward is paid once, at the end of the game
                     self.rewards.append(float(reward))
             return True
 
-    pool = CheckpointPool(pool_size)
-    env = QuackEnv(seat="random", opponent=PoolOpponent(pool, rules, seed), rules=rules)
-    model = MaskablePPO(
-        "MlpPolicy", env, n_steps=N_STEPS, batch_size=BATCH_SIZE, seed=seed, device="cpu"
-    )
-    points: list[RoundPoint] = []
-    checkpoints: list[Path] = []
     started = time.monotonic()
-    for i in range(1, rounds + 1):
+    for i in range(done + 1, rounds + 1):
         finished = Finished()
         model.learn(total_timesteps=steps_per_round, callback=finished, reset_num_timesteps=False)
         path = out / f"checkpoint_{i}.zip"
-        model.save(str(path))
-        checkpoints.append(path)
+        tmp = out / f"checkpoint_{i}.tmp.zip"  # does not match checkpoint_<int>.zip
+        model.save(str(tmp))
+        os.replace(tmp, path)
         pool.add(path)
         mean = sum(finished.rewards) / len(finished.rewards) if finished.rewards else None
         point = RoundPoint(i, int(model.num_timesteps), mean, len(pool))
         points.append(point)
+        _append_csv(out / "selfplay.csv", point)
         if on_progress is not None:
             on_progress(point)
     train_seconds = time.monotonic() - started
-    with (out / "selfplay.csv").open("w", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["round", "steps", "mean_reward", "pool_size"])
-        writer.writerows(
-            (p.round, p.steps, "" if p.mean_reward is None else p.mean_reward, p.pool_size)
-            for p in points
-        )
 
-    last = PolicyBot(load_checkpoint(checkpoints[-1]), rules, checkpoints[-1].stem)
+    first_path, last_path = out / "checkpoint_1.zip", out / f"checkpoint_{rounds}.zip"
+    last = PolicyBot(load_checkpoint(last_path), rules, last_path.stem)
     result = SelfplayResult(out, train_seconds, points)
     result.against_random = evaluate(last, RANDOM_OPPONENT, eval_games, seed, rules)
     result.against_heuristic = evaluate(last, HEURISTIC_OPPONENT, eval_games, seed, rules)
@@ -217,7 +322,7 @@ def run_selfplay(
         "against_heuristic": result.against_heuristic.to_dict(),
     }
     if rounds > 1:
-        first = PolicyBot(load_checkpoint(checkpoints[0]), rules, checkpoints[0].stem)
+        first = PolicyBot(load_checkpoint(first_path), rules, first_path.stem)
         result.against_first = evaluate(last, first, eval_games, seed, rules)
         data["against_first"] = result.against_first.to_dict()
     (out / "result.json").write_text(json.dumps(data, indent=2) + "\n")
