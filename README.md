@@ -203,6 +203,10 @@ Each tournament run writes its own folder under `data/tournaments/` (not committ
 
 Named fields (`--field`): `full` (19 bots: the strategies topchip, spendmost and blackpurple x draw limit 0/20/40 x points round 4/6, plus `bot:random`) and `small` (13 bots: the three strategies x draw limit 10/20 x points round 4/6, plus `bot:random`). The report's baseline is `topchip-draw20-pts1`.
 
+Pairings: by default every pair of the field plays (round robin), the first spec at `p1`. With `--vs SPECS` (comma list or repeat) each spec of `--bots`/`--field` plays each `--vs` spec instead, in the order "for a in bots, for b in vs", labelled `a vs b`, and no other pairings; one `--bots` spec is then enough. `--vs` cannot be combined with `--seat-check` or `--sweep`, and a spec may not be in both lists. With `--swap-seats`, game g with odd g of every pairing has the two specs swapped (`a` at `p2`); the `p1`/`p2` columns of `results.csv` and `seats.parquet` hold the real seats, and `pairing` stays `a vs b`. `config.json` records both as `vs` and `swap_seats`. Example, each agent against the preset bots with seats swapped:
+
+    uv run quack-rl tournament --bots agent:bc,agent:cql --vs bot:topchip-draw20-pts6,bot:random --swap-seats --games 200
+
 ### `seats.parquet`
 
 Apache Parquet, written with pyarrow, zstd compression. Columns in this order:

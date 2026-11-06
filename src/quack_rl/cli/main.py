@@ -160,6 +160,21 @@ def tournament(
             "3 strategies x draw 10/20 x points round 4/6, plus bot:random).",
         ),
     ] = None,
+    vs: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--vs",
+            help="Opponent seat specs (comma list or repeat): each spec of --bots/--field plays "
+            "each of these, no other pairings. Not with --seat-check or --sweep.",
+        ),
+    ] = None,
+    swap_seats: Annotated[
+        bool,
+        typer.Option(
+            "--swap-seats",
+            help="Swap the two specs of every pairing in odd games (game 1, 3, ...).",
+        ),
+    ] = False,
     games: Annotated[int, typer.Option(help="Games per pairing (at least 1).")] = 100,
     seed: Annotated[int, typer.Option(help="Chance seed of game 0; game i uses seed + i.")] = 0,
     rules: Annotated[str, typer.Option(help="Base rules version.")] = "v2.3",
@@ -215,6 +230,8 @@ def tournament(
             keep_records=keep_records,
             sample_size=sample_size,
             name=name,
+            vs=tuple(v.strip() for item in vs or [] for v in item.split(",") if v.strip()),
+            swap_seats=swap_seats,
         )
         run_dir, rows = write_run(config, out)
     except TournamentError as e:

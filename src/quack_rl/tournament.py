@@ -1,7 +1,11 @@
 """Tournament: every pair of a bot field plays, optionally for each value of one sweep.
 
+With `vs`, each spec of the field plays each `vs` spec instead (no other pairings). With
+`swap_seats`, game g with odd g of every pairing has its two specs swapped.
+
 Seed scheme: every game has its own seed, a pure function of the run seed, the sweep value index
-v (0 without a sweep), the pairing index p inside that sweep value and the game index g:
+v (0 without a sweep), the pairing index p inside that sweep value (with `vs`: the index of the
+cross pairing) and the game index g:
 
     game_seed = run_seed + (v * pairings_per_value + p) * games + g
 
@@ -20,7 +24,7 @@ import re
 import tempfile
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -103,6 +107,8 @@ class TournamentConfig:
     keep_records: bool = False
     sample_size: int = DEFAULT_SAMPLE_SIZE
     name: str = "run"
+    vs: tuple[str, ...] = ()  # with specs: each of `bots` against each of these only
+    swap_seats: bool = False  # odd games of every pairing have the two specs swapped
 
 
 @dataclass(frozen=True)
@@ -206,7 +212,19 @@ def validate(config: TournamentConfig) -> None:
         raise TournamentError(f"sample size must not be negative, got {config.sample_size}")
     if not _NAME_OK.fullmatch(config.name):
         raise TournamentError(f"run name {config.name!r} may only use letters, digits, . _ -")
-    for spec in config.bots:
+    if config.vs:
+        if config.seat_check:
+            raise TournamentError("--vs cannot be combined with --seat-check")
+        if config.sweep is not None:
+            raise TournamentError("--vs cannot be combined with --sweep")
+        both = [spec for spec in config.vs if spec in config.bots]
+        if both:
+            raise TournamentError(
+                f"{', '.join(both)} is in both the field (--bots/--field) and --vs"
+            )
+        if len(set(config.vs)) != len(config.vs):
+            raise TournamentError("--vs lists a spec twice")
+    for spec in (*config.bots, *config.vs):
         if not spec.startswith(("bot:", AGENT_PREFIX)):
             raise TournamentError(
                 f"bot {spec!r} must be a seat spec (bot:random, bot:<name>, agent:<name>)"
@@ -217,7 +235,7 @@ def validate(config: TournamentConfig) -> None:
             raise TournamentError(str(e)) from e
     if len(set(config.bots)) != len(config.bots):
         raise TournamentError("the field lists a bot twice")
-    if len(config.bots) < (1 if config.seat_check else 2):
+    if len(config.bots) < (1 if config.seat_check or config.vs else 2):
         raise TournamentError(
             "a tournament needs at least 2 different bots (one bot is only the seat check)"
         )
@@ -245,7 +263,7 @@ def _agent_manifests(config: TournamentConfig) -> dict[str, dict[str, Any]]:
     rs = _rules_for(config, config.sweep.values[0] if config.sweep else "")
     return {
         spec: checked_manifest(spec.removeprefix(AGENT_PREFIX), rs).model_dump()
-        for spec in config.bots
+        for spec in (*config.bots, *config.vs)
         if spec.startswith(AGENT_PREFIX)
     }
 
@@ -258,6 +276,8 @@ def _tasks(config: TournamentConfig) -> list[_Task]:
         specs = [_spec_for(s, sweep, value) for s in config.bots]
         if config.seat_check:
             pairs = [(s, s) for s in specs]
+        elif config.vs:
+            pairs = [(a, b) for a in specs for b in config.vs]
         else:
             pairs = [
                 (specs[i], specs[j]) for i in range(len(specs)) for j in range(i + 1, len(specs))
@@ -361,6 +381,13 @@ def write_seats_parquet(path: Path, rows: Sequence[dict[str, Any]], rs: Ruleset)
 _Played = tuple[list[dict[str, Any]], list[dict[str, Any]]]
 
 
+def _seated(config: TournamentConfig, task: _Task, game: int) -> _Task:
+    """The task with the real seats of one game: with `swap_seats`, odd games swap p1 and p2."""
+    if config.swap_seats and game % 2 == 1:
+        return replace(task, p1=task.p2, p2=task.p1)
+    return task
+
+
 def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> _Played:
     """Play all games of one pairing (runs in a worker). Optionally write a gzipped shard.
 
@@ -388,17 +415,18 @@ def _play_task(args: tuple[TournamentConfig, _Task, str | None]) -> _Played:
                 task.pairings_per_value,
                 config.games,
             )
+            seated = _seated(config, task, i)
             final, explosions, stats = play_sim_game(
                 rs,
                 rules=config.rules,
                 rounds=config.rounds,
                 overrides=overrides,
-                p1=task.p1,
-                p2=task.p2,
+                p1=seated.p1,
+                p2=seated.p2,
                 game_seed=seed,
                 stream=shard,
             )
-            row = _row(task, i, seed, final, explosions, stats, rs)
+            row = _row(seated, i, seed, final, explosions, stats, rs)
             rows.append(row)
             seats.extend(seat_rows(row, final, stats, rs))
     finally:
@@ -442,6 +470,7 @@ def results_csv(rows: Sequence[dict[str, Any]], columns: Sequence[str] | None = 
 def _config_json(config: TournamentConfig, created_at: str) -> str:
     data = asdict(config)
     data["bots"] = list(config.bots)
+    data["vs"] = list(config.vs)
     data["agents"] = _agent_manifests(config)
     data["seed_scheme"] = SEED_SCHEME
     data["engine_version"] = __version__

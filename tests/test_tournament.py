@@ -783,3 +783,132 @@ def test_v2_3_tournament_runs_and_header_comes_from_the_ruleset(tmp_path):
     assert (run / "seats.parquet").exists()
     report = runner.invoke(app, ["report", str(run)])
     assert report.exit_code == 0, report.output
+
+
+# --vs and --swap-seats (#276)
+
+VS = "bot:topchip-draw20-pts6,bot:spendmost-draw20-pts6"
+
+
+def test_help_lists_vs_and_swap_seats():
+    result = runner.invoke(app, ["tournament", "--help"])
+    assert result.exit_code == 0
+    assert "--vs" in result.output and "--swap-seats" in result.output
+
+
+def test_vs_plays_each_bot_against_each_vs_spec_in_order(tmp_path):
+    result = tour(tmp_path, "--vs", VS, bots="bot:random,bot:blackpurple-draw15-pts8", games="2")
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    rows = read_rows(run)
+    pairings = list(dict.fromkeys(r["pairing"] for r in rows))
+    assert pairings == [
+        "random vs topchip-draw20-pts6",
+        "random vs spendmost-draw20-pts6",
+        "blackpurple-draw15-pts8 vs topchip-draw20-pts6",
+        "blackpurple-draw15-pts8 vs spendmost-draw20-pts6",
+    ]
+    assert len(rows) == 4 * 2
+    for r in rows:  # no swap: the --bots spec sits at p1
+        assert f"{r['p1']} vs {r['p2']}" == r["pairing"]
+    config = json.loads((run / "config.json").read_text())
+    assert config["vs"] == VS.split(",")
+    assert config["swap_seats"] is False
+
+
+def test_vs_accepts_a_repeated_option_and_one_bots_spec(tmp_path):
+    vs = VS.split(",")
+    result = tour(tmp_path, "--vs", vs[0], "--vs", vs[1], bots="bot:random", games="1")
+    assert result.exit_code == 0, result.output
+    rows = read_rows(runs(tmp_path)[0])
+    assert [r["pairing"] for r in rows] == [
+        "random vs topchip-draw20-pts6",
+        "random vs spendmost-draw20-pts6",
+    ]
+
+
+def test_vs_seeds_follow_game_seed_with_the_cross_pairing_index(tmp_path):
+    from quack_rl.tournament import game_seed
+
+    result = tour(tmp_path, "--vs", VS, bots="bot:random,bot:blackpurple-draw15-pts8", games="3")
+    assert result.exit_code == 0, result.output
+    rows = read_rows(runs(tmp_path)[0])
+    expected = [game_seed(5, 0, p, g, 4, 3) for p in range(4) for g in range(3)]
+    assert [int(r["seed"]) for r in rows] == expected
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (("--vs", "bot:random,bot:topchip-draw20-pts6"), "both"),
+        (("--vs", VS, "--seat-check"), "--seat-check"),
+        (("--vs", VS, "--sweep", "draw_limit=20,40"), "--sweep"),
+    ],
+)
+def test_vs_error_cases_exit_2_with_no_run_folder(tmp_path, extra, message):
+    result = tour(tmp_path, *extra, bots="bot:random")
+    assert result.exit_code == 2, result.output
+    assert "Error:" in result.output and message in result.output
+    assert TRACEBACK not in result.output
+    assert not list(tmp_path.glob("*"))
+
+
+def test_swap_seats_swaps_odd_games(tmp_path):
+    result = tour(tmp_path, "--vs", "bot:topchip-draw20-pts6", "--swap-seats", bots="bot:random", games="4")
+    assert result.exit_code == 0, result.output
+    (run,) = runs(tmp_path)
+    rows = read_rows(run)
+    assert [(r["game"], r["p1"], r["p2"]) for r in rows] == [
+        ("0", "random", "topchip-draw20-pts6"),
+        ("1", "topchip-draw20-pts6", "random"),
+        ("2", "random", "topchip-draw20-pts6"),
+        ("3", "topchip-draw20-pts6", "random"),
+    ]
+    assert {r["pairing"] for r in rows} == {"random vs topchip-draw20-pts6"}
+    import pyarrow.parquet as pq
+
+    seats = pq.read_table(run / "seats.parquet").to_pylist()
+    assert [(s["game"], s["seat"], s["bot"]) for s in seats] == [
+        (0, "p1", "random"), (0, "p2", "topchip-draw20-pts6"),
+        (1, "p1", "topchip-draw20-pts6"), (1, "p2", "random"),
+        (2, "p1", "random"), (2, "p2", "topchip-draw20-pts6"),
+        (3, "p1", "topchip-draw20-pts6"), (3, "p2", "random"),
+    ]
+    assert {s["pairing"] for s in seats} == {"random vs topchip-draw20-pts6"}
+    assert json.loads((run / "config.json").read_text())["swap_seats"] is True
+
+
+def test_swap_seats_works_in_a_round_robin_too(tmp_path):
+    assert tour(tmp_path, "--swap-seats", games="2").exit_code == 0
+    rows = read_rows(runs(tmp_path)[0])
+    for r in rows:
+        a, b = r["pairing"].split(" vs ")
+        assert (r["p1"], r["p2"]) == ((a, b) if r["game"] == "0" else (b, a))
+
+
+def test_swapped_games_rebuild_from_the_seed(tmp_path):
+    result = tour(
+        tmp_path, "--vs", VS, "--swap-seats", "--sample-size", "8", "--keep-records",
+        bots="bot:random", games="4",
+    )
+    assert result.exit_code == 0, result.output
+    assert "8 sampled games rebuilt from the seed: ok" in result.output
+    (run,) = runs(tmp_path)
+    for shard in sorted((run / "records").glob("shard-*.jsonl.gz")):
+        good = runner.invoke(app, ["verify", str(shard), "--seed-check"])
+        assert good.exit_code == 0 and "4 games ok" in good.output, good.output
+
+
+def test_verify_sample_catches_a_swapped_row_with_wrong_seats():
+    from quack_rl.tournament import run_games
+
+    config = TournamentConfig(
+        bots=("bot:random",), vs=("bot:topchip-draw20-pts6",), swap_seats=True, games=4,
+        seed=5, sample_size=4,
+    )
+    rows = run_games(config)
+    assert [r["p1"] for r in rows] == ["random", "topchip-draw20-pts6"] * 2
+    assert verify_sample(config, rows) == []
+    rows[1] = dict(rows[1], p1=rows[1]["p2"], p2=rows[1]["p1"])  # undo the swap of game 1
+    problems = verify_sample(config, rows)
+    assert len(problems) == 1 and "game 1" in problems[0]
