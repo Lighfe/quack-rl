@@ -74,3 +74,27 @@ def test_concat_files_equals_load_concat(data, tmp_path):
     joined, expected = Dataset.load(tmp_path / "ab.npz"), data.concat(other)
     for name in ARRAYS:
         assert np.array_equal(getattr(joined, name), getattr(expected, name))
+
+
+def test_run_offline_experiment_evaluates_against_the_presets(data, tmp_path):
+    import json
+
+    from quack_rl.bots.presets import PRESET_BOTS
+    from quack_rl.rl.offline import run_offline_experiment
+
+    data.save(tmp_path / "d.npz")
+    result = run_offline_experiment(tmp_path / "d.npz", "bc", 0, 2, tmp_path / "run", epochs=1)
+    saved = json.loads((tmp_path / "run" / "result.json").read_text())
+    assert set(saved) == {
+        "method",
+        "train_seconds",
+        "final_loss",
+        "against_random",
+        "against_presets",
+    }
+    assert list(saved["against_presets"]) == list(PRESET_BOTS)
+    assert list(result.against_presets) == list(PRESET_BOTS)
+    for spec in PRESET_BOTS:
+        assert saved["against_presets"][spec] == result.against_presets[spec].to_dict()
+        assert saved["against_presets"][spec]["games"] == 2
+    assert saved["against_random"] == result.against_random.to_dict()

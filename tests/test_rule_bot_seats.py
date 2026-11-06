@@ -211,9 +211,15 @@ def test_selfplay_evaluates_against_the_presets():
 
 def test_offline_evaluation_opponent():
     pytest.importorskip("torch")
+    from quack_rl.bots.presets import PRESET_BOTS
     from quack_rl.rl import offline
 
-    assert offline.HEURISTIC_OPPONENT == f"bot:{BASELINE}"
+    assert offline.PRESET_BOTS == PRESET_BOTS
+    assert not hasattr(offline, "HEURISTIC_OPPONENT")
+    assert not hasattr(offline.OfflineResult, "against_heuristic")
+    for path in ("src/quack_rl/rl/offline.py", "scripts/train_offline.py"):
+        assert "heuristic" not in (ROOT / path).read_text().lower(), path
+    assert "result.against_presets.items()" in (ROOT / "scripts" / "train_offline.py").read_text()
 
 
 def test_build_dataset_bot():

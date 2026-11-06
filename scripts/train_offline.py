@@ -49,10 +49,7 @@ def main() -> None:
         steps=args.steps,
         alpha=args.alpha,
     )
-    for label, ev in (
-        ("bot:random", result.against_random),
-        ("heuristic", result.against_heuristic),
-    ):
+    for label, ev in (("bot:random", result.against_random), *result.against_presets.items()):
         print(
             f"vs {label}: win rate {ev.win_rate:.3f} [{ev.ci_low:.3f}, {ev.ci_high:.3f}] "
             f"({ev.wins}W {ev.draws}D {ev.losses}L)"

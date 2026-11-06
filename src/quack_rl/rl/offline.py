@@ -19,6 +19,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from quack_rl.bots.presets import PRESET_BOTS
 from quack_rl.engine import GameState, action_names
 from quack_rl.rl.dataset import Dataset
 from quack_rl.rl.encode import action_mask, observe, vectorize
@@ -28,7 +29,6 @@ from quack_rl.rules import Ruleset, load_ruleset
 
 MASK_FILL = -1e9
 RANDOM_OPPONENT = "bot:random"
-HEURISTIC_OPPONENT = "bot:topchip-draw20-pts1"
 
 
 def make_mlp(obs_dim: int, n_actions: int, hidden: int = 256) -> nn.Module:
@@ -189,7 +189,7 @@ class OfflineResult:
     out: Path
     train_seconds: float
     against_random: EvalResult
-    against_heuristic: EvalResult
+    against_presets: dict[str, EvalResult] = field(default_factory=dict)  # by spec
     curve: list[float] = field(default_factory=list)
 
 
@@ -206,8 +206,8 @@ def run_offline_experiment(
     on_progress: Callable[[int, float], None] | None = None,
 ) -> OfflineResult:
     """Train `method` ("bc" or "cql") on the dataset file, evaluate against `bot:random` and
-    `bot:topchip-draw20-pts1`, and write `config.json`, `metrics.csv`, `result.json` and
-    `model.pt` (the state dict of the network) to `out`."""
+    each of `PRESET_BOTS` (`against_presets`, keyed by spec), and write `config.json`,
+    `metrics.csv`, `result.json` and `model.pt` (the state dict of the network) to `out`."""
     if method not in ("bc", "cql"):
         raise ValueError(f"method must be 'bc' or 'cql', not {method!r}")
     data = Dataset.load(dataset_path)
@@ -241,13 +241,15 @@ def run_offline_experiment(
         writer.writerow(["step" if method == "cql" else "epoch", "loss"])
         writer.writerows((i + 1, loss) for i, loss in enumerate(policy.curve))
     against_random = evaluate(policy, RANDOM_OPPONENT, eval_games, seed, rules)
-    against_heuristic = evaluate(policy, HEURISTIC_OPPONENT, eval_games, seed, rules)
+    against_presets = {
+        spec: evaluate(policy, spec, eval_games, seed, rules) for spec in PRESET_BOTS
+    }
     result = {
         "method": method,
         "train_seconds": round(train_seconds, 1),
         "final_loss": policy.curve[-1],
         "against_random": against_random.to_dict(),
-        "against_heuristic": against_heuristic.to_dict(),
+        "against_presets": {spec: ev.to_dict() for spec, ev in against_presets.items()},
     }
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-    return OfflineResult(out, train_seconds, against_random, against_heuristic, policy.curve)
+    return OfflineResult(out, train_seconds, against_random, against_presets, policy.curve)
