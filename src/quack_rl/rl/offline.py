@@ -64,6 +64,7 @@ class OfflinePolicy:
         self.name = name
         self.params: dict[str, Any] = {"deterministic": True}
         self.curve: list[float] = curve if curve is not None else []
+        self.entropy_curve: list[float] = []  # BC only: mean policy entropy of each epoch
         self._names = action_names(self.rs)
 
     def choose(self, state: GameState, seat: str, legal: list[str]) -> str:
@@ -93,6 +94,26 @@ def _tensors(data: Dataset) -> dict[str, torch.Tensor]:
     }
 
 
+def smoothed_target(action: torch.Tensor, mask: torch.Tensor, eps: float) -> torch.Tensor:
+    """The label smoothing target, one row per sample: (1 - eps) on the stored action and eps
+    spread evenly over the other legal actions; 0 on every illegal action. When the stored
+    action is the only legal action, the row is 1 on it."""
+    legal = (mask != 0).to(torch.float32)
+    stored = F.one_hot(action, mask.shape[1]).to(torch.float32)
+    others = legal - stored
+    n_others = others.sum(1, keepdim=True)
+    share = torch.where(n_others > 0, eps / n_others.clamp(min=1.0), torch.zeros_like(n_others))
+    return stored * (1.0 - share * n_others) + others * share
+
+
+def masked_entropy(logits: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """The entropy (nats) of the softmax over the legal actions of each row of the masked
+    `logits`. Illegal actions add 0, so a row with one legal action has entropy 0 (no NaN)."""
+    log_p = F.log_softmax(logits, dim=1)
+    terms = torch.where(mask != 0, log_p.exp() * log_p, torch.zeros_like(log_p))
+    return -terms.sum(1)
+
+
 def train_bc(
     dataset: Dataset,
     epochs: int,
@@ -102,11 +123,55 @@ def train_bc(
     lr: float = 1e-3,
     hidden: int = 256,
     on_progress: Callable[[int, float], None] | None = None,
+    label_smoothing: float = 0.0,
+    entropy_coef: float = 0.0,
+    on_epoch_end: Callable[[int, nn.Module], None] | None = None,
 ) -> OfflinePolicy:
     """Behaviour cloning: cross entropy of the stored action over the logits of the legal
-    actions. `curve` holds the mean loss of each epoch."""
+    actions.
+
+    `label_smoothing` eps puts (1 - eps) of the target on the stored action and eps evenly on
+    the other legal actions (`smoothed_target`). `entropy_coef` subtracts `entropy_coef` times
+    the mean entropy of the policy over the legal actions (`masked_entropy`) from the loss.
+    `curve` holds the mean minimized loss of each epoch, `entropy_curve` the mean entropy of
+    each epoch. `on_epoch_end(epoch, net)` is called after each epoch (counted from 1). Raise
+    ValueError on `label_smoothing` outside [0, 1) or a negative `entropy_coef`."""
+    stats: list[float] = []
+
+    def record(epoch: int, net: nn.Module, loss: float, entropy: float) -> None:
+        stats.append(entropy)
+        if on_progress is not None:
+            on_progress(epoch, loss)
+        if on_epoch_end is not None:
+            on_epoch_end(epoch, net)
+
+    net, curve = fit_bc(
+        dataset, epochs, seed, batch_size, lr, hidden, label_smoothing, entropy_coef, record
+    )
+    policy = OfflinePolicy(net, rules, "bc", curve)
+    policy.entropy_curve = stats
+    return policy
+
+
+def fit_bc(
+    dataset: Dataset,
+    epochs: int,
+    seed: int = 0,
+    batch_size: int = 256,
+    lr: float = 1e-3,
+    hidden: int = 256,
+    label_smoothing: float = 0.0,
+    entropy_coef: float = 0.0,
+    on_epoch: Callable[[int, nn.Module, float, float], None] | None = None,
+) -> tuple[nn.Module, list[float]]:
+    """The training loop of `train_bc`; returns the network and the loss curve.
+    `on_epoch(epoch, net, mean loss, mean entropy)` is called after each epoch."""
     if epochs < 1:
         raise ValueError(f"epochs must be at least 1, not {epochs}")
+    if not 0.0 <= label_smoothing < 1.0:
+        raise ValueError(f"label_smoothing must be in [0, 1), not {label_smoothing}")
+    if entropy_coef < 0.0:
+        raise ValueError(f"entropy_coef must not be negative, not {entropy_coef}")
     t = _tensors(dataset)
     torch.manual_seed(seed)
     gen = torch.Generator().manual_seed(seed)
@@ -116,19 +181,28 @@ def train_bc(
     curve: list[float] = []
     for epoch in range(1, epochs + 1):
         order = torch.randperm(n, generator=gen)
-        losses = []
+        losses, entropies = [], []
         for start in range(0, n, batch_size):
             idx = order[start : start + batch_size]
-            logits = masked(net(t["obs"][idx]), t["mask"][idx])
-            loss = F.cross_entropy(logits, t["action"][idx])
+            mask = t["mask"][idx]
+            logits = masked(net(t["obs"][idx]), mask)
+            if label_smoothing > 0.0:
+                target = smoothed_target(t["action"][idx], mask, label_smoothing)
+                loss = F.cross_entropy(logits, target)
+            else:
+                loss = F.cross_entropy(logits, t["action"][idx])
+            entropy = masked_entropy(logits, mask).mean()
+            if entropy_coef > 0.0:
+                loss = loss - entropy_coef * entropy
             opt.zero_grad()
             loss.backward()
             opt.step()
             losses.append(loss.item())
+            entropies.append(entropy.item())
         curve.append(float(np.mean(losses)))
-        if on_progress is not None:
-            on_progress(epoch, curve[-1])
-    return OfflinePolicy(net, rules, "bc", curve)
+        if on_epoch is not None:
+            on_epoch(epoch, net, curve[-1], float(np.mean(entropies)))
+    return net, curve
 
 
 def train_cql(
