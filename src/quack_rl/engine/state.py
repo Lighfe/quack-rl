@@ -67,6 +67,24 @@ class PlayerState:
     def owned(self, chip_id: str) -> int:
         return self.bag.get(chip_id, 0) + self.placed.count(chip_id)
 
+    def __deepcopy__(self, memo: dict[int, Any]) -> "PlayerState":
+        """A fast deep copy: each list and dict field is copied, the other fields are immutable.
+
+        `engine.step` copies the state on every step, so this is on the hot path of every game.
+        A new list or dict field must be added here (`test_every_field_is_copied` checks it).
+        """
+        new = object.__new__(PlayerState)
+        d = self.__dict__.copy()
+        d["bag"] = d["bag"].copy()
+        d["placed"] = d["placed"][:]
+        d["placed_fields"] = d["placed_fields"][:]
+        d["chip_colours"] = d["chip_colours"][:]
+        d["hand"] = d["hand"][:]
+        d["card_draw"] = d["card_draw"][:]
+        new.__dict__ = d
+        memo[id(self)] = new
+        return new
+
 
 @dataclass
 class GameState:
@@ -79,6 +97,17 @@ class GameState:
     # v1.11: the card ids still in the deck (one entry per copy), and the card of this round.
     deck: list[str] = field(default_factory=list)
     card: str | None = None
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "GameState":
+        """A fast deep copy: `players` holds copied `PlayerState` objects, `deck` is copied, the
+        other fields are immutable. A new list or dict field must be added here."""
+        new = object.__new__(GameState)
+        d = self.__dict__.copy()
+        d["players"] = {seat: p.__deepcopy__(memo) for seat, p in d["players"].items()}
+        d["deck"] = d["deck"][:]
+        new.__dict__ = d
+        memo[id(self)] = new
+        return new
 
 
 def scoring_field(landing_field: int, rs: Ruleset) -> int:
