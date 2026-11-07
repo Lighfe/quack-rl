@@ -51,6 +51,21 @@ class QuackEnv(gym.Env):
         self._mask = np.zeros(self.action_space.n, dtype=np.int8)
         self._ended = True
         self._decisions = 0
+        self._chance_seed: int | None = None
+        self._joint_actions: list[list[int]] = []
+
+    @property
+    def chance_seed(self) -> int | None:
+        """The chance seed of the current game (None before the first reset)."""
+        return self._chance_seed
+
+    @property
+    def joint_actions(self) -> list[list[int]]:
+        """The joint actions `[p1_action, p2_action]` (action indices) of every parallel-env step
+        of the current game so far, also the Wait-only steps of the agent; a copy. The agent
+        action is the one played (the first legal action for an illegal one). With the chance
+        seed they fix the game."""
+        return [list(pair) for pair in self._joint_actions]
 
     @property
     def trace(self) -> list[StepResult]:
@@ -84,9 +99,9 @@ class QuackEnv(gym.Env):
         while True:
             act = self._wait if action is None else action
             action = None
-            _, rewards, terms, _, _ = self._env.step(
-                {self.agent_seat: act, other_seat(self.agent_seat): self._opponent_action()}
-            )
+            joint = {self.agent_seat: act, other_seat(self.agent_seat): self._opponent_action()}
+            self._joint_actions.append([int(joint[seat]) for seat in SEATS])
+            _, rewards, terms, _, _ = self._env.step(joint)
             total += rewards[self.agent_seat]
             done = terms[self.agent_seat]
             if done:
@@ -130,6 +145,8 @@ class QuackEnv(gym.Env):
         elif hasattr(self.opponent, "reset"):  # e.g. a pool that picks a checkpoint per episode
             self.opponent.reset()
         chance_seed = int(self.np_random.integers(2**32))
+        self._chance_seed = chance_seed
+        self._joint_actions = []
         self._env.reset(seed=chance_seed)
         self._ended = False
         self._decisions = 0
