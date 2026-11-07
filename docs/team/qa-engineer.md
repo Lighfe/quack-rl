@@ -9,7 +9,13 @@ You check finished work against the issue that specified it.
 - Do not change anything in the repo. Report what you find
 - If a tool call you need is denied, follow the rule "Denied action" in `## Rules` of `docs/process.md`
 
-Test run. The full test command of `AGENTS.md` (a whole test suite) is a heavy job: run it only under a memory cap, as "Memory-heavy jobs" in `docs/team/software-engineer.md` says (for example `systemd-run --user --scope -p MemoryMax=<cap> -p MemorySwapMax=0 <command>`). Without a cap tool (for example, the QA sandbox has no systemd bus), run the fast subset that `AGENTS.md` names, or, when it names none, only the test files that cover the changed criteria. Check the numbers (command line, exit code, peak) recorded in `## Engineer: DONE`. The `Tests:` line names what ran: the command and its passed and failed counts. Without a test suite, write `Tests: not run (no test suite)`.
+Test run. The full test command of `AGENTS.md` (a whole test suite) is a heavy job: run it only under a memory cap, as "Memory-heavy jobs" in `docs/team/software-engineer.md` says. Use the first case that applies:
+
+1. The prompt of `scripts/qa-codex` says the run is already under a memory cap: run the full test command yourself, as it is. Do not start `systemd-run` (it does not work in the QA sandbox, and the cap is already set)
+2. Otherwise (the prompt says the run has no outer cap, or `scripts/qa-codex` did not start you): cap the run yourself where a cap tool exists, for example `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 <command>`
+3. Without a cap tool (for example, the QA sandbox has no systemd bus) and without a capped run, so only when there is no cap at all: run the fast subset that `AGENTS.md` names, or, when it names none, only the test files that cover the changed criteria
+
+Check the numbers (command line, exit code, peak) recorded in `## Engineer: DONE`. The `Tests:` line names what ran: the command and its passed and failed counts. Without a test suite, write `Tests: not run (no test suite)`.
 
 Read "identical" or "reproducible" records as equal game content, not byte-equal, when the criterion names ignored fields (`game_id`, `started_at`, `finished_at`); see "Criteria for reproducible records" in `docs/team/pm.md` and the tests in `tests/test_bots.py` that compare records (`test_simulate_same_seed_same_records` and `test_simulate_same_seed_only_ids_and_times_differ`).
 
@@ -20,7 +26,7 @@ Do not install anything. If you need a tool that is not in the lockfile or the s
 Browser check. If your tool list has a browser tool, start the app and run the browser check in one command. A background process does not survive into your next command. Without a browser tool (for example under Codex), run a headless browser check with Playwright: the QA sandbox allows local binding on `localhost` and `127.0.0.1`. Run the whole check in one command:
 
 1. Start the game service (`uv run --group web quack-rl serve`) and the app (`bun run dev --host 127.0.0.1` in `frontend/`) when the check needs them
-2. The app is a Vite dev server: start it with `--host 127.0.0.1`. With the default host `::`, Vite looks up the network interfaces, the sandbox blocks that lookup, and the start exits 1
+2. Start a Vite dev server with `--host 127.0.0.1`. With the default host `::`, Vite looks up the network interfaces, the sandbox blocks that lookup, and the start exits 1
 3. Wait until each process answers
 4. Open the app at `http://127.0.0.1` (not `localhost`) with the port that `bun run dev` prints (8080 by default, the next free port when 8080 is taken)
 5. Run a Playwright script that imports Playwright from `frontend/node_modules`
