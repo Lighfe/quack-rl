@@ -4,7 +4,8 @@ Usage: uv run --group rl python scripts/train_selfplay.py --rounds 5 --steps-per
     --seed 0 --eval-games 500 --out data/runs/selfplay
 
 Writes config.json, selfplay.csv, result.json and checkpoint_<i>.zip to the out folder. With
---agent-name <name> the final checkpoint is also saved as the agent folder data/agents/<name>/.
+--agent-name <name> the final checkpoint is also saved as the agent folder
+<agents-root>/<name>/ (--agents-root PATH, default data/agents).
 
 An interrupted run is continued from its newest checkpoint, with the settings of its config.json:
     uv run --group rl python scripts/train_selfplay.py --resume data/runs/selfplay
@@ -15,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from quack_rl.rl.agents import AgentError, ensure_new_agent, write_agent
+from quack_rl.rl.agents import AGENTS_ROOT, AgentError, ensure_new_agent, write_agent
 from quack_rl.rl.selfplay import ResumeError, RoundPoint, resume_selfplay, run_selfplay
 
 # the settings flags and their defaults; with --resume they come from config.json
@@ -52,7 +53,14 @@ def main() -> None:
     parser.add_argument(
         "--agent-name",
         default=None,
-        help="also save the model as the agent folder data/agents/<name>/ (seat agent:<name>)",
+        help="also save the model as the agent folder <agents-root>/<name>/ (seat agent:<name>)",
+    )
+    parser.add_argument(
+        "--agents-root",
+        type=Path,
+        default=AGENTS_ROOT,
+        metavar="PATH",
+        help=f"the folder of the agent folders (default {AGENTS_ROOT})",
     )
     args = parser.parse_args()
     given = [name for name in SETTINGS if getattr(args, name) is not None]
@@ -64,7 +72,7 @@ def main() -> None:
             setattr(args, name, default)
     if args.agent_name is not None:
         try:
-            ensure_new_agent(args.agent_name)
+            ensure_new_agent(args.agent_name, root=args.agents_root)
         except AgentError as err:
             parser.error(str(err))
     if args.resume is not None:
@@ -98,7 +106,9 @@ def main() -> None:
         out = Path(args.out if args.resume is None else args.resume)
         settings = json.loads((out / "config.json").read_text())
         final = out / f"checkpoint_{settings['rounds']}.zip"
-        folder = write_agent(args.agent_name, "ppo", final, settings["rules"], settings)
+        folder = write_agent(
+            args.agent_name, "ppo", final, settings["rules"], settings, root=args.agents_root
+        )
         print(f"agent saved in {folder}")
 
 

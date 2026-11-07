@@ -9,6 +9,8 @@ Game i uses the chance seed `seed + i` and the agent at p1 for even i and p2 for
 bots built per game from their names with `seed + i` (the scheme of `evaluate`).
 """
 
+import hashlib
+import json
 import zipfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -18,9 +20,11 @@ from typing import Any
 import numpy as np
 
 from quack_rl.engine import action_names, legal_actions
+from quack_rl.rl.encode import BOARD_LAYOUT
 from quack_rl.rl.opponents import make_opponent
 from quack_rl.rl.single_env import QuackEnv
 
+MANIFEST = "manifest.json"
 ARRAYS = ("obs", "action", "reward", "next_obs", "terminated", "mask", "next_mask", "episode")
 
 
@@ -109,6 +113,42 @@ def concat_files(paths: Sequence[Path | str], out: Path | str) -> None:
     finally:
         for data in files:
             data.close()
+
+
+def dataset_sha256(path: Path) -> str:
+    """The sha256 hex digest of the bytes of the file `path` (64 lowercase hex characters).
+
+    Same value as `hashlib.sha256(path.read_bytes()).hexdigest()`, read in blocks so that a
+    large dataset is not held in memory."""
+    with Path(path).open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def write_dataset_manifest(
+    folder: Path,
+    *,
+    bots: list[str],
+    games_per_pairing: int,
+    seed: int,
+    rules: str,
+    command: list[str],
+) -> Path:
+    """Write `<folder>/manifest.json`: how the dataset `<folder>/dataset.npz` was built, the
+    observation layout and the hash of the file (`dataset_sha256`). An older manifest there is
+    overwritten. Returns the path of the manifest."""
+    folder = Path(folder)
+    manifest = {
+        "bots": list(bots),
+        "games_per_pairing": games_per_pairing,
+        "seed": seed,
+        "rules": rules,
+        "command": list(command),
+        "layout": BOARD_LAYOUT,
+        "sha256": dataset_sha256(folder / "dataset.npz"),
+    }
+    path = folder / MANIFEST
+    path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def build_dataset(

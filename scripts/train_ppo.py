@@ -9,14 +9,15 @@ sampled with --seed (a repeated spec counts twice), and the model is evaluated a
 distinct spec and bot:random.
 
 Writes config.json, metrics.csv, result.json and model.zip to the out folder. With
---agent-name <name> the model is also saved as the agent folder data/agents/<name>/.
+--agent-name <name> the model is also saved as the agent folder <agents-root>/<name>/
+(--agents-root PATH, default data/agents).
 """
 
 import argparse
 import json
 from pathlib import Path
 
-from quack_rl.rl.agents import AgentError, ensure_new_agent, write_agent
+from quack_rl.rl.agents import AGENTS_ROOT, AgentError, ensure_new_agent, write_agent
 from quack_rl.rl.opponents import parse_opponents
 from quack_rl.rl.train import CurvePoint, run_ppo_experiment
 
@@ -40,7 +41,14 @@ def main() -> None:
     parser.add_argument(
         "--agent-name",
         default=None,
-        help="also save the model as the agent folder data/agents/<name>/ (seat agent:<name>)",
+        help="also save the model as the agent folder <agents-root>/<name>/ (seat agent:<name>)",
+    )
+    parser.add_argument(
+        "--agents-root",
+        type=Path,
+        default=AGENTS_ROOT,
+        metavar="PATH",
+        help=f"the folder of the agent folders (default {AGENTS_ROOT})",
     )
     args = parser.parse_args()
     try:
@@ -50,7 +58,7 @@ def main() -> None:
     opponent = specs[0] if len(specs) == 1 else specs
     if args.agent_name is not None:
         try:
-            ensure_new_agent(args.agent_name)
+            ensure_new_agent(args.agent_name, root=args.agents_root)
         except AgentError as err:
             parser.error(str(err))
     result = run_ppo_experiment(
@@ -65,7 +73,14 @@ def main() -> None:
     if args.agent_name is not None:
         out = Path(args.out)
         settings = json.loads((out / "config.json").read_text())
-        folder = write_agent(args.agent_name, "ppo", out / "model.zip", settings["rules"], settings)
+        folder = write_agent(
+            args.agent_name,
+            "ppo",
+            out / "model.zip",
+            settings["rules"],
+            settings,
+            root=args.agents_root,
+        )
         print(f"agent saved in {folder}")
 
 

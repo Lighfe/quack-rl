@@ -9,6 +9,11 @@ With only --out: 2000 games of bot:topchip-draw20-pts1 against bot:random plus 2
 same bot against itself, in one file `dataset.npz`, and `dataset-stats.json` next to it.
 Given --agent/--opponent/--games, one such part is built. --out is a folder.
 
+Every mode also writes `manifest.json` next to `dataset.npz` (`write_dataset_manifest`): the bots,
+the games per pairing, the seed, the rules, the command line, the layout and the sha256 of the
+final `dataset.npz`. In the default mode `bots` is the first part's pair and `games_per_pairing`
+is 2000.
+
 With --bots: every ordered pair (a, b) of distinct specs, in the order "for a in list, for b in
 list", with a as the recorded agent. Pair k is `build_dataset(a, b, N, S + k*N)`, so with an even
 N each spec is recorded at p1 and p2 equally often. Each pair is saved as a part and the parts are
@@ -21,10 +26,11 @@ import shutil
 import sys
 from pathlib import Path
 
-from quack_rl.rl.dataset import Dataset, build_dataset, concat_files
+from quack_rl.rl.dataset import Dataset, build_dataset, concat_files, write_dataset_manifest
 from quack_rl.rl.opponents import make_opponent
 
 BOT = "bot:topchip-draw20-pts1"
+RULES = "v2.3"  # every dataset is built with the default ruleset of `build_dataset`
 
 
 def field_pairs(specs: list[str], games: int, seed: int) -> list[tuple[str, str, int]]:
@@ -97,6 +103,7 @@ def main() -> None:
     target = out / "dataset.npz"
     if specs is not None:
         build_field(specs, args.games_per_pairing, args.seed, target)
+        bots, games = specs, args.games_per_pairing
     elif args.agent is None and args.opponent is None and args.games is None:
         # two parts, saved one by one and joined array by array: the memory stays low
         part1, part2 = out / "part1.npz", out / "part2.npz"
@@ -105,10 +112,13 @@ def main() -> None:
         concat_files([part1, part2], target)
         part1.unlink()
         part2.unlink()
+        bots, games = [BOT, "bot:random"], 2000
     else:
-        build_dataset(
-            args.agent or BOT, args.opponent or "bot:random", args.games or 2000, args.seed
-        ).save(target)
+        bots, games = [args.agent or BOT, args.opponent or "bot:random"], args.games or 2000
+        build_dataset(bots[0], bots[1], games, args.seed).save(target)
+    write_dataset_manifest(
+        out, bots=bots, games_per_pairing=games, seed=args.seed, rules=RULES, command=sys.argv
+    )
     stats = Dataset.load(target).stats()
     (out / "dataset-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     print(json.dumps(stats))

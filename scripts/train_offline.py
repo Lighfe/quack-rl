@@ -6,14 +6,14 @@ Usage: uv run --group rl python scripts/train_offline.py \
 
 Writes config.json, metrics.csv (loss curve), result.json and model.pt (the network) to the out
 folder. With --agent-name <name> the network is also saved as the agent folder
-data/agents/<name>/.
+<agents-root>/<name>/ (--agents-root PATH, default data/agents).
 """
 
 import argparse
 import json
 from pathlib import Path
 
-from quack_rl.rl.agents import AgentError, ensure_new_agent, write_agent
+from quack_rl.rl.agents import AGENTS_ROOT, AgentError, ensure_new_agent, write_agent
 
 
 def main() -> None:
@@ -29,12 +29,19 @@ def main() -> None:
     parser.add_argument(
         "--agent-name",
         default=None,
-        help="also save the model as the agent folder data/agents/<name>/ (seat agent:<name>)",
+        help="also save the model as the agent folder <agents-root>/<name>/ (seat agent:<name>)",
+    )
+    parser.add_argument(
+        "--agents-root",
+        type=Path,
+        default=AGENTS_ROOT,
+        metavar="PATH",
+        help=f"the folder of the agent folders (default {AGENTS_ROOT})",
     )
     args = parser.parse_args()
     if args.agent_name is not None:
         try:
-            ensure_new_agent(args.agent_name)
+            ensure_new_agent(args.agent_name, root=args.agents_root)
         except AgentError as err:
             parser.error(str(err))
     from quack_rl.rl.offline import run_offline_experiment  # torch, after the checks
@@ -59,7 +66,12 @@ def main() -> None:
         out = Path(args.out)
         settings = json.loads((out / "config.json").read_text())
         folder = write_agent(
-            args.agent_name, args.method, out / "model.pt", settings["rules"], settings
+            args.agent_name,
+            args.method,
+            out / "model.pt",
+            settings["rules"],
+            settings,
+            root=args.agents_root,
         )
         print(f"agent saved in {folder}")
 

@@ -52,7 +52,11 @@ def test_build_dataset_from_field(tmp_path, monkeypatch):
     expected = build_dataset(A, B, 2, seed).concat(build_dataset(B, A, 2, seed + 2))
     for name in ARRAYS:
         assert np.array_equal(getattr(data, name), getattr(expected, name)), name
-    assert sorted(p.name for p in out.iterdir()) == ["dataset-stats.json", "dataset.npz"]
+    assert sorted(p.name for p in out.iterdir()) == [
+        "dataset-stats.json",
+        "dataset.npz",
+        "manifest.json",
+    ]
 
 
 def test_field_pair_order_and_seeds():
