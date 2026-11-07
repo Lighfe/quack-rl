@@ -2,7 +2,7 @@
 only here.
 
 Both train a small masked MLP on the CPU and return an `OfflinePolicy`: a seat for `evaluate`
-(`choose(state, seat, legal)`, always legal, deterministic) with the loss curve in `curve`.
+(`choose(state, seat, legal)`, always legal, greedy or sampled) with the loss curve in `curve`.
 Nothing here prints or exits: progress goes through `on_progress`.
 """
 
@@ -24,6 +24,7 @@ from quack_rl.engine import GameState, action_names
 from quack_rl.rl.dataset import Dataset
 from quack_rl.rl.encode import action_mask, observe, vectorize
 from quack_rl.rl.evaluate import EvalResult, evaluate
+from quack_rl.rl.policy_bot import Mode, mode_params, sample_legal
 from quack_rl.rl.train import library_versions
 from quack_rl.rules import Ruleset, load_ruleset
 
@@ -48,7 +49,11 @@ def masked(scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
 
 
 class OfflinePolicy:
-    """A trained network as a bot seat. Plays the legal action with the highest score."""
+    """A trained network as a bot seat.
+
+    `mode="greedy"` plays the legal action with the highest score; `"sampled"` draws from the
+    softmax of the scores over the legal actions only, with a generator seeded by `seed`.
+    """
 
     kind = "bot"
 
@@ -58,11 +63,15 @@ class OfflinePolicy:
         rules: Ruleset | str = "v2.3",
         name: str = "offline",
         curve: list[float] | None = None,
+        mode: Mode = "greedy",
+        seed: int | None = None,
     ):
+        self.params: dict[str, Any] = mode_params(mode, seed)
         self.rs = load_ruleset(rules) if isinstance(rules, str) else rules
         self.net = net.eval()
         self.name = name
-        self.params: dict[str, Any] = {"deterministic": True}
+        self.mode = mode
+        self._rng = np.random.default_rng(seed)
         self.curve: list[float] = curve if curve is not None else []
         self.entropy_curve: list[float] = []  # BC only: mean policy entropy of each epoch
         self._names = action_names(self.rs)
@@ -77,7 +86,10 @@ class OfflinePolicy:
         with torch.no_grad():
             scores = self.net(torch.from_numpy(np.asarray(obs, dtype=np.float32))[None])[0]
         scores = masked(scores, torch.from_numpy(mask))
-        return self._names[int(scores.argmax())]
+        if self.mode == "greedy":
+            return self._names[int(scores.argmax())]
+        probs = torch.softmax(scores.to(torch.float64), dim=0).numpy()
+        return self._names[sample_legal(probs, mask, self._rng)]
 
 
 def _tensors(data: Dataset) -> dict[str, torch.Tensor]:
