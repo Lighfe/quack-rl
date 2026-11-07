@@ -164,3 +164,74 @@ def test_margin_reward_run_and_resume_without_checkpoint(tmp_path):
     assert json.loads((tmp_path / "done.json").read_text())["steps"] == 1024
     with pytest.raises(ResumeError, match="steps"):
         run_ppo_seed(config, 0, tmp_path, resume=True)
+
+
+# --- training games (games.jsonl) --------------------------------------------------------------
+
+
+def _game_line(step: int) -> str:
+    line = {"step": step, "chance_seed": 1, "agent_seat": "p1", "opponent": "bot:random"}
+    return json.dumps({**line, "actions": [[0, 0]]}) + "\n"
+
+
+def test_trim_games_drops_lines_past_the_checkpoint_and_a_broken_last_line(tmp_path):
+    from quack_rl.rl.ppo_run import _trim_games
+
+    path = tmp_path / "games.jsonl"
+    path.write_text(_game_line(10) + _game_line(1024) + _game_line(1030) + '{"step": 20')
+    _trim_games(path, 1024)
+    assert [json.loads(t)["step"] for t in path.read_text().splitlines()] == [10, 1024]
+    _trim_games(path, 0)  # resume from no checkpoint: all lines dropped
+    assert path.read_text() == ""
+    missing = tmp_path / "none.jsonl"
+    _trim_games(missing, 5)  # no file: an empty file
+    assert missing.read_text() == ""
+
+
+def test_trim_games_raises_on_a_broken_line_before_the_last(tmp_path):
+    from quack_rl.rl.ppo_run import _trim_games
+
+    path = tmp_path / "games.jsonl"
+    path.write_text("{broken\n" + _game_line(10))
+    with pytest.raises(ValueError, match="line 1"):
+        _trim_games(path, 1024)
+
+
+@pytest.mark.slow
+def test_save_games_writes_one_line_per_game_and_rebuilds(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    from quack_rl.rl.game_log import rebuild_dataset
+
+    config = p0(
+        opponents=[{"spec": "bot:random"}, {"spec": "bot:topchip-draw20-pts6"}], save_games=True
+    )
+    out = tmp_path / "run"
+    run_ppo_seed(config, 1, out)
+    lines = [json.loads(t) for t in (out / "games.jsonl").read_text().splitlines()]
+    assert len(lines) == sum(int(r["games"]) for r in rows(out)) > 0
+    assert set(lines[0]) == {"step", "chance_seed", "agent_seat", "opponent", "actions"}
+    assert {line["opponent"] for line in lines} <= {"bot:random", "bot:topchip-draw20-pts6"}
+    assert {line["agent_seat"] for line in lines} <= {"p1", "p2"}
+    steps = [line["step"] for line in lines]
+    assert steps == sorted(steps) and 0 < steps[-1] <= 2048
+    data = rebuild_dataset(out / "games.jsonl")
+    assert int(data.terminated.sum()) == len(lines)
+
+    # interrupted after the first checkpoint: the games past step 1024 are dropped and played again
+    (out / "done.json").unlink()
+    (out / "checkpoints" / "step_2048.zip").unlink()
+    with (out / "games.jsonl").open("a") as handle:
+        handle.write('{"step": 20')
+    run_ppo_seed(config, 1, out, resume=True)
+    again = [json.loads(t) for t in (out / "games.jsonl").read_text().splitlines()]
+    assert again[: sum(s <= 1024 for s in steps)] == [
+        line for line in lines if line["step"] <= 1024
+    ]
+    assert len(again) == sum(int(r["games"]) for r in rows(out))
+
+
+@pytest.mark.slow
+def test_without_save_games_no_games_file(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    run_ppo_seed(p0(checkpoint_every=None, hidden=32), 0, tmp_path, steps_override=1024)
+    assert not (tmp_path / "games.jsonl").exists()

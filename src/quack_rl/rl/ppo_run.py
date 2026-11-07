@@ -2,9 +2,10 @@
 
 The run folder gets `config.json` at the start, one `ppo.csv` row per rollout (after its update),
 `checkpoints/step_<n>.zip` every `checkpoint_every` steps and at the end, and `done.json` when the
-run has finished. An interrupted run continues from its newest complete checkpoint with
-`resume=True`; the opponent mix and the env generators restart then, only the model state
-continues.
+run has finished. With `save_games` it also gets `games.jsonl`, one line per finished game (chance
+seed and joint actions, see `quack_rl.rl.game_log`). An interrupted run continues from its
+newest complete checkpoint with `resume=True`; the opponent mix and the env generators restart
+then, only the model state continues.
 
 SB3 and torch are imported inside the functions, so this module imports without the `rl`
 dependency group (`uv run --group rl ...`).
@@ -48,6 +49,25 @@ _LOGGER_KEYS = {
     "explained_variance": "train/explained_variance",
 }
 CHECKPOINT_RE = re.compile(r"step_(\d+)\.zip")
+GAMES_FILE = "games.jsonl"
+GAME_INFO = "game_record"  # info key of the terminal step; Monitor overwrites "episode"
+
+
+class _RecordingEnv(QuackEnv):
+    """`QuackEnv` whose terminal step info has the game record under `GAME_INFO`: chance seed,
+    agent seat, the opponent spec of the game (`OpponentMix.current`) and the joint actions. It
+    is made in `step`, before the vec env resets the env."""
+
+    def step(self, action: int):
+        obs, total, done, truncated, info = super().step(action)
+        if done:
+            info[GAME_INFO] = {
+                "chance_seed": self.chance_seed,
+                "agent_seat": self.agent_seat,
+                "opponent": self.opponent.current,
+                "actions": self.joint_actions,
+            }
+        return obs, total, done, truncated, info
 
 
 def policy_kwargs(hidden: int) -> dict[str, Any]:
@@ -125,6 +145,26 @@ def _write_rows(path: Path, rows: list[list[str]]) -> None:
     os.replace(tmp, path)
 
 
+def _trim_games(path: Path, start: int) -> None:
+    """Keep the lines of `games.jsonl` with `step` at most `start` (rewritten through a temporary
+    file); a last line that is not complete JSON is dropped. No file: an empty file is written.
+    Raise ValueError naming the line (counted from 1) for a broken line before the last."""
+    texts = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    kept = []
+    for number, text in enumerate(texts, start=1):
+        try:
+            line = json.loads(text)
+        except json.JSONDecodeError as err:
+            if number == len(texts):
+                break
+            raise ValueError(f"{path} line {number} is not JSON: {err}") from err
+        if int(line["step"]) <= start:
+            kept.append(text + "\n")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("".join(kept), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _save_checkpoint(model: Any, out: Path, steps: int) -> Path:
     folder = out / "checkpoints"
     folder.mkdir(exist_ok=True)
@@ -163,7 +203,8 @@ def run_ppo_seed(
     raises `ResumeError` naming each differing setting when the config, the seed or the budget
     differs from `config.json`; with `done.json` present it returns without training; otherwise it
     loads the newest complete checkpoint (none: from step 0), drops the `ppo.csv` rows past its
-    step and trains up to the budget. Raises ValueError before any file is written on an unknown
+    step (and with `save_games` the `games.jsonl` lines past it and a broken last line) and trains
+    up to the budget. Raises ValueError before any file is written on an unknown
     opponent spec or a `checkpoint_every` that is not a multiple of `N_STEPS`.
     """
     out = Path(out)
@@ -196,7 +237,7 @@ def run_ppo_seed(
 
     from sb3_contrib import MaskablePPO
 
-    env = QuackEnv(
+    env = _RecordingEnv(
         seat="random",
         opponent=OpponentMix(_opponent_specs(config), seed, RULES),
         rules=RULES,
@@ -223,13 +264,21 @@ def run_ppo_seed(
     kept = [row for row in _read_rows(csv_path) if row and int(row[0]) <= start]
     _write_rows(csv_path, kept)
     wall_offset = float(kept[-1][-1]) if kept else 0.0
+    games = None
+    if config.save_games:
+        _trim_games(out / GAMES_FILE, start)
+        games = (out / GAMES_FILE).open("a", encoding="utf-8")
 
-    callback = _make_callback(out, csv_path, config.checkpoint_every, wall_offset)
-    model.learn(
-        total_timesteps=max(0, steps - int(model.num_timesteps)),
-        callback=callback,
-        reset_num_timesteps=False,
-    )
+    callback = _make_callback(out, csv_path, config.checkpoint_every, wall_offset, games)
+    try:
+        model.learn(
+            total_timesteps=max(0, steps - int(model.num_timesteps)),
+            callback=callback,
+            reset_num_timesteps=False,
+        )
+    finally:
+        if games is not None:
+            games.close()
     final = int(model.num_timesteps)
     if not (out / "checkpoints" / f"step_{final}.zip").is_file():
         _save_checkpoint(model, out, final)
@@ -240,8 +289,12 @@ def run_ppo_seed(
     return out
 
 
-def _make_callback(out: Path, csv_path: Path, every: int | None, wall_offset: float) -> Any:
-    """The callback that writes one `ppo.csv` row per rollout and the periodic checkpoints.
+def _make_callback(
+    out: Path, csv_path: Path, every: int | None, wall_offset: float, games: Any = None
+) -> Any:
+    """The callback that writes one `ppo.csv` row per rollout and the periodic checkpoints, and
+    with an open `games` file one `games.jsonl` line per finished game (`step` is the run step at
+    the end of the game).
 
     SB3 records the `train/*` values of rollout k in `train()`, after the rollout callbacks of
     rollout k, so the row of rollout k is made at the start of the next rollout or at the end of
@@ -258,9 +311,16 @@ def _make_callback(out: Path, csv_path: Path, every: int | None, wall_offset: fl
             self.pending: list[float] | None = None  # rewards of a rollout that has no row yet
 
         def _on_step(self) -> bool:
-            for reward, done in zip(self.locals["rewards"], self.locals["dones"], strict=True):
+            infos = self.locals["infos"]
+            for reward, done, info in zip(
+                self.locals["rewards"], self.locals["dones"], infos, strict=True
+            ):
                 if done:  # the reward is paid once, at the end of the game
                     self.finished.append(float(reward))
+                    if games is not None:
+                        line = {"step": int(self.num_timesteps), **info[GAME_INFO]}
+                        games.write(json.dumps(line) + "\n")
+                        games.flush()
             return True
 
         def _on_rollout_end(self) -> None:
@@ -291,6 +351,8 @@ def _make_callback(out: Path, csv_path: Path, every: int | None, wall_offset: fl
                 handle.flush()
                 os.fsync(handle.fileno())
             if every is not None and steps % every == 0:
+                if games is not None:  # the games of a checkpoint are on disk before it
+                    os.fsync(games.fileno())
                 _save_checkpoint(self.model, out, steps)
 
     return PPORun()
