@@ -18,3 +18,23 @@ def test_measure_small_run():
     row = measure_speed.measure("bot:random", 2, 0).split()
     assert row[0] == "bot:random"
     assert len(row) == 4 and float(row[2]) > float(row[3]) > 0
+
+
+def _run_main(monkeypatch, capsys, *argv: str) -> list[str]:
+    monkeypatch.setattr("sys.argv", ["measure_speed.py", *argv])
+    measure_speed.main()
+    return capsys.readouterr().out.splitlines()
+
+
+def test_env_steps_flag_prints_one_positive_rate(monkeypatch, capsys):
+    lines = _run_main(monkeypatch, capsys, "--env-steps", "200")
+    assert len(lines) == 1
+    assert "steps/s" in lines[0]
+    assert float(lines[0].split()[-1]) > 0
+
+
+def test_rollout_games_flag_prints_one_positive_time(monkeypatch, capsys):
+    lines = _run_main(monkeypatch, capsys, "--rollout-games", "3")
+    assert len(lines) == 1
+    assert "ms/game" in lines[0]
+    assert float(lines[0].split()[-1]) > 0
