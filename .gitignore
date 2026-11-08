@@ -3,3 +3,6 @@ __pycache__/
 
 # Game records and datasets (local only)
 /data/
+
+# marimo session cache
+__marimo__/
