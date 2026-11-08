@@ -2,7 +2,7 @@
   "id": "P3",
   "kind": "ppo",
   "baseline": "P0",
-  "changes": "PROVISIONAL",
+  "changes": "init_from_bc and critic_warmup_steps (one change): the actor starts from the BC model data/experiments/B0/seed0/model.pt (seed 0, a fixed choice) and only the critic trains for the first 51,200 steps. B0, not B1 or B2: the better of B1 and B2 is B2 (mean greedy final win rate over the three presets and the 3 seeds 0.457, B1 0.441), and it is not higher than B0 (0.475), so P3 starts from B0",
   "seeds": [
     0,
     1,
