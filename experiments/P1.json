@@ -8,7 +8,7 @@
     1,
     2
   ],
-  "steps": 3000000,
+  "steps": 1433600,
   "opponents": [
     {
       "spec": "bot:random",

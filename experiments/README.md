@@ -36,6 +36,42 @@ systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
 When a child process fails, the command stops the others and exits with code 1, naming the seed
 and the process (training or evaluator). Ctrl-C or SIGTERM stops all children.
 
+## Step budget
+
+An experiment (3 trainings and 3 evaluators side by side, then the final evaluation) must end
+in at most 6 hours on the laptop (8 cores, CPU, 15 GB RAM). The budget leaves 15% of that free,
+so the limit is 6 h x 0.85 = 18,360 seconds.
+
+Measured with P0, 3 seeds, 20,000 steps (#295):
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/P0.json --out <trial folder> --steps 20000 --threads 1
+```
+
+| item | value |
+|---|---|
+| steps per training (the run ends at the first rollout end past 20,000) | 20,480 |
+| training time per seed (`wall_seconds` of the last `ppo.csv` row) | 231.4 s, 229.0 s, 229.9 s |
+| rate per training | 3 x 20,480 / 690.3 s = 89.0 steps per second |
+| final evaluation (3 seeds side by side, 200 games x 4 opponents x 2 modes each) | 1,076 s |
+| evaluator after the last checkpoint (50 games x 4 opponents x 2 modes) | 279 s |
+| whole command | 1,590 s, exit code 0, `Maximum resident set size` 818,768 kB (the largest single process) |
+
+Chosen budget: `steps` = 1,433,600 (14 x 102,400) in P0 to P3, with `checkpoint_every` = 102,400.
+
+```
+steps / rate + final evaluation time
+  = 1,433,600 / 89.0 + 1,076
+  = 16,108 + 1,076
+  = 17,184 s  <=  18,360 s
+```
+
+With the evaluator's last checkpoint (279 s) the total is 17,463 s, still below 18,360 s. One
+evaluation of a checkpoint takes about 280 s, and a checkpoint comes about every 1,150 s
+(102,400 / 89.0), so the evaluators keep up during the run.
+
 ## Resume after an interruption
 
 Run the same command again with `--resume` and the same `--steps` (or none, as before):
