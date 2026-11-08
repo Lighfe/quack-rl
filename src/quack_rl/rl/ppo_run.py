@@ -7,11 +7,16 @@ seed and joint actions, see `quack_rl.rl.game_log`). An interrupted run continue
 newest complete checkpoint with `resume=True`; the opponent mix and the env generators restart
 then, only the model state continues.
 
+With `init_from_bc` the actor of a fresh run starts from the weights of a BC `model.pt`
+(`load_bc_into_actor`); with `critic_warmup_steps` the actor is frozen for every update whose
+rollout ends at or before that step, so only the critic trains first.
+
 SB3 and torch are imported inside the functions, so this module imports without the `rl`
 dependency group (`uv run --group rl ...`).
 """
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -80,6 +85,58 @@ def policy_kwargs(hidden: int) -> dict[str, Any]:
     }
 
 
+# BC state dict prefix (`make_mlp`) -> index of the layer in `policy.mlp_extractor.policy_net`,
+# None for `policy.action_net`
+_BC_LAYERS = {"0": 0, "2": 2, "4": None}
+
+
+def _actor_layers(model: Any) -> dict[str, Any]:
+    """The actor's linear layers of a MaskablePPO model, keyed by the BC state dict prefix."""
+    net = model.policy.mlp_extractor.policy_net
+    return {
+        prefix: model.policy.action_net if index is None else net[index]
+        for prefix, index in _BC_LAYERS.items()
+    }
+
+
+def actor_parameters(model: Any) -> list[Any]:
+    """The actor's parameters: the policy net of the mlp extractor and the action net."""
+    policy = model.policy
+    return [*policy.mlp_extractor.policy_net.parameters(), *policy.action_net.parameters()]
+
+
+def load_bc_into_actor(model: Any, bc_state: dict[str, Any]) -> None:
+    """Copy a BC `make_mlp` state dict into the actor of `model` (a MaskablePPO).
+
+    BC `0.*` and `2.*` go to the policy net layers 0 and 2, `4.*` to the action net; no critic
+    parameter changes. Raise ValueError naming the key on a missing key or a shape mismatch,
+    before any parameter changes.
+    """
+    import torch
+
+    pairs = []
+    for prefix, layer in _actor_layers(model).items():
+        for name in ("weight", "bias"):
+            key = f"{prefix}.{name}"
+            if key not in bc_state:
+                raise ValueError(f"BC state dict has no key {key}")
+            target = getattr(layer, name)
+            source = bc_state[key]
+            if tuple(source.shape) != tuple(target.shape):
+                raise ValueError(
+                    f"BC key {key} has shape {tuple(source.shape)}, "
+                    f"the actor needs {tuple(target.shape)}"
+                )
+            pairs.append((target, source))
+    with torch.no_grad():
+        for target, source in pairs:
+            target.copy_(source)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def newest_complete_checkpoint(out: Path) -> Path | None:
     """The `checkpoints/step_<n>.zip` of `out` with the highest n (by number), None if none.
 
@@ -125,6 +182,9 @@ def _check(config: ExperimentConfig, steps: int) -> None:
     every = config.checkpoint_every
     if every is not None and (every < 1 or every % N_STEPS):
         raise ValueError(f"checkpoint_every must be a multiple of {N_STEPS}, not {every}")
+    warmup = config.critic_warmup_steps
+    if warmup < 0 or warmup % N_STEPS:
+        raise ValueError(f"critic_warmup_steps must be a multiple of {N_STEPS}, not {warmup}")
     OpponentMix(_opponent_specs(config), 0, RULES)  # raises ValueError naming an unknown spec
 
 
@@ -205,24 +265,40 @@ def run_ppo_seed(
     loads the newest complete checkpoint (none: from step 0), drops the `ppo.csv` rows past its
     step (and with `save_games` the `games.jsonl` lines past it and a broken last line) and trains
     up to the budget. Raises ValueError before any file is written on an unknown
-    opponent spec or a `checkpoint_every` that is not a multiple of `N_STEPS`.
+    opponent spec, or a `checkpoint_every` or `critic_warmup_steps` that is not a multiple of
+    `N_STEPS`.
+
+    With `init_from_bc` (a path relative to the current directory) a run that starts from step 0
+    loads that BC `model.pt` into the actor (`load_bc_into_actor`) and stores the sha256 of the
+    file as `init_from_bc_sha256` in `config.json`; a missing file raises FileNotFoundError before
+    any file is written. A resume from a checkpoint does not load it again, and raises
+    `ResumeError` naming `init_from_bc_sha256` when the file has changed. With
+    `critic_warmup_steps` the actor is frozen for every update whose rollout ends at or before
+    that step (also after a resume).
     """
     out = Path(out)
     steps = config.steps if steps_override is None else steps_override
     assert steps is not None  # a ppo config always has steps
     _check(config, steps)
+    bc_path = None if config.init_from_bc is None else Path(config.init_from_bc)
+    bc_sha = None
+    if bc_path is not None:
+        if not bc_path.is_file():
+            raise FileNotFoundError(f"init_from_bc file {bc_path} does not exist")
+        bc_sha = _sha256(bc_path)
     config_path = out / "config.json"
     if config_path.is_file():
         if not resume:
             raise FileExistsError(f"{out} already has a config.json: pass resume=True")
         stored = json.loads(config_path.read_text())
         problems = _resume_problems(stored, config, seed, steps)
+        if bc_sha is not None and stored.get("init_from_bc_sha256") != bc_sha:
+            problems.append("init_from_bc_sha256")
         if problems:
             raise ResumeError(f"cannot resume {out}: differs from config.json in {problems}")
         if (out / "done.json").is_file():
             return out
     else:
-        out.mkdir(parents=True, exist_ok=True)
         stored = {
             "config": config.model_dump(mode="json"),
             "seed": seed,
@@ -233,8 +309,10 @@ def run_ppo_seed(
             "git_commit": git_commit(),
             "versions": library_versions(),
         }
-        config_path.write_text(json.dumps(stored, indent=2) + "\n")
+        if bc_sha is not None:
+            stored["init_from_bc_sha256"] = bc_sha
 
+    import torch
     from sb3_contrib import MaskablePPO
 
     env = _RecordingEnv(
@@ -256,11 +334,16 @@ def run_ppo_seed(
             device="cpu",
             policy_kwargs=policy_kwargs(config.hidden),
         )
+        if bc_path is not None:
+            load_bc_into_actor(model, torch.load(bc_path, weights_only=True))
     else:
         start = int(CHECKPOINT_RE.fullmatch(checkpoint.name).group(1))
         model = MaskablePPO.load(str(checkpoint), env=env, device="cpu")
         model.set_random_seed(seed)
         model._last_obs = None  # the saved observation belongs to the old env: reset on learn
+    if not config_path.is_file():  # written after the BC load, so a bad BC file leaves no run
+        out.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(stored, indent=2) + "\n")
     kept = [row for row in _read_rows(csv_path) if row and int(row[0]) <= start]
     _write_rows(csv_path, kept)
     wall_offset = float(kept[-1][-1]) if kept else 0.0
@@ -269,7 +352,9 @@ def run_ppo_seed(
         _trim_games(out / GAMES_FILE, start)
         games = (out / GAMES_FILE).open("a", encoding="utf-8")
 
-    callback = _make_callback(out, csv_path, config.checkpoint_every, wall_offset, games)
+    callback = _make_callback(
+        out, csv_path, config.checkpoint_every, wall_offset, games, config.critic_warmup_steps
+    )
     try:
         model.learn(
             total_timesteps=max(0, steps - int(model.num_timesteps)),
@@ -290,11 +375,21 @@ def run_ppo_seed(
 
 
 def _make_callback(
-    out: Path, csv_path: Path, every: int | None, wall_offset: float, games: Any = None
+    out: Path,
+    csv_path: Path,
+    every: int | None,
+    wall_offset: float,
+    games: Any = None,
+    warmup: int = 0,
 ) -> Any:
     """The callback that writes one `ppo.csv` row per rollout and the periodic checkpoints, and
     with an open `games` file one `games.jsonl` line per finished game (`step` is the run step at
     the end of the game).
+
+    With `warmup` > 0 it freezes the actor (`requires_grad_(False)`) at the end of each rollout
+    that ends at or before step `warmup`, so the update of that rollout trains only the critic,
+    and makes it trainable again at the end of the first rollout past it. With `warmup` 0 it
+    never touches the parameters.
 
     SB3 records the `train/*` values of rollout k in `train()`, after the rollout callbacks of
     rollout k, so the row of rollout k is made at the start of the next rollout or at the end of
@@ -325,6 +420,10 @@ def _make_callback(
 
         def _on_rollout_end(self) -> None:
             self.pending, self.finished = self.finished, []
+            if warmup > 0:  # the update of this rollout runs right after this call
+                frozen = int(self.num_timesteps) <= warmup
+                for parameter in actor_parameters(self.model):
+                    parameter.requires_grad_(not frozen)
 
         def _on_rollout_start(self) -> None:
             self._flush()
