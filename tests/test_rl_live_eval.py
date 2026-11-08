@@ -37,7 +37,7 @@ def test_help_names_all_options():
         check=False,
     )
     assert done.returncode == 0
-    for option in ("--games", "--seed", "--modes", "--final"):
+    for option in ("--games", "--seed", "--modes", "--final", "--poll"):
         assert option in done.stdout, option
 
 

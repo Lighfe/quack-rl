@@ -10,7 +10,7 @@ torch and SB3 are imported inside the functions, so this module imports without 
 dependency group.
 
 CLI: `python -m quack_rl.rl.live_eval RUN_DIR [--games N] [--seed S] [--modes greedy,sampled]
-[--final]`.
+[--final] [--poll SECONDS]`.
 """
 
 import argparse
@@ -257,6 +257,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="run only the final evaluation of the last checkpoint into final_eval.csv",
     )
+    parser.add_argument(
+        "--poll",
+        type=float,
+        default=30.0,
+        metavar="SECONDS",
+        help="seconds between two looks at the run folder while watching (default 30)",
+    )
     args = parser.parse_args(argv)
     if args.final:
         games = FINAL_GAMES if args.games is None else args.games
@@ -265,7 +272,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         games = WATCH_GAMES if args.games is None else args.games
         seed = WATCH_SEED if args.seed is None else args.seed
-        watch_run(args.run_dir, games=games, seed=seed, modes=args.modes)
+        watch_run(args.run_dir, games=games, seed=seed, modes=args.modes, poll_seconds=args.poll)
     return 0
 
 
