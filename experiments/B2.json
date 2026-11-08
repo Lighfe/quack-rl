@@ -1,0 +1,18 @@
+{
+  "id": "B2",
+  "kind": "bc",
+  "baseline": "B0",
+  "changes": "bc.entropy_coef 0.01: the BC loss gets a bonus of 0.01 times the entropy of the policy over the legal actions",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "hidden": 256,
+  "bc": {
+    "dataset": "data/datasets/rulebots/dataset.npz",
+    "epochs": 10,
+    "label_smoothing": 0.0,
+    "entropy_coef": 0.01
+  }
+}

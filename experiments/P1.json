@@ -1,0 +1,45 @@
+{
+  "id": "P1",
+  "kind": "ppo",
+  "baseline": "P0",
+  "changes": "opponents: a fixed mix of bot:random, the weakest rule-bot setting of each strategy (draw limit 0: topchip-draw0-pts6, spendmost-draw0-pts4, blackpurple-draw0-pts6) and the three preset bots, weight 1 each",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 3000000,
+  "opponents": [
+    {
+      "spec": "bot:random",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw0-pts4",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "win_loss",
+  "hidden": 256,
+  "checkpoint_every": 102400
+}

@@ -1,0 +1,18 @@
+{
+  "id": "B0",
+  "kind": "bc",
+  "baseline": null,
+  "changes": "control: today's BC (#275 settings: 10 epochs, the rulebots dataset, no label smoothing, no entropy bonus) in the shared network (hidden 256)",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "hidden": 256,
+  "bc": {
+    "dataset": "data/datasets/rulebots/dataset.npz",
+    "epochs": 10,
+    "label_smoothing": 0.0,
+    "entropy_coef": 0.0
+  }
+}

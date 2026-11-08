@@ -1,0 +1,18 @@
+{
+  "id": "B1",
+  "kind": "bc",
+  "baseline": "B0",
+  "changes": "bc.label_smoothing 0.1: the BC target puts 10% of the probability evenly on the other legal actions",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "hidden": 256,
+  "bc": {
+    "dataset": "data/datasets/rulebots/dataset.npz",
+    "epochs": 10,
+    "label_smoothing": 0.1,
+    "entropy_coef": 0.0
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "P3",
+  "kind": "ppo",
+  "baseline": "P0",
+  "changes": "PROVISIONAL",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 3000000,
+  "opponents": [
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "win_loss",
+  "hidden": 256,
+  "checkpoint_every": 102400,
+  "init_from_bc": "data/experiments/B0/seed0/model.pt",
+  "critic_warmup_steps": 51200
+}
