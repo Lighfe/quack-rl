@@ -58,11 +58,19 @@ systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
 
 ## Watch a run
 
-Open the monitor notebook next to the command (the notebook comes in #294):
+Open the monitor notebook next to the command:
 
 ```
 uv run --group rl --group monitor marimo run notebooks/rl_monitor.py
 ```
+
+- It shows the picked experiment and, optionally, a baseline experiment side by side: the
+  training numbers of each seed (PPO over steps, BC per epoch), the win rate per opponent over
+  the checkpoints with its 95% band (greedy and sampled apart), and the final evaluation.
+- It reloads the run folders every 30 seconds by itself (the interval can be changed at the top).
+  It only reads them.
+- `-- --root <folder> --experiment <id> --baseline <id>` after the command sets the defaults of
+  the root folder (default `data/experiments`) and of the two dropdowns.
 
 ## Agents
 

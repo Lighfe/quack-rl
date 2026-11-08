@@ -21,7 +21,7 @@ Hooks of the agent-graph-kit plugin check the handoff calls (see `docs/process.m
 Lovable project: 34424226-c265-4c0c-a695-30527093b97c
 
 Test command: uv run --with pytest pytest. Never report tests as passed if no test ran.
-QA groups: rl, web
+QA groups: rl, web, monitor
 
 Fast subset for the inner loop: `uv run --with pytest pytest -m "not slow"`. It skips the tests marked `slow` and is not the "done" gate: only the full command above is. The engineer runs the fast subset while working and the full command once before `## Engineer: DONE`.
 

@@ -39,6 +39,11 @@ web = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
 ]
+# the experiment monitor notebook (notebooks/rl_monitor.py); polars comes from dev
+monitor = [
+    "marimo>=0.25",
+    "altair>=5.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -64,6 +69,10 @@ extend-exclude = ["docs", "archive"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# a marimo cell shows its last bare expression, and a bare `refresh.value` makes a cell re-run
+"notebooks/*" = ["B018"]
 
 [tool.pyright]
 include = ["src"]
