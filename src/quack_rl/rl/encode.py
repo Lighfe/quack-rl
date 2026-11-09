@@ -14,7 +14,8 @@ The layouts 2 to 6 are archived in `archive/src/quack_rl/rl/encode.py`, layout 7
 `archive/src/quack_rl/rl/encode_layout7.py`.
 """
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -57,6 +58,34 @@ _SCALARS = (
 MAP_COLOURS = 8  # colour flags per chip in the map: the eight colours of the ruleset
 
 
+T = TypeVar("T")
+_CACHE_SIZE = 64  # rulesets per cache; a full cache is cleared
+
+
+def _per_ruleset(fn: Callable[[Ruleset], T]) -> Callable[[Ruleset], T]:
+    """Memoize a function of the ruleset alone (rulesets are frozen). Keyed by the object, so a
+    new ruleset (for example from `with_rounds`) is computed afresh. The result is shared: the
+    callers do not change it."""
+    cache: dict[int, tuple[Ruleset, T]] = {}
+
+    def wrapper(rs: Ruleset) -> T:
+        hit = cache.get(id(rs))
+        if hit is None or hit[0] is not rs:
+            if len(cache) >= _CACHE_SIZE:
+                cache.clear()
+            hit = (rs, fn(rs))
+            cache[id(rs)] = hit
+        return hit[1]
+
+    wrapper.__doc__ = fn.__doc__
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
+_has_hand = _per_ruleset(has_hand)
+_DERIVED_NAMES = tuple(derived_names())
+
+
 def observation_layout(rs: Ruleset) -> int:
     """The layout number of a ruleset: always 10, the only layout. The version name is not read."""
     return BOARD_LAYOUT
@@ -79,9 +108,10 @@ def phases(rs: Ruleset) -> list[str]:
     return PHASES
 
 
-def _card_kinds(rs: Ruleset) -> list[str]:
+@_per_ruleset
+def _card_kinds(rs: Ruleset) -> tuple[str, ...]:
     """One kind per card effect name (no effect included), in the order of the ruleset."""
-    return list(dict.fromkeys(c.effect for c in rs.cards))
+    return tuple(dict.fromkeys(c.effect for c in rs.cards))
 
 
 def _deck_counts(state: GameState, rs: Ruleset) -> dict[str, int]:
@@ -105,8 +135,9 @@ def _restart_available(state: GameState, rs: Ruleset, seat: str) -> bool:
     return p.restart_pending or (not p.restart_offered and p.status is Status.BREWING)
 
 
-def _colours(rs: Ruleset) -> list[str]:
-    colours = _ruleset_colours(rs)
+@_per_ruleset
+def _colours(rs: Ruleset) -> tuple[str, ...]:
+    colours = tuple(_ruleset_colours(rs))
     if len(colours) != map_colours(rs):
         raise ValueError(
             f"observation layout {observation_layout(rs)} has {map_colours(rs)} colour flags per chip "
@@ -168,7 +199,7 @@ def observe(state: GameState, rs: Ruleset, seat: str, k_max: int = LOOKAHEAD) ->
     covers it)."""
     own = _public(state.players[seat], rs)
     opponent = _public(state.players[other_seat(seat)], rs, hide_hand=True)
-    if has_hand(rs):
+    if _has_hand(rs):
         own["hand"] = list(state.players[seat].hand)
     obs: dict[str, Any] = {
         "round": state.round,
@@ -196,7 +227,7 @@ def observe(state: GameState, rs: Ruleset, seat: str, k_max: int = LOOKAHEAD) ->
 
 def _hand_names(rs: Ruleset) -> list[str]:
     """Per hand slot a presence flag, the value and the colour flags; then the size."""
-    if not has_hand(rs):
+    if not _has_hand(rs):
         return []
     names = []
     for i in range(MAX_HAND):
@@ -206,7 +237,7 @@ def _hand_names(rs: Ruleset) -> list[str]:
 
 
 def _hand_values(obs: dict[str, Any], rs: Ruleset) -> list[float]:
-    if not has_hand(rs):
+    if not _has_hand(rs):
         return []
     colours = _colours(rs)
     hand = obs["own"]["hand"]
@@ -368,7 +399,7 @@ def vectorize(obs: dict[str, Any], rs: Ruleset) -> np.ndarray:
         *(obs["phase"] == p for p in phases(rs)),
         *_player_values(obs["own"], rs),
         *_player_values(obs["opponent"], rs),
-        *(obs["derived"][n] for n in derived_names()),
+        *(obs["derived"][n] for n in _DERIVED_NAMES),
         *_hand_values(obs, rs),
         *_shop_values(obs, rs),
         *_card_values(obs, rs),
@@ -430,7 +461,7 @@ def observation_bounds(rs: Ruleset, k_max: int = LOOKAHEAD) -> tuple[np.ndarray,
         "last_round": (0.0, 1.0),
     }
     hand_high: list[float] = []
-    if has_hand(rs):
+    if _has_hand(rs):
         slot = [1.0, max_value] + [1.0] * len(_colours(rs))
         hand_high = [*slot * MAX_HAND, float(MAX_HAND)]
     shop_high = [float(rs.rounds), 1.0] * len(rs.shop)
@@ -469,6 +500,19 @@ def observation_bounds(rs: Ruleset, k_max: int = LOOKAHEAD) -> tuple[np.ndarray,
     return np.asarray(low, dtype=np.float32), np.asarray(high, dtype=np.float32)
 
 
+@_per_ruleset
+def _action_index(rs: Ruleset) -> tuple[int, dict[str, tuple[int, ...]]]:
+    """(number of actions, action name -> its indices in `action_names(rs)`)."""
+    names = action_names(rs)
+    index: dict[str, tuple[int, ...]] = {}
+    for i, name in enumerate(names):
+        index[name] = (*index.get(name, ()), i)
+    return len(names), index
+
+
 def action_mask(state: GameState, rs: Ruleset, seat: str) -> np.ndarray:
-    legal = set(legal_actions(state, rs, seat))
-    return np.asarray([name in legal for name in action_names(rs)], dtype=np.int8)
+    n, index = _action_index(rs)
+    mask = np.zeros(n, dtype=np.int8)
+    for name in legal_actions(state, rs, seat):
+        mask[list(index.get(name, ()))] = 1
+    return mask

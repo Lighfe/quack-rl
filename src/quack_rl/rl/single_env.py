@@ -95,28 +95,25 @@ class QuackEnv(gym.Env):
         """
         total = 0.0
         done = False
-        obs: dict = {}
         while True:
             act = self._wait if action is None else action
             action = None
             joint = {self.agent_seat: act, other_seat(self.agent_seat): self._opponent_action()}
             self._joint_actions.append([int(joint[seat]) for seat in SEATS])
-            _, rewards, terms, _, _ = self._env.step(joint)
-            total += rewards[self.agent_seat]
-            done = terms[self.agent_seat]
+            rew, done = self._env._step_seat(joint, self.agent_seat)
+            total += rew
             if done:
                 break
-            obs = self._env._obs()[self.agent_seat]
-            if not self._wait_only(obs["action_mask"]):
+            if not self._wait_only(self._env._mask(self.agent_seat)):
                 break
         return total, done
 
     def _observation(self) -> np.ndarray:
-        obs = self._env._obs()[self.agent_seat]
-        self._mask = obs["action_mask"]
         if self.state.phase is Phase.GAME_OVER:  # no legal action at the end: all-zero mask
-            self._mask = np.zeros_like(self._mask)
-        return obs["observation"]
+            self._mask = np.zeros(self.action_space.n, dtype=np.int8)
+        else:
+            self._mask = self._env._mask(self.agent_seat)
+        return self._env._vector(self.agent_seat)
 
     def _episode_summary(self) -> dict[str, Any]:
         own_seat = self.agent_seat
@@ -151,7 +148,7 @@ class QuackEnv(gym.Env):
         self._ended = False
         self._decisions = 0
         # the first decision point may already be Wait-only for the agent
-        while self._wait_only(self._env._obs()[self.agent_seat]["action_mask"]):
+        while self._wait_only(self._env._mask(self.agent_seat)):
             _, done = self._advance(None)
             if done:  # cannot happen in a real game; keep the env consistent
                 break

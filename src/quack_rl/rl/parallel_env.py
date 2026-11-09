@@ -77,15 +77,19 @@ class QuackParallelEnv(ParallelEnv):
             self.trace.append(result)
             self.state = result.state
 
+    def _mask(self, seat: str) -> np.ndarray:
+        """The action mask of `seat` in the current state."""
+        return action_mask(self.state, self.rs, seat)
+
+    def _vector(self, seat: str) -> np.ndarray:
+        """The observation vector of `seat` in the current state."""
+        return vectorize(observe(self.state, self.rs, seat), self.rs)
+
     def _obs(self) -> dict[str, dict[str, np.ndarray]]:
-        out = {}
-        for seat in self.agents or self.possible_agents:
-            mask = action_mask(self.state, self.rs, seat)
-            out[seat] = {
-                "observation": vectorize(observe(self.state, self.rs, seat), self.rs),
-                "action_mask": mask,
-            }
-        return out
+        return {
+            seat: {"observation": self._vector(seat), "action_mask": self._mask(seat)}
+            for seat in self.agents or self.possible_agents
+        }
 
     def reset(self, seed: int | None = None, options: dict | None = None):
         if self._chance_override is not None:
@@ -102,12 +106,7 @@ class QuackParallelEnv(ParallelEnv):
     def step(self, actions: dict[str, int]):
         if self._ended:
             raise RuntimeError("the episode has ended: call reset() before step()")
-        joint = {seat: self._names[int(actions[seat])] for seat in self.agents}
-        result = step(self.state, self.rs, joint, self._chance)
-        self.trace.append(result)
-        self.state = result.state
-        self._fold(self._chance)
-        done = self.state.phase is Phase.GAME_OVER
+        done = self._play(actions)
         obs = self._obs()
         rewards = {
             a: float(self.reward_fn(copy.deepcopy(self.state), a)) if done else 0.0
@@ -120,3 +119,24 @@ class QuackParallelEnv(ParallelEnv):
             self._ended = True
             self.agents = []
         return obs, rewards, terminations, truncations, infos
+
+    def _play(self, actions: dict[str, int]) -> bool:
+        """Apply the joint action and fold the phases without decisions; True at game over."""
+        joint = {seat: self._names[int(actions[seat])] for seat in self.agents}
+        result = step(self.state, self.rs, joint, self._chance)
+        self.trace.append(result)
+        self.state = result.state
+        self._fold(self._chance)
+        return self.state.phase is Phase.GAME_OVER
+
+    def _step_seat(self, actions: dict[str, int], seat: str) -> tuple[float, bool]:
+        """`step` for one seat's view: (reward of `seat`, done), with no observation built.
+        `QuackEnv` uses it and builds only the observations it needs."""
+        if self._ended:
+            raise RuntimeError("the episode has ended: call reset() before step()")
+        done = self._play(actions)
+        rew = float(self.reward_fn(copy.deepcopy(self.state), seat)) if done else 0.0
+        if done:
+            self._ended = True
+            self.agents = []
+        return rew, done
