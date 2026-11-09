@@ -3,11 +3,13 @@
 import hashlib
 import json
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from quack_rl.rl.experiment import ExperimentConfig
-from quack_rl.rl.ppo_run import run_ppo_seed
+from quack_rl.rl.ppo_run import resolve_bc_path, run_ppo_seed
 from quack_rl.rl.selfplay import ResumeError
 
 
@@ -41,10 +43,10 @@ def _bc_net(seed: int = 0, hidden: int = 256):
     return make_mlp(env.observation_space.shape[0], int(env.action_space.n), hidden)
 
 
-def _write_bc(path, seed: int = 0) -> dict:
+def _write_bc(path, seed: int = 0, hidden: int = 256) -> dict:
     import torch
 
-    state = _bc_net(seed).state_dict()
+    state = _bc_net(seed, hidden).state_dict()
     torch.save(state, path)
     return state
 
@@ -240,3 +242,70 @@ def test_resume_inside_warmup_keeps_actor_frozen_and_checks_bc_file(tmp_path, mo
     _write_bc(tmp_path / "bc.pt", seed=9)
     with pytest.raises(ResumeError, match="init_from_bc_sha256"):
         run_ppo_seed(config, 0, out, resume=True)
+
+
+# --- paired BC start: {seed} in init_from_bc ----------------------------------------------------
+
+
+def test_resolve_bc_path():
+    assert resolve_bc_path("data/experiments/B1/seed{seed}/model.pt", 2) == Path(
+        "data/experiments/B1/seed2/model.pt"
+    )
+    assert resolve_bc_path("a/model.pt", 2) == Path("a/model.pt")
+    assert resolve_bc_path("s{seed}/x{seed}.pt", 7) == Path("s7/x7.pt")
+    assert resolve_bc_path("odd{name}/{seed}.pt", 1) == Path("odd{name}/1.pt")
+
+
+def _paired(tmp_path) -> ExperimentConfig:
+    return p3(
+        init_from_bc=str(tmp_path / "seed{seed}" / "model.pt"),
+        hidden=32,
+        checkpoint_every=None,
+    )
+
+
+def _write_seed_bc(tmp_path, seed: int, net_seed: int) -> dict:
+    folder = tmp_path / f"seed{seed}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return _write_bc(folder / "model.pt", seed=net_seed, hidden=32)
+
+
+@pytest.mark.slow
+def test_paired_bc_start_loads_the_seed_file(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    bc0 = _write_seed_bc(tmp_path, 0, net_seed=10)
+    bc1 = _write_seed_bc(tmp_path, 1, net_seed=11)
+    assert not _equal(bc0, bc1)
+
+    config = _paired(tmp_path).model_copy(update={"critic_warmup_steps": 1024})
+    out = run_ppo_seed(config, 1, tmp_path / "run", steps_override=1024)
+    stored = json.loads((out / "config.json").read_text())
+    seed1 = tmp_path / "seed1" / "model.pt"
+    assert stored["init_from_bc_path"].endswith("seed1/model.pt")
+    assert stored["init_from_bc_path"] == str(seed1)
+    assert stored["init_from_bc_sha256"] == hashlib.sha256(seed1.read_bytes()).hexdigest()
+    # the actor is frozen in the warm-up, so the checkpoint still holds the seed-1 weights
+    assert _equal(_actor_state(_load(out / "checkpoints" / "step_1024.zip")), bc1)
+
+
+def test_paired_bc_start_missing_seed_file(tmp_path):
+    (tmp_path / "seed0").mkdir()
+    (tmp_path / "seed0" / "model.pt").write_bytes(b"not used")
+    out = tmp_path / "run"
+    with pytest.raises(FileNotFoundError, match=r"seed1/model\.pt"):
+        run_ppo_seed(_paired(tmp_path), 1, out)
+    assert not (out / "config.json").exists()
+
+
+@pytest.mark.slow
+def test_paired_bc_start_resume_checks_the_seed_file(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    _write_seed_bc(tmp_path, 0, net_seed=10)
+    config = _paired(tmp_path)
+    out = run_ppo_seed(config, 0, tmp_path / "run", steps_override=1024)
+    stored = json.loads((out / "config.json").read_text())
+    assert stored["init_from_bc_path"].endswith("seed0/model.pt")
+
+    _write_seed_bc(tmp_path, 0, net_seed=99)
+    with pytest.raises(ResumeError, match="init_from_bc_sha256"):
+        run_ppo_seed(config, 0, out, resume=True, steps_override=1024)

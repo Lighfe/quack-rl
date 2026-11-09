@@ -8,7 +8,7 @@ newest complete checkpoint with `resume=True`; the opponent mix and the env gene
 then, only the model state continues.
 
 With `init_from_bc` the actor of a fresh run starts from the weights of a BC `model.pt`
-(`load_bc_into_actor`); with `critic_warmup_steps` the actor is frozen for every update whose
+(`load_bc_into_actor`; a `{seed}` in the path names one BC model per seed, `resolve_bc_path`); with `critic_warmup_steps` the actor is frozen for every update whose
 rollout ends at or before that step, so only the critic trains first.
 
 SB3 and torch are imported inside the functions, so this module imports without the `rl`
@@ -131,6 +131,15 @@ def load_bc_into_actor(model: Any, bc_state: dict[str, Any]) -> None:
     with torch.no_grad():
         for target, source in pairs:
             target.copy_(source)
+
+
+def resolve_bc_path(init_from_bc: str, seed: int) -> Path:
+    """The BC `model.pt` path of `seed`: every `{seed}` in `init_from_bc` replaced by the seed.
+
+    Plain text replacement, so other braces in the path stay as they are; text without `{seed}`
+    is returned unchanged as a `Path`.
+    """
+    return Path(init_from_bc.replace("{seed}", str(seed)))
 
 
 def _sha256(path: Path) -> str:
@@ -268,9 +277,12 @@ def run_ppo_seed(
     opponent spec, or a `checkpoint_every` or `critic_warmup_steps` that is not a multiple of
     `N_STEPS`.
 
-    With `init_from_bc` (a path relative to the current directory) a run that starts from step 0
-    loads that BC `model.pt` into the actor (`load_bc_into_actor`) and stores the sha256 of the
-    file as `init_from_bc_sha256` in `config.json`; a missing file raises FileNotFoundError before
+    With `init_from_bc` (a path relative to the current directory; every `{seed}` in it is
+    replaced by `seed`, see `resolve_bc_path`) a run that starts from step 0 loads that BC
+    `model.pt` into the actor (`load_bc_into_actor`) and stores the resolved path as
+    `init_from_bc_path` and the sha256 of the file as `init_from_bc_sha256` in `config.json`.
+    A resume compares only the sha256, so a `config.json` without `init_from_bc_path` still
+    resumes. A missing file raises FileNotFoundError before
     any file is written. A resume from a checkpoint does not load it again, and raises
     `ResumeError` naming `init_from_bc_sha256` when the file has changed. With
     `critic_warmup_steps` the actor is frozen for every update whose rollout ends at or before
@@ -280,7 +292,7 @@ def run_ppo_seed(
     steps = config.steps if steps_override is None else steps_override
     assert steps is not None  # a ppo config always has steps
     _check(config, steps)
-    bc_path = None if config.init_from_bc is None else Path(config.init_from_bc)
+    bc_path = None if config.init_from_bc is None else resolve_bc_path(config.init_from_bc, seed)
     bc_sha = None
     if bc_path is not None:
         if not bc_path.is_file():
@@ -310,6 +322,7 @@ def run_ppo_seed(
             "versions": library_versions(),
         }
         if bc_sha is not None:
+            stored["init_from_bc_path"] = str(bc_path)
             stored["init_from_bc_sha256"] = bc_sha
 
     import torch

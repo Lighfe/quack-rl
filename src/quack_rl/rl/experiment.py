@@ -57,6 +57,12 @@ class ExperimentConfig(BaseModel):
     final_eval_games: int = 200
     final_eval_seed: int = 2026
     init_from_bc: str | None = None
+    """Path of a BC `model.pt` the PPO actor starts from (relative to the current directory).
+
+    Every `{seed}` in it is replaced by the PPO seed (`resolve_bc_path` in
+    `quack_rl.rl.ppo_run`), so `data/experiments/B1/seed{seed}/model.pt` starts PPO seed k from
+    BC seed k; a path without `{seed}` is used for every seed.
+    """
     critic_warmup_steps: int = 0
     save_games: bool = False
     bc: BCSettings | None = None
