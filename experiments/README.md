@@ -38,39 +38,73 @@ and the process (training or evaluator). Ctrl-C or SIGTERM stops all children.
 
 ## Step budget
 
-An experiment (3 trainings and 3 evaluators side by side, then the final evaluation) must end
-in at most 6 hours on the laptop (8 cores, CPU, 15 GB RAM). The budget leaves 15% of that free,
-so the limit is 6 h x 0.85 = 18,360 seconds.
+An experiment is 3 trainings and 3 evaluators side by side, then the final evaluation, on the
+laptop (8 cores, CPU, 15 GB RAM). Its time is planned from the measured step rate:
+`steps / rate + final evaluation time`. Two bounds (spec
+`docs/specs/2026-11-09-screening-and-bc-start.md`, "Budgets"):
 
-Measured with P0, 3 seeds, 20,000 steps (#295):
+- screening (S0-S5): at most 1.5 h = 5,400 s, with at least 6 checkpoints
+- long run (L): at most 6 h minus 15% = 6 h x 0.85 = 18,360 s
+
+### Measurement
+
+Measured with S0, 3 seeds, 20,000 steps, after the env speed-up of #310 (#312, commit
+`7728906`):
 
 ```
 systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
     uv run --group rl python scripts/run_experiment.py \
-    --config experiments/P0.json --out <trial folder> --steps 20000 --threads 1
+    --config experiments/S0.json --out <trial folder> --steps 20000 --threads 1
 ```
 
 | item | value |
 |---|---|
 | steps per training (the run ends at the first rollout end past 20,000) | 20,480 |
-| training time per seed (`wall_seconds` of the last `ppo.csv` row) | 231.4 s, 229.0 s, 229.9 s |
-| rate per training | 3 x 20,480 / 690.3 s = 89.0 steps per second |
-| final evaluation (3 seeds side by side, 200 games x 4 opponents x 2 modes each) | 1,076 s |
-| evaluator after the last checkpoint (50 games x 4 opponents x 2 modes) | 279 s |
-| whole command | 1,590 s, exit code 0, `Maximum resident set size` 818,768 kB (the largest single process) |
+| training time per seed (`train_seconds` in `done.json`, the `wall_seconds` of the last `ppo.csv` row) | 106.024 s, 105.264 s, 105.022 s (sum 316.31 s) |
+| rate per training | 3 x 20,480 / 316.31 s = 194.2 steps per second |
+| final evaluation (3 seeds side by side, 200 games x 4 opponents x 2 modes each; from the last evaluator's end to the last `final_eval.csv`) | 328 s |
+| one evaluator pass over a checkpoint (50 games x 4 opponents x 2 modes; from the checkpoint file to its rows in `eval.csv`, the slowest seed, poll wait included) | 94 s (seeds: 94 s, 91 s, 84 s) |
+| whole command | 532.5 s (8:52.50), exit code 0, `Maximum resident set size` 832,724 kB (the largest single process) |
 
-Chosen budget: `steps` = 1,433,600 (14 x 102,400) in P0 to P3, with `checkpoint_every` = 102,400.
+Before #310 the rate was 89.0 steps per second (P0, #295).
+
+### Screening budget (S0-S5)
+
+`steps` = 962,560 (10 x 96,256), `checkpoint_every` = 96,256 (94 x 1,024).
 
 ```
 steps / rate + final evaluation time
-  = 1,433,600 / 89.0 + 1,076
-  = 16,108 + 1,076
-  = 17,184 s  <=  18,360 s
+  = 962,560 / 194.2 + 328
+  = 4,956.5 + 328
+  = 5,284.5 s  <=  5,400 s
+
+steps / checkpoint_every = 962,560 / 96,256 = 10  >=  6
 ```
 
-With the evaluator's last checkpoint (279 s) the total is 17,463 s, still below 18,360 s. One
-evaluation of a checkpoint takes about 280 s, and a checkpoint comes about every 1,150 s
-(102,400 / 89.0), so the evaluators keep up during the run.
+- The largest that fits: one more checkpoint interval, 1,058,816 steps, gives
+  1,058,816 / 194.2 + 328 = 5,452.2 + 328 = 5,780.2 s > 5,400 s.
+- With the evaluator's pass over the last checkpoint (94 s) the total is 5,378.5 s, still below
+  5,400 s.
+- The evaluators keep up: a checkpoint comes every 96,256 / 194.2 = 495.7 s, and one evaluator
+  pass takes 94 s.
+
+### Long-run budget (L)
+
+`steps` = 3,481,600 (20 x 174,080), `checkpoint_every` = 174,080 (170 x 1,024).
+
+```
+steps_long / rate + final evaluation time
+  = 3,481,600 / 194.2 + 328
+  = 17,927.9 + 328
+  = 18,255.9 s  <=  18,360 s
+```
+
+- The largest that fits: one more checkpoint interval, 3,655,680 steps, gives
+  3,655,680 / 194.2 + 328 = 18,824.3 + 328 = 19,152.3 s > 18,360 s.
+- With the evaluator's pass over the last checkpoint (94 s) the total is 18,349.9 s, still below
+  18,360 s.
+- The evaluators keep up: a checkpoint comes every 174,080 / 194.2 = 896.4 s, and one evaluator
+  pass takes 94 s.
 
 ## Resume after an interruption
 

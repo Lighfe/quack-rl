@@ -77,6 +77,9 @@ Order: P0 first. Then P1 and P2, one by one. B1 and B2 run in the stage. P3 afte
 with the greedy and the sampled play both reported. If neither beats today's BC, P3 starts from
 today's BC trained into the shared network, and the record says so.
 
+This rule is replaced by `docs/specs/2026-11-09-screening-and-bc-start.md`: a BC variant meant
+as a PPO start is judged by what PPO learns from it, not by the BC model's own win rate.
+
 ## Shared network
 
 Today the PPO policy is the SB3 `MlpPolicy` default and BC is a 256x256 ReLU MLP

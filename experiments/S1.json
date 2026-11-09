@@ -8,7 +8,7 @@
     1,
     2
   ],
-  "steps": 1433600,
+  "steps": 962560,
   "opponents": [
     {
       "spec": "bot:random",
@@ -41,5 +41,5 @@
   ],
   "reward": "win_loss",
   "hidden": 256,
-  "checkpoint_every": 102400
+  "checkpoint_every": 96256
 }
