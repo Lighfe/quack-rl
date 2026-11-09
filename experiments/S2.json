@@ -1,8 +1,8 @@
 {
-  "id": "P0",
+  "id": "S2",
   "kind": "ppo",
-  "baseline": null,
-  "changes": "control: opponents the three preset bots (weight 1 each), reward win_loss, shared network (hidden 256)",
+  "baseline": "S0",
+  "changes": "reward: margin (own points minus the opponent's points at game end, scaled to [-1, 1])",
   "seeds": [
     0,
     1,
@@ -23,7 +23,7 @@
       "weight": 1
     }
   ],
-  "reward": "win_loss",
+  "reward": "margin",
   "hidden": 256,
   "checkpoint_every": 102400
 }

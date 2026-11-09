@@ -1,7 +1,7 @@
 {
-  "id": "P1",
+  "id": "S1",
   "kind": "ppo",
-  "baseline": "P0",
+  "baseline": "S0",
   "changes": "opponents: a fixed mix of bot:random, the weakest rule-bot setting of each strategy (draw limit 0: topchip-draw0-pts6, spendmost-draw0-pts4, blackpurple-draw0-pts6) and the three preset bots, weight 1 each",
   "seeds": [
     0,
