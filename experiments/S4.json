@@ -1,0 +1,31 @@
+{
+  "id": "S4",
+  "kind": "ppo",
+  "baseline": "S3",
+  "changes": "init_from_bc: B1 (data/experiments/B1/seed{seed}/model.pt) instead of B0",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 962560,
+  "opponents": [
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "margin",
+  "hidden": 256,
+  "checkpoint_every": 96256,
+  "init_from_bc": "data/experiments/B1/seed{seed}/model.pt",
+  "critic_warmup_steps": 51200
+}

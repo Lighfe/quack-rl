@@ -1,5 +1,5 @@
 """The experiment configs in `experiments/`: each changes exactly one thing against its
-baseline. The screening configs S0-S2 share one step budget."""
+baseline. The screening configs S0-S5 share one step budget."""
 
 from pathlib import Path
 
@@ -14,6 +14,9 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S0": (None, None),
     "S1": ("S0", ["opponents"]),
     "S2": ("S0", ["reward"]),
+    "S3": ("S2", ["init_from_bc", "critic_warmup_steps"]),
+    "S4": ("S3", ["init_from_bc"]),
+    "S5": ("S3", ["init_from_bc"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
     "B2": ("B0", ["bc.entropy_coef"]),
