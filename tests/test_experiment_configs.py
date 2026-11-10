@@ -17,6 +17,7 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S3": ("S2", ["init_from_bc", "critic_warmup_steps"]),
     "S4": ("S3", ["init_from_bc"]),
     "S5": ("S3", ["init_from_bc"]),
+    "L": ("S5", ["steps", "checkpoint_every"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
     "B2": ("B0", ["bc.entropy_coef"]),

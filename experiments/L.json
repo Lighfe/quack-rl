@@ -1,0 +1,31 @@
+{
+  "id": "L",
+  "kind": "ppo",
+  "baseline": "S5",
+  "changes": "long-run budget (experiments/README.md, \"Long-run budget (L)\"): steps 3,481,600 and checkpoint_every 174,080 instead of the screening budget; S5 is the config chosen in docs/analysis/2026-11-screening.md, part 2",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 3481600,
+  "opponents": [
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "margin",
+  "hidden": 256,
+  "checkpoint_every": 174080,
+  "init_from_bc": "data/experiments/B2/seed{seed}/model.pt",
+  "critic_warmup_steps": 51200
+}

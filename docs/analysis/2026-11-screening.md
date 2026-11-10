@@ -246,3 +246,263 @@ S2: 0.0181 >= 0.0081  within
 Unrounded: S0 = 0.0036111111111111114, S1 = 0.0011111111111111111, S2 = 0.018055555555555557, M - 0.01 = 0.008055555555555557.
 
 X: S2
+
+## Part 2: Screening 2 (S3, S4, S5)
+
+Issue: #314. Configs: `experiments/S3.json` (S2 with `init_from_bc` = `data/experiments/B0/seed{seed}/model.pt` and `critic_warmup_steps` 51,200), `experiments/S4.json` and `experiments/S5.json` (S3 with `B1`, `B2` in the path). 3 seeds, `steps` 962,560, `checkpoint_every` 96,256, so 10 checkpoints. PPO seed k starts from the BC model of seed k (paired seeds, #311). The runs went one after another on the laptop (8 cores, CPU, 15 GB RAM).
+
+### Commands
+
+S3:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S3.json --out data/experiments --threads 1
+```
+
+S4:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S4.json --out data/experiments --threads 1
+```
+
+S5:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S5.json --out data/experiments --threads 1
+```
+
+### Run data
+
+Wall time, exit status and `Maximum resident set size` are from `/usr/bin/time -v`; start and end are UTC.
+
+| experiment | start | end | wall time | exit status | Maximum resident set size (kB) | `--resume` |
+|---|---|---|---|---|---|---|
+| S3 | 2026-11-10T12:50:02Z | 2026-11-10T14:52:57Z | 2:02:54 | 0 | 827,776 | no |
+| S4 | 2026-11-10T14:52:57Z | 2026-11-10T16:50:24Z | 1:57:26 | 0 | 832,956 | no |
+| S5 | 2026-11-10T16:50:24Z | 2026-11-10T18:47:20Z | 1:56:56 | 0 | 833,608 | no |
+
+Planned time per experiment (`experiments/README.md`, "Step budget"): 962,560 / 194.2 + 328 = 5,284.5 s (1:28:05).
+
+Per seed (`done.json` and `config.json`):
+
+| experiment | seed | `steps` in `done.json` | `train_seconds` | `git_commit` |
+|---|---|---|---|---|
+| S3 | 0 | 962,560 | 6986.2 | `fc4b843` |
+| S3 | 1 | 962,560 | 6968.5 | `fc4b843` |
+| S3 | 2 | 962,560 | 6958.6 | `fc4b843` |
+| S4 | 0 | 962,560 | 6614.6 | `fc4b843` |
+| S4 | 1 | 962,560 | 6657.1 | `fc4b843` |
+| S4 | 2 | 962,560 | 6654.1 | `fc4b843` |
+| S5 | 0 | 962,560 | 6647.6 | `fc4b843` |
+| S5 | 1 | 962,560 | 6685.3 | `fc4b843` |
+| S5 | 2 | 962,560 | 6648.8 | `fc4b843` |
+
+BC start per seed (`init_from_bc_path` and `init_from_bc_sha256` in each `config.json`):
+
+| experiment | seed | `init_from_bc_path` | `init_from_bc_sha256` |
+|---|---|---|---|
+| S3 | 0 | `data/experiments/B0/seed0/model.pt` | `20ed0110b1c07d5d8846806bb77d0f4edb0cc3d9e2e8c4d86e91b4a9602f2292` |
+| S3 | 1 | `data/experiments/B0/seed1/model.pt` | `2ee87043528abcf1a546599da3db47e658c0c288c87c8a0af3303888ab005c59` |
+| S3 | 2 | `data/experiments/B0/seed2/model.pt` | `a30f1d8d0e5ce3d926feb0b9b025108d26ab64ec54715fdfb4296eced2805d8c` |
+| S4 | 0 | `data/experiments/B1/seed0/model.pt` | `9406c52f8ee6271d5edbca49cae44dc7a4a66684e3aec9a5cf8520466ed325a0` |
+| S4 | 1 | `data/experiments/B1/seed1/model.pt` | `0b59a1040777e3026d538132ec2626053162dec057ebd2d9a9147fcfc75752ab` |
+| S4 | 2 | `data/experiments/B1/seed2/model.pt` | `46133eeb5e39db7c087a4b651866ce66b7ca65f2205a2c1b1b060ceb68ae3a11` |
+| S5 | 0 | `data/experiments/B2/seed0/model.pt` | `8b7b38923f1f7081c885916e346f13285bee54e577945a9fae216e37ada7bdc1` |
+| S5 | 1 | `data/experiments/B2/seed1/model.pt` | `6503bd457bc4823c6df0da99e7f2a5be4659bb2b1f3829e15ddc41ce54645a1b` |
+| S5 | 2 | `data/experiments/B2/seed2/model.pt` | `66e0f331d9ef0af1f83c1c20103285cbb1cc28ce703cc4255020ff6daacd7c70` |
+
+sha256 of the `final_eval.csv` files:
+
+| file | sha256 |
+|---|---|
+| `data/experiments/S3/seed0/final_eval.csv` | `1fe5587e4bbe6971340dba219fb35498134c26d0f0e8544cc97b742b37bf40c8` |
+| `data/experiments/S3/seed1/final_eval.csv` | `775baed31f919cedff81076f9d66272b42332472d4f0a45d83cec40e34bdb057` |
+| `data/experiments/S3/seed2/final_eval.csv` | `e693d2e4a9539626d6c9a523dc281e7c3a4ce02819010dd8eb84857ff508bba6` |
+| `data/experiments/S4/seed0/final_eval.csv` | `b2e98309fcdaadd3d484da1be6ed54c5f851aa02bdc5da30d9096c295f979a6e` |
+| `data/experiments/S4/seed1/final_eval.csv` | `89705bf4503456a65f4371cd58b12b9a79260c1ea16e2dd5a2c503f973a42c02` |
+| `data/experiments/S4/seed2/final_eval.csv` | `c4992a3fe5399a72f8419fc6821b88542b0d664b0621f0fc713a351b1a80094e` |
+| `data/experiments/S5/seed0/final_eval.csv` | `81f3cd3aedde1d7aaee78e6351208ad333dd320ffe1b3518805ece4947282091` |
+| `data/experiments/S5/seed1/final_eval.csv` | `356c3f98ac03741a1726802d7424afaf8f934918dceed222a33186a3fa528b8d` |
+| `data/experiments/S5/seed2/final_eval.csv` | `91765cf359490f9f3002495b617fbbba895e9777820a802c1f557221863b066b` |
+
+### Final tables
+
+All rows of the three `final_eval.csv` files of each experiment, copied unchanged (`seed` added from the folder name). The score uses only the `greedy` rows against the three presets; the `bot:random` rows and the `sampled` rows are reported, not scored.
+
+#### S3
+
+| seed | step | opponent | mode | games | wins | draws | losses | win_rate | ci_low | ci_high |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 7 | 2 | 191 | 0.04 | 0.020405632066152306 | 0.07693206820093293 |
+| 0 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 5 | 2 | 193 | 0.03 | 0.013820314340111346 | 0.06389429245451925 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 7 | 0 | 193 | 0.035 | 0.017055542008567192 | 0.07047061152229073 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 3 | 2 | 195 | 0.02 | 0.0078044264163494685 | 0.050287086905826436 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 4 | 3 | 193 | 0.0275 | 0.012253157236672575 | 0.06055567618984434 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 3 | 0 | 197 | 0.015 | 0.00511423779325831 | 0.04316572879269026 |
+| 0 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 0 | 962560 | bot:random | sampled | 200 | 199 | 0 | 1 | 0.995 | 0.9722262956021069 | 0.9991168312843989 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 5 | 0 | 195 | 0.025 | 0.010724719651761264 | 0.05717834040664198 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 6 | 4 | 190 | 0.04 | 0.020405632066152306 | 0.07693206820093293 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 6 | 1 | 193 | 0.0325 | 0.01542221641510996 | 0.06719816374763429 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 1 | 2 | 197 | 0.01 | 0.0027466581335444384 | 0.0357217617161768 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 6 | 2 | 192 | 0.035 | 0.017055542008567192 | 0.07047061152229073 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 2 | 0 | 198 | 0.01 | 0.0027466581335444384 | 0.0357217617161768 |
+| 1 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 1 | 962560 | bot:random | sampled | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 1 | 0 | 199 | 0.005 | 0.0008831687156009814 | 0.02777370439789293 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 1 | 2 | 197 | 0.01 | 0.0027466581335444384 | 0.0357217617161768 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 1 | 0 | 199 | 0.005 | 0.0008831687156009814 | 0.02777370439789293 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:random | greedy | 200 | 199 | 0 | 1 | 0.995 | 0.9722262956021069 | 0.9991168312843989 |
+| 2 | 962560 | bot:random | sampled | 200 | 197 | 1 | 2 | 0.9875 | 0.9605077147773395 | 0.9961180920048256 |
+
+#### S4
+
+| seed | step | opponent | mode | games | wins | draws | losses | win_rate | ci_low | ci_high |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 2 | 1 | 197 | 0.0125 | 0.003881907995174353 | 0.03949228522266056 |
+| 0 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 1 | 0 | 199 | 0.005 | 0.0008831687156009814 | 0.02777370439789293 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 1 | 199 | 0.0025 | 0.0002610559935489268 | 0.023490043751831318 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 1 | 199 | 0.0025 | 0.0002610559935489268 | 0.023490043751831318 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 0 | 962560 | bot:random | greedy | 200 | 198 | 0 | 2 | 0.99 | 0.9642782382838231 | 0.9972533418664555 |
+| 0 | 962560 | bot:random | sampled | 200 | 194 | 2 | 4 | 0.975 | 0.942821659593358 | 0.9892752803482386 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 24 | 4 | 172 | 0.13 | 0.0902820227966932 | 0.18366351872248407 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 10 | 2 | 188 | 0.055 | 0.03098534170345884 | 0.0957869987723084 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 12 | 4 | 184 | 0.07 | 0.042152171828342806 | 0.11405480885610647 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 3 | 1 | 196 | 0.0175 | 0.00642601313670221 | 0.04675972681736004 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 13 | 0 | 187 | 0.065 | 0.03837635464915299 | 0.10801907929906895 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 1 | 1 | 198 | 0.0075 | 0.0017339693431557834 | 0.03182867713845179 |
+| 1 | 962560 | bot:random | greedy | 200 | 185 | 2 | 13 | 0.93 | 0.8859451911438936 | 0.9578478281716571 |
+| 1 | 962560 | bot:random | sampled | 200 | 175 | 5 | 20 | 0.8875 | 0.836209761663897 | 0.9241851103937213 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:random | greedy | 200 | 198 | 2 | 0 | 0.995 | 0.9722262956021069 | 0.9991168312843989 |
+| 2 | 962560 | bot:random | sampled | 200 | 199 | 0 | 1 | 0.995 | 0.9722262956021069 | 0.9991168312843989 |
+
+#### S5
+
+| seed | step | opponent | mode | games | wins | draws | losses | win_rate | ci_low | ci_high |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 21 | 3 | 176 | 0.1125 | 0.07581488960627872 | 0.16379023833610287 |
+| 0 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 11 | 3 | 186 | 0.0625 | 0.036507488557236185 | 0.10498217202287208 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 15 | 2 | 183 | 0.08 | 0.049840585889759974 | 0.12598948826714396 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 7 | 1 | 192 | 0.0375 | 0.01871748134988186 | 0.07371444554908971 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 10 | 0 | 190 | 0.05 | 0.02738264560076393 | 0.08957814813877599 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 10 | 2 | 188 | 0.055 | 0.03098534170345884 | 0.0957869987723084 |
+| 0 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 0 | 962560 | bot:random | sampled | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 16 | 2 | 182 | 0.085 | 0.05374575017747561 | 0.13189587071565567 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 6 | 2 | 192 | 0.035 | 0.017055542008567192 | 0.07047061152229073 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 13 | 0 | 187 | 0.065 | 0.03837635464915299 | 0.10801907929906895 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 11 | 2 | 187 | 0.06 | 0.03465219425433187 | 0.1019316929576627 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 12 | 5 | 183 | 0.0725 | 0.044057943821951794 | 0.11705481023061112 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 13 | 9 | 178 | 0.0875 | 0.055712202024730345 | 0.13483519223651458 |
+| 1 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 1 | 962560 | bot:random | sampled | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | sampled | 200 | 1 | 0 | 199 | 0.005 | 0.0008831687156009814 | 0.02777370439789293 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | sampled | 200 | 1 | 1 | 198 | 0.0075 | 0.0017339693431557834 | 0.03182867713845179 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | sampled | 200 | 1 | 0 | 199 | 0.005 | 0.0008831687156009814 | 0.02777370439789293 |
+| 2 | 962560 | bot:random | greedy | 200 | 175 | 8 | 17 | 0.895 | 0.8448196800887696 | 0.9302925120731899 |
+| 2 | 962560 | bot:random | sampled | 200 | 170 | 6 | 24 | 0.865 | 0.8107086162924745 | 0.9055342954521209 |
+
+### Scores
+
+Score = mean of `win_rate` over the 9 `greedy` rows against `bot:topchip-draw20-pts6`, `bot:spendmost-draw20-pts6` and `bot:blackpurple-draw20-pts6` (3 seeds x 3 presets). S2 is the reference row from part 1.
+
+| experiment | score |
+|---|---|
+| S2 (reference, part 1) | 0.0181 |
+| S3 | 0.0239 |
+| S4 | 0.0314 |
+| S5 | 0.0517 |
+
+The snippet that computed the scores, the best BC arm and L (run from the repo root):
+
+```python
+import csv
+from pathlib import Path
+
+PRESETS = ("bot:topchip-draw20-pts6", "bot:spendmost-draw20-pts6", "bot:blackpurple-draw20-pts6")
+X_SCORE = 0.018055555555555557  # S2, part 1
+
+
+def score(exp: str, root: Path = Path("data/experiments")) -> float:
+    """Mean greedy final win rate against the three presets over seeds 0, 1, 2 (9 rows)."""
+    rates = []
+    for seed in (0, 1, 2):
+        with open(root / exp / f"seed{seed}" / "final_eval.csv", newline="") as f:
+            for row in csv.DictReader(f):
+                if row["mode"] == "greedy" and row["opponent"] in PRESETS:
+                    rates.append(float(row["win_rate"]))
+    assert len(rates) == 9
+    return sum(rates) / len(rates)
+
+
+scores = {exp: score(exp) for exp in ("S3", "S4", "S5")}
+M = max(scores.values())
+best = next(exp for exp in ("S3", "S5", "S4") if scores[exp] >= M - 0.01)
+L = best if scores[best] - X_SCORE > 0.01 else "S2"
+```
+
+### Learning curves
+
+Per checkpoint `step` of `eval.csv`: the mean of `win_rate` over the 9 `greedy` rows against the three presets (3 seeds x 3 presets, 50 games each). S2 is the reference column from part 1.
+
+| step | S2 | S3 | S4 | S5 |
+|---|---|---|---|---|
+| 96,256 | 0.0222 | 0.1933 | 0.2933 | 0.2578 |
+| 192,512 | 0.0056 | 0.0889 | 0.1967 | 0.1511 |
+| 288,768 | 0.0222 | 0.0189 | 0.0900 | 0.0444 |
+| 385,024 | 0.0400 | 0.0411 | 0.0422 | 0.1211 |
+| 481,280 | 0.0022 | 0.0233 | 0.0189 | 0.1011 |
+| 577,536 | 0.0144 | 0.0311 | 0.0200 | 0.0344 |
+| 673,792 | 0.0167 | 0.0822 | 0.0111 | 0.0111 |
+| 770,048 | 0.0011 | 0.0200 | 0.0256 | 0.0078 |
+| 866,304 | 0.0156 | 0.0211 | 0.0133 | 0.0400 |
+| 962,560 | 0.0133 | 0.0178 | 0.0189 | 0.0444 |
+
+### Choice of the best BC arm
+
+Rule (spec `docs/specs/2026-11-09-screening-and-bc-start.md`, "Choice rules"): M = the highest score of S3, S4, S5; the arm = the first of S3, S5, S4 whose score is >= M - 0.01 (unrounded scores, the bound counts as within).
+
+```
+M        = max(0.0239, 0.0314, 0.0517) = 0.0517
+M - 0.01 = 0.0417
+S3: 0.0239 < 0.0417  not within
+S5: 0.0517 >= 0.0417  within
+S4: 0.0314 < 0.0417  not within
+```
+
+Unrounded: S3 = 0.02388888888888889, S4 = 0.03138888888888889, S5 = 0.051666666666666666, M - 0.01 = 0.041666666666666664.
+
+Best BC arm: S5
+
+### Choice of the long run
+
+Rule: the best BC arm if its score minus X's score is > 0.01 (strictly), otherwise S2 (X from scratch). X = S2 with the unrounded score 0.018055555555555557 (part 1).
+
+```
+S5 - S2 = 0.0517 - 0.0181 = 0.0336
+0.0336 > 0.01
+```
+
+Unrounded: 0.051666666666666666 - 0.018055555555555557 = 0.033611111111111105.
+
+L: S5

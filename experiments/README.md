@@ -106,6 +106,17 @@ steps_long / rate + final evaluation time
 - The evaluators keep up: a checkpoint comes every 174,080 / 194.2 = 896.4 s, and one evaluator
   pass takes 94 s.
 
+### Next: the long run
+
+Next: the long run. `experiments/L.json` is S5 (chosen in part 2 of
+`docs/analysis/2026-11-screening.md`, #314) with the long-run budget above:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/L.json --out data/experiments --threads 1
+```
+
 ## Resume after an interruption
 
 Run the same command again with `--resume` and the same `--steps` (or none, as before):
