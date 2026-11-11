@@ -1,0 +1,48 @@
+{
+  "id": "S6",
+  "kind": "ppo",
+  "baseline": "S1",
+  "changes": "one change, the rollout size at a fixed 16 minibatches per pass: n_steps 4096 and batch_size 256 instead of 1024 and 64, so each update still makes 160 gradient steps (16 minibatches x 10 passes) as in S1, on about 50 games instead of about 12. checkpoint_every changes only because 96,256 is not a multiple of 4,096: 192,512 is 47 rollouts, so 5 checkpoints, on every second checkpoint of S1",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 962560,
+  "opponents": [
+    {
+      "spec": "bot:random",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw0-pts4",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "win_loss",
+  "hidden": 256,
+  "n_steps": 4096,
+  "batch_size": 256,
+  "target_kl": null,
+  "checkpoint_every": 192512
+}

@@ -18,6 +18,8 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S3": ("S2", ["init_from_bc", "critic_warmup_steps"]),
     "S4": ("S3", ["init_from_bc"]),
     "S5": ("S3", ["init_from_bc"]),
+    "S6": ("S1", ["checkpoint_every", "n_steps", "batch_size"]),
+    "S7": ("S1", ["target_kl"]),
     "L": ("S5", ["steps", "checkpoint_every"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
@@ -35,7 +37,9 @@ def test_experiment_configs(name: str) -> None:
         assert config_diff(load_config(EXPERIMENTS / f"{baseline}.json"), config) == diff
 
 
-SCREENING = sorted(name for name in EXPECTED if name.startswith("S"))
+# The screening configs of stage #309. S6 and S7 (#321) change the update settings and S6 the
+# checkpoint interval, so they are checked on their own below.
+SCREENING = ["S0", "S1", "S2", "S3", "S4", "S5"]
 
 
 def test_screening_configs_share_the_step_budget() -> None:
@@ -61,6 +65,17 @@ def test_ppo_configs_write_the_update_settings(name: str) -> None:
     assert "target_kl" in data and data["target_kl"] is None
     config = load_config(EXPERIMENTS / f"{name}.json")
     assert (config.n_steps, config.batch_size, config.target_kl) == (1024, 64, None)
+
+
+def test_screening_3_configs_keep_the_step_budget() -> None:
+    for name in ("S6", "S7"):
+        assert load_config(EXPERIMENTS / f"{name}.json").steps == 962560
+
+
+def test_s7_target_kl_is_in_the_chosen_range() -> None:
+    target_kl = load_config(EXPERIMENTS / "S7.json").target_kl
+    assert target_kl is not None
+    assert 0.02 <= target_kl <= 0.05
 
 
 @pytest.mark.parametrize("name", ["B0", "B1", "B2"])
