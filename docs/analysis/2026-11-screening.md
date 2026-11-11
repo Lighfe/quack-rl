@@ -604,3 +604,296 @@ for exp in ("S0", "S1", "S2", "S3", "S4", "S5"):
   -0.99^k for almost every game, where k is the number of moves to the end. So
   `explained_variance` is high (0.9557, 0.9564) with no information about winning. This was not
   tested.
+
+## Part 4: Screening 3 (S6, S7)
+
+Issue: #321. Spec: `docs/specs/2026-11-11-ppo-update-size.md` ("Screening 3: S6 and S7"). Two
+variants of S1 that change only the PPO update. S0 and S1 are the reference runs of part 1; they
+were not run again. 3 seeds, `steps` 962,560, from scratch, opponents, reward and network as S1.
+The runs go one after another on the laptop (8 cores, CPU, 15 GB RAM).
+
+| id | baseline | change | `n_steps` | `batch_size` | `target_kl` | `checkpoint_every` | checkpoints |
+|---|---|---|---|---|---|---|---|
+| S1 | S0 | (reference) | 1,024 | 64 | null | 96,256 | 10 |
+| S6 | S1 | rollout size, at a fixed 16 minibatches per pass | 4,096 | 256 | null | 192,512 | 5 |
+| S7 | S1 | early stop of the update by `target_kl` | 1,024 | 64 | 0.03 | 96,256 | 10 |
+
+- `experiments/S6.json`: 160 gradient steps per update as in S1 (16 minibatches x 10 passes), on
+  4 times the data. `checkpoint_every` changes only because 96,256 is not a multiple of 4,096;
+  192,512 is 47 rollouts, so S6 has 5 checkpoints, on every second checkpoint of S1. 962,560 is
+  235 rollouts.
+- `experiments/S7.json`: `target_kl` 0.03. MaskablePPO stops an update when the KL of one
+  minibatch is above 1.5 x 0.03 = 0.045. Reason for 0.03: S1's logged `approx_kl` was 0.075,
+  0.090, 0.103, 0.114, 0.123 (mean over seeds per fifth of training), so a stop at 0.045 binds
+  in every phase of training and should bring the KL of an update toward the common 0.01-0.02;
+  0.02 (stop at 0.03) would likely end most updates in the first or second pass, and 0.05 (stop
+  at 0.075) would hardly bind early in training.
+- Correction to that note (found while checking the trial runs): the logged `approx_kl` is not
+  the mean over the whole update. In `sb3_contrib/ppo_mask/ppo_mask.py` the list
+  `approx_kl_divs` is reset at the start of each pass (`for epoch in range(self.n_epochs):
+  approx_kl_divs = []`), so `approx_kl` in `ppo.csv` is the mean over the minibatches of the
+  last pass that ran. For S0-S6 (no early stop) that is the 10th pass, the largest KL of the
+  update; for S7 it is the pass in which the stop came, including the minibatch that stopped it,
+  so S7's logged `approx_kl` can be above 0.045. `clip_fraction` and `entropy` are means over all
+  passes that ran. The S1 numbers above are therefore the KL after 10 passes; the choice of 0.03
+  still stops S7 early (see the trial run: `epochs_run` 2-3 after the first updates).
+
+### Commands
+
+Trial runs (before the full runs, one seed, 8,192 steps; 8,192 is a multiple of both rollout
+sizes):
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S6.json --out /tmp/quack-trial-321 --seeds 0 --steps 8192 --threads 1
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S7.json --out /tmp/quack-trial-321 --seeds 0 --steps 8192 --threads 1
+```
+
+S6:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S6.json --out data/experiments --threads 1
+```
+
+S7:
+
+```
+systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
+    uv run --group rl python scripts/run_experiment.py \
+    --config experiments/S7.json --out data/experiments --threads 1
+```
+
+### Run data
+
+Wall time, exit status and `Maximum resident set size` are from `/usr/bin/time -v`; start and end are UTC.
+
+| run | start | end | wall time | exit status | Maximum resident set size (kB) | `--resume` |
+|---|---|---|---|---|---|---|
+| S6 trial (seed 0, 8,192 steps) | 2026-11-11T11:09:47Z | 2026-11-11T11:13:29Z | 3:41.57 | 0 | 854,336 | no |
+| S7 trial (seed 0, 8,192 steps) | 2026-11-11T11:13:45Z | 2026-11-11T11:18:05Z | 4:19.94 | 0 | 816,376 | no |
+| S6 | 2026-11-11T11:18:27Z | 2026-11-11T12:23:36Z | 1:05:09 | 0 | 852,400 | no |
+
+The configs were committed at 2026-11-11T11:09:42Z (`6331803`), before the trial runs.
+
+Planned time per experiment (`experiments/README.md`, "Step budget"): 962,560 / 194.2 + 328 =
+5,284.5 s (1:28:05). S6 took 1:05:09; its training took about half of S1's (3,425-3,435 s
+against 7,159-7,169 s): an update of 4,096 steps in minibatches of 256 makes the same 160
+gradient steps as one of 1,024 steps in minibatches of 64, so S6 makes a quarter of S1's
+gradient steps over the budget (235 x 160 = 37,600 against 940 x 160 = 150,400), each on a
+larger minibatch.
+
+Per seed (`done.json` and `config.json`):
+
+| experiment | seed | `steps` in `done.json` | `train_seconds` | `git_commit` |
+|---|---|---|---|---|
+| S6 | 0 | 962,560 | 3425.033 | `6331803` |
+| S6 | 1 | 962,560 | 3435.388 | `6331803` |
+| S6 | 2 | 962,560 | 3434.329 | `6331803` |
+
+sha256 of the `final_eval.csv` files:
+
+| file | sha256 |
+|---|---|
+| `data/experiments/S6/seed0/final_eval.csv` | `9612e0790b10711c95b8a66b2d3fa8dc0ac29a8e07aa7f73bbc30d85d7444aff` |
+| `data/experiments/S6/seed1/final_eval.csv` | `70731df8466e02412debed2cff65ddbc13db43a68393859a25a5d231283c45ee` |
+| `data/experiments/S6/seed2/final_eval.csv` | `6986f80057dce556ebf605ae87ead422ab1f467a21c09faf60cb74f35c736664` |
+
+### Final tables
+
+The `greedy` rows of the three `final_eval.csv` files of each experiment, copied unchanged
+(`seed` added from the folder name). The score uses the rows against the three presets; the
+`bot:random` rows are reported, not scored.
+
+#### S6
+
+| seed | step | opponent | mode | games | wins | draws | losses | win_rate | ci_low | ci_high |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 0 | 962560 | bot:random | greedy | 200 | 164 | 19 | 17 | 0.8675 | 0.8135199355916115 | 0.9076287495210976 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 1 | 962560 | bot:random | greedy | 200 | 181 | 8 | 11 | 0.925 | 0.8799563897637055 | 0.954025082815618 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 3 | 2 | 195 | 0.02 | 0.0078044264163494685 | 0.050287086905826436 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
+| 2 | 962560 | bot:random | greedy | 200 | 154 | 15 | 31 | 0.8075 | 0.747271896634225 | 0.856138227643756 |
+
+### Scores
+
+Score = mean of `win_rate` over the 9 `greedy` rows against `bot:topchip-draw20-pts6`,
+`bot:spendmost-draw20-pts6` and `bot:blackpurple-draw20-pts6` (3 seeds x 3 presets). S0 and S1
+are the reference rows from part 1. The snippet is the `score` function of part 1.
+
+| experiment | score |
+|---|---|
+| S0 (reference, part 1) | 0.0036 |
+| S1 (reference, part 1) | 0.0011 |
+| S6 | 0.0022 |
+
+Unrounded: S6 = 0.0022222222222222222.
+
+### Learning curves
+
+Per checkpoint `step` of `eval.csv`: the mean of `win_rate` over the 9 `greedy` rows against
+the three presets (3 seeds x 3 presets, 50 games each). S1 is the reference column from part 1.
+S6 has a checkpoint only on every second step of S1 (`-`: no checkpoint).
+
+| step | S1 | S6 |
+|---|---|---|
+| 96,256 | 0.0167 | - |
+| 192,512 | 0.0100 | 0.0589 |
+| 288,768 | 0.0244 | - |
+| 385,024 | 0.0022 | 0.0178 |
+| 481,280 | 0.0133 | - |
+| 577,536 | 0.0000 | 0.0144 |
+| 673,792 | 0.0000 | - |
+| 770,048 | 0.0056 | 0.0011 |
+| 866,304 | 0.0078 | - |
+| 962,560 | 0.0000 | 0.0011 |
+
+### Win rate against `bot:random`
+
+Per checkpoint `step` of `eval.csv`: the mean of `win_rate` over the 3 `greedy` rows against
+`bot:random` (3 seeds, 50 games each). `bot:random` is one of the seven training opponents of
+S1, S6 and S7.
+
+| step | S1 | S6 |
+|---|---|---|
+| 96,256 | 0.9233 | - |
+| 192,512 | 0.8467 | 0.9433 |
+| 288,768 | 0.8400 | - |
+| 385,024 | 0.8733 | 0.9667 |
+| 481,280 | 0.9667 | - |
+| 577,536 | 0.9333 | 0.9500 |
+| 673,792 | 0.9567 | - |
+| 770,048 | 0.9067 | 0.8933 |
+| 866,304 | 0.8867 | - |
+| 962,560 | 0.7300 | 0.8733 |
+
+The snippet that computed both curves (run from the repo root):
+
+```python
+import csv
+from pathlib import Path
+
+PRESETS = ("bot:topchip-draw20-pts6", "bot:spendmost-draw20-pts6", "bot:blackpurple-draw20-pts6")
+
+
+def curve(exp: str, opponents: tuple, root: Path = Path("data/experiments")) -> dict:
+    """Per checkpoint step: the mean greedy win rate over seeds 0, 1, 2 and the given opponents."""
+    by_step = {}
+    for seed in (0, 1, 2):
+        with open(root / exp / f"seed{seed}" / "eval.csv", newline="") as f:
+            for row in csv.DictReader(f):
+                if row["mode"] == "greedy" and row["opponent"] in opponents:
+                    by_step.setdefault(int(row["step"]), []).append(float(row["win_rate"]))
+    return {s: sum(v) / len(v) for s, v in sorted(by_step.items()) if len(v) == 3 * len(opponents)}
+
+
+presets = {exp: curve(exp, PRESETS) for exp in ("S1", "S6")}
+random_bot = {exp: curve(exp, ("bot:random",)) for exp in ("S1", "S6")}
+```
+
+Per seed (greedy, from the same `eval.csv` rows), the mean over the three presets per
+checkpoint:
+
+| experiment | seed | 192,512 | 385,024 | 577,536 | 770,048 | 962,560 |
+|---|---|---|---|---|---|---|
+| S6 | 0 | 0.0333 | 0.0133 | 0.0267 | 0.0000 | 0.0000 |
+| S6 | 1 | 0.1433 | 0.0167 | 0.0000 | 0.0033 | 0.0033 |
+| S6 | 2 | 0.0000 | 0.0233 | 0.0167 | 0.0000 | 0.0000 |
+
+### PPO metrics
+
+Per experiment and window: the mean over seeds 0, 1, 2 of the mean over the window's rows of
+`data/experiments/<exp>/seed<k>/ppo.csv`. The windows are set by the `steps` column (the step
+count at the end of an update), so they cover the same share of training for both rollout
+sizes: first = steps 1-51,200, middle = 455,681-506,880, last = 911,361-962,560. For S0 and S1
+(1,024 steps per row) these are rows 1-50, 446-495 and 891-940, the windows of part 3; for S6
+(4,096 steps per row) they hold 12, 12 and 13 rows. S0 and S1 have no `epochs_run` column
+(`-`). `approx_kl` is the mean KL of the last pass of each update (see the correction above).
+
+| experiment | window | rows | `mean_reward` | `approx_kl` | `clip_fraction` | `entropy` | `explained_variance` | `epochs_run` |
+|---|---|---|---|---|---|---|---|---|
+| S0 | first | 50 | -0.9993 | 0.0572 | 0.2328 | 0.4614 | 0.6754 | - |
+| S0 | middle | 50 | -0.9915 | 0.1447 | 0.1526 | 0.1544 | 0.9557 | - |
+| S0 | last | 50 | -0.9964 | 0.1213 | 0.1517 | 0.1707 | 0.9564 | - |
+| S1 | first | 50 | -0.7614 | 0.0548 | 0.2458 | 0.5384 | 0.7029 | - |
+| S1 | middle | 50 | -0.7435 | 0.1094 | 0.2166 | 0.2925 | 0.8839 | - |
+| S1 | last | 50 | -0.7674 | 0.1133 | 0.1999 | 0.2583 | 0.8669 | - |
+| S6 | first | 12 | -0.7783 | 0.0196 | 0.1778 | 0.7156 | 0.3136 | 10.0000 |
+| S6 | middle | 12 | -0.6895 | 0.0484 | 0.1409 | 0.2684 | 0.9162 | 10.0000 |
+| S6 | last | 13 | -0.7831 | 0.0462 | 0.1209 | 0.2056 | 0.8992 | 10.0000 |
+
+`mean_reward` of S6 per tenth of its 235 updates (23 rows each, the last 5 rows left out), per
+seed:
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | -0.719 | -0.708 | -0.754 | -0.759 | -0.710 | -0.717 | -0.720 | -0.762 | -0.748 | -0.720 |
+| 1 | -0.732 | -0.572 | -0.555 | -0.688 | -0.678 | -0.728 | -0.760 | -0.772 | -0.754 | -0.750 |
+| 2 | -0.830 | -0.688 | -0.750 | -0.736 | -0.792 | -0.703 | -0.708 | -0.776 | -0.711 | -0.754 |
+
+The snippet that computed the PPO metrics table (run from the repo root):
+
+```python
+import csv
+from pathlib import Path
+
+METRICS = ("mean_reward", "approx_kl", "clip_fraction", "entropy", "explained_variance", "epochs_run")
+WINDOWS = {"first": (0, 51_200), "middle": (455_680, 506_880), "last": (911_360, 962_560)}
+
+
+def window_means(exp: str, root: Path = Path("data/experiments")) -> dict:
+    """Per window and metric: the mean over seeds 0, 1, 2 of the mean over the window's rows
+    (the rows with lo < steps <= hi)."""
+    out = {w: {} for w in WINDOWS}
+    for seed in (0, 1, 2):
+        with open(root / exp / f"seed{seed}" / "ppo.csv", newline="") as f:
+            rows = list(csv.DictReader(f))
+        assert int(rows[-1]["steps"]) == 962_560
+        for w, (lo, hi) in WINDOWS.items():
+            part = [r for r in rows if lo < int(r["steps"]) <= hi]
+            for m in METRICS:
+                if m in part[0]:
+                    out[w][m] = out[w].get(m, 0.0) + sum(float(r[m]) for r in part) / len(part) / 3
+            out[w]["rows"] = len(part)
+    return out
+
+
+for exp in ("S0", "S1", "S6"):
+    for w, vals in window_means(exp).items():
+        cells = [f"{vals[m]:.4f}" if m in vals else "-" for m in METRICS]
+        print(f"| {exp} | {w} | {vals['rows']} | " + " | ".join(cells) + " |")
+```
+
+### Sense check after S6
+
+S6 does not make sense as an improvement, and one part of it is implausible in the sense of
+`experiments/README.md`: **the policy gets worse while training.** The preset curve falls from
+0.0589 at the first checkpoint (192,512) to 0.0011 at the last two (770,048 and 962,560), and
+the fall is not noise of one checkpoint: seed 1 won 0.1433 of 150 greedy games against the
+presets at 192,512 (in S1 no seed reached that at any checkpoint) and then 0.0167, 0.0000,
+0.0033, 0.0033. The same seed's training reward against its own seven-opponent mix shows it
+too: `mean_reward` rose from -0.732 (first tenth) to -0.555 (third tenth) and fell back to
+-0.750 (last tenth), so it lost what it had learned on the objective it trains on, not only on
+the presets. Against `bot:random` S6 also ends lower than its best (0.9667 at 385,024, 0.8733
+at the end), as S1 did (0.9667 at 481,280, 0.7300 at the end). The rest looks plausible: the
+training took half the time and S6 made a quarter of S1's gradient steps (see "Run data"); the
+KL of the 10th pass is less than half of S1's (0.0196 / 0.0484 / 0.0462 against 0.0548 /
+0.1094 / 0.1133) and `clip_fraction` is lower, as expected for larger minibatches on more data;
+entropy falls more slowly early (0.7156 against 0.5384 in the first window) and ends below S1
+(0.2056 against 0.2583). The final score, 0.0022, is at the floor like S0 (0.0036) and S1
+(0.0011). The games per update are about 37 (mean of the `games` column, 36.7-38.0 per seed),
+not the 50 the spec expected from S1's 12.6: S6's games are longer on average (about 109 moves
+per game against 81). Smaller updates alone did not stop the decline: the KL of S6 is already
+well below S1's, and the policy still forgets. Following the issue's constraint, S7 is not
+started; this goes to the owner first.
