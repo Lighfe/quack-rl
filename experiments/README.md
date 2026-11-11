@@ -123,6 +123,61 @@ systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
     --config experiments/L.json --out data/experiments --threads 1
 ```
 
+## Screening 4: S8
+
+`experiments/S8.json` is S7 (`target_kl` 0.03) with `n_steps` 2,048 and `batch_size` 128
+instead of 1,024 and 64: half of S6's rollout size, on top of S7's early stop. A pass still has
+16 minibatches. Seeds 0, 1, 2, paired with S7's. `checkpoint_every` 96,256 is 47 rollouts of
+2,048, so S8 has S7's 10 checkpoints. Why: S7 is the best arm so far (score 0.1714) but noisy
+(seed 2 gives about 77% of its score, all three seeds dropped at 577,536); S6 (`n_steps` 4,096)
+roughly halved the KL and slowed the decline, but was not enough on its own. See parts 3 and 4 of
+`docs/analysis/2026-11-screening.md`.
+
+Run it (trial of seed 0 with 8,192 steps to `/tmp/quack-trial-s8`, then the full run to
+`data/experiments`; each in the memory cap wrapper above; start, end, exit code and peak RSS of
+each run go to `data/experiments/run_s8.log`):
+
+```
+scripts/run_s8.sh                 # trial, then full run
+scripts/run_s8.sh --skip-trial    # full run only
+scripts/run_s8.sh --resume        # passes --resume to run_experiment.py
+```
+
+### Decision rule (written before the run)
+
+This rule was committed together with `experiments/S8.json`, before S8 ran. S8 counts as better
+than S7 when all three hold:
+
+- **(a) Score.** S8's score is higher than S7's 0.1714 (score as in part 1 of the screening
+  record: mean greedy `win_rate` over 3 seeds x 3 presets in `final_eval.csv`).
+- **(b) Curve.** S8's preset curve (mean greedy `win_rate` over the 9 seed x preset rows of
+  `eval.csv` per checkpoint) is not below S7's at most of the 10 checkpoints: S8 >= S7 at 6 or
+  more of them.
+- **(c) Seeds.** No single seed gives more than about two thirds of S8's score: the largest
+  per-seed score (mean over the three presets) is at most 2/3 of the sum of the three. S7 fails
+  this (0.3975 of 0.5141, 77%).
+
+The comparison table in the screening record also lists the **gradient steps** of S1, S6, S7 and
+S8 over the budget, so that a gain cannot be mistaken for less training: per seed, the sum over
+the rows of `ppo.csv` of `epochs_run` x (`n_steps` / `batch_size`) (16 for all four arms). S1 has
+no `epochs_run` column; it ran 10 passes per update (940 x 160 = 150,400). For S7 and S8 the sum
+is an upper bound, since the pass in which the stop comes is cut short.
+
+The sense check after S8 (see "Sense check after a screening") is written as usual, whatever the
+rule says.
+
+### Next step after S8 (text only, no configs yet)
+
+The BC reruns S9, S10, S11 are S3, S4, S5 (BC starts from B0, B1, B2) with the update settings of
+the winner, and wait for the owner's decision after S8:
+
+- if S8 is better than S7 by the rule above: S8's settings, `n_steps` 2,048, `batch_size` 128,
+  `target_kl` 0.03;
+- if not: S7's settings, `target_kl` 0.03 only (`n_steps` 1,024, `batch_size` 64).
+
+Both are possible with S3-S5's other settings: `critic_warmup_steps` 51,200 is 25 rollouts of
+2,048 (and 50 of 1,024), and `checkpoint_every` 96,256 is a multiple of both rollout sizes.
+
 ## Sense check after a screening
 
 After each screening, the engineer reads the learning curves and the PPO metrics, in the monitor

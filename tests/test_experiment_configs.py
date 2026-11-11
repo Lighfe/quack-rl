@@ -20,6 +20,7 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S5": ("S3", ["init_from_bc"]),
     "S6": ("S1", ["checkpoint_every", "n_steps", "batch_size"]),
     "S7": ("S1", ["target_kl"]),
+    "S8": ("S7", ["n_steps", "batch_size"]),
     "L": ("S5", ["steps", "checkpoint_every"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
@@ -68,7 +69,7 @@ def test_ppo_configs_write_the_update_settings(name: str) -> None:
 
 
 def test_screening_3_configs_keep_the_step_budget() -> None:
-    for name in ("S6", "S7"):
+    for name in ("S6", "S7", "S8"):
         assert load_config(EXPERIMENTS / f"{name}.json").steps == 962560
 
 

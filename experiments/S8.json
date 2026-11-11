@@ -1,0 +1,48 @@
+{
+  "id": "S8",
+  "kind": "ppo",
+  "baseline": "S7",
+  "changes": "half of S6's rollout size, on top of S7's early stop: n_steps 2048 and batch_size 128 instead of 1024 and 64, so a pass still has 16 minibatches (as in S1, S6 and S7), on about 17 games instead of about 8.5, and the target_kl 0.03 stop of S7 stays. S6 (n_steps 4096, batch_size 256, no stop) roughly halved the KL but did not stop the decline alone; S8 tests whether a larger rollout makes S7's curve steadier. checkpoint_every 96,256 is 47 rollouts of 2,048, so S8 keeps S7's 10 checkpoints",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "steps": 962560,
+  "opponents": [
+    {
+      "spec": "bot:random",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw0-pts4",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw0-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "win_loss",
+  "hidden": 256,
+  "n_steps": 2048,
+  "batch_size": 128,
+  "target_kl": 0.03,
+  "checkpoint_every": 96256
+}
