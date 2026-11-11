@@ -2,7 +2,7 @@
   "id": "S7",
   "kind": "ppo",
   "baseline": "S1",
-  "changes": "early stop of the update by target_kl 0.03: MaskablePPO stops an update when the KL of one minibatch is above 1.5 x 0.03 = 0.045. S1's logged approx_kl (the mean over the update) was 0.075-0.123 by fifth of training, so the stop binds in every phase of training and should bring the mean KL of an update toward the common 0.01-0.02. A target_kl of 0.02 (stop at 0.03) would likely end most updates in the first or second pass and 0.05 (stop at 0.075) would barely bind early in training",
+  "changes": "early stop of the update by target_kl 0.03: MaskablePPO stops an update when the KL of one minibatch is above 1.5 x 0.03 = 0.045. S1's logged approx_kl (the mean over the minibatches of the last pass that ran: sb3_contrib resets the list at the start of each pass, so for S0-S6 it is the 10th pass, the largest KL of the update) was 0.075-0.123 by fifth of training, so the stop binds in every phase of training and should keep the KL of an update near the common 0.01-0.02. A target_kl of 0.02 (stop at 0.03) would likely end most updates in the first or second pass and 0.05 (stop at 0.075) would barely bind early in training",
   "seeds": [
     0,
     1,
