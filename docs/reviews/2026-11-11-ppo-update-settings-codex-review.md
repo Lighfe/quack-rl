@@ -19,7 +19,7 @@ Saved configs from before this change lack the three new nested update settings.
 
 Recommendation: Normalize legacy saved configs before resume validation, using their recorded top-level n_steps and batch_size and the historical target_kl=None. Keep explicit fields mandatory for new experiment configs. Add a resume test with a genuine pre-change saved config.
 
-Decision: partly taken - the failure is real (a run directory saved before #319 cannot be resumed, which also leaves the old-CSV path of #320 unreachable for real old runs), but no run in use needs it: S0-S5 are finished, S6 started fresh, L never started. Per the owner's no-legacy-shims preference no config migration is added now. A follow-up issue (label `later`) to choose between a clear resume error plus removing the unreachable path, or a real migration with a genuine pre-#319 test, is #325 (filed by the owner after the auto mode classifier denied the call from the loop session).
+Decision: rejected - the failure is real, but no run saved before #319 will ever be resumed: S0-S5 were failed screenings, S6 and S7 started fresh, L will start fresh. No migration (owner: no legacy shims). The old-CSV path of #320 is unreachable for real old runs; remove it when `ppo_run.py` is next touched. Follow-up #325 closed as not planned.
 
 ## Next steps
 
