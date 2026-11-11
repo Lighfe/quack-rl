@@ -39,7 +39,19 @@ with app.setup:
 
     alt.data_transformers.disable_max_rows()
 
-    PPO_METRICS = ["mean_reward", "entropy", "value_loss", "explained_variance"]
+    PPO_METRICS = [
+        "mean_reward",
+        "policy_loss",
+        "value_loss",
+        "entropy",
+        "approx_kl",
+        "clip_fraction",
+        "explained_variance",
+    ]
+    # A PPO seed logs one row per update (about 940 at the screening budget). The chart averages
+    # them into at most this many bins per seed: it smooths the noise and keeps the chart data
+    # under marimo's output limit (all rows of 6 seeds x 7 metrics were about 8 MB).
+    TRAIN_POINTS = 150
     BC_METRICS = ["loss", "entropy"]
     NO_DATA = "no data yet"
     GROUPS = ["experiment", "baseline"]
@@ -136,10 +148,22 @@ def _(runs):
     def tagged(frame, group, seed):
         return frame.with_columns(pl.lit(group).alias("group"), pl.lit(f"seed{seed}").alias("seed"))
 
+    def binned(frame):
+        """Mean of each block of k consecutive rows, so at most TRAIN_POINTS rows are left."""
+        k = -(-frame.height // TRAIN_POINTS)
+        if k <= 1:
+            return frame
+        return (
+            frame.with_row_index("_i")
+            .group_by(pl.col("_i") // k, maintain_order=True)
+            .agg(pl.all().exclude("_i").mean())
+            .drop("_i")
+        )
+
     def long_train(kind):
         metrics, x = (PPO_METRICS, "steps") if kind == "ppo" else (BC_METRICS, "epoch")
         parts = [
-            tagged(run.train.select(x, *metrics), group, seed)
+            tagged(binned(run.train.select(x, *metrics)), group, seed)
             for group in GROUPS
             for seed, run in runs[group].items()
             if run.kind == kind and run.train.height
@@ -180,7 +204,7 @@ def _(train_bc, train_ppo):
     def train_chart(frame, x, title):
         line = (
             alt.Chart(frame)
-            .mark_line(point=True)
+            .mark_line()
             .encode(
                 x=alt.X(f"{x}:Q", title=x),
                 y=alt.Y("value:Q", title=None, scale=alt.Scale(zero=False)),
@@ -200,7 +224,13 @@ def _(train_bc, train_ppo):
 
     train_views = []
     if train_ppo.height:
-        train_views.append(train_chart(train_ppo, "steps", "PPO training over steps"))
+        train_views.append(
+            train_chart(
+                train_ppo,
+                "steps",
+                f"PPO training over steps (mean of the updates in each of {TRAIN_POINTS} bins)",
+            )
+        )
     if train_bc.height:
         train_views.append(train_chart(train_bc, "epoch", "BC loss and entropy per epoch"))
     mo.vstack([mo.md("## Training"), *(train_views or [mo.md(f"**{NO_DATA}**")])])
@@ -232,9 +262,10 @@ def _(evals):
             .properties(title=f"Win rate per opponent ({mode})")
         )
 
+    # Greedy only: the screening score uses the greedy rows; the sampled rows stay in eval.csv.
     eval_views = [
         eval_chart(evals.filter(pl.col("mode") == mode), mode)
-        for mode in ["greedy", "sampled"]
+        for mode in ["greedy"]
         if evals.height and evals.filter(pl.col("mode") == mode).height
     ]
     mo.vstack([mo.md("## Evaluation"), *(eval_views or [mo.md(f"**{NO_DATA}**")])])
@@ -245,9 +276,9 @@ def _(evals):
 def _(finals):
     final_view = (
         mo.ui.table(
-            finals.select(
-                "group", "seed", "opponent", "mode", "games", "win_rate", "ci_low", "ci_high"
-            ).sort("group", "seed", "opponent", "mode"),
+            finals.filter(pl.col("mode") == "greedy")
+            .select("group", "seed", "opponent", "mode", "games", "win_rate", "ci_low", "ci_high")
+            .sort("group", "seed", "opponent"),
             selection=None,
         )
         if finals.height
