@@ -108,6 +108,12 @@ steps_long / rate + final evaluation time
 
 ### Next: the long run
 
+> **L is on hold. Do not start it.** Every BC arm of screening 2 got worse while training (S5
+> fell from 0.2578 at the first checkpoint to 0.0444 at the last), so a longer run of S5 has no
+> sound basis. See
+> [part 3 of the screening record](../docs/analysis/2026-11-screening.md#part-3-shortcomings-of-stage-309)
+> (#318).
+
 Next: the long run. `experiments/L.json` is S5 (chosen in part 2 of
 `docs/analysis/2026-11-screening.md`, #314) with the long-run budget above:
 
@@ -116,6 +122,23 @@ systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
     uv run --group rl python scripts/run_experiment.py \
     --config experiments/L.json --out data/experiments --threads 1
 ```
+
+## Sense check after a screening
+
+After each screening, the engineer reads the learning curves and the PPO metrics, in the monitor
+(`notebooks/rl_monitor.py`, see "Watch a run") or from the CSV files (`eval.csv`, `ppo.csv`), and
+writes a short paragraph in the screening record: does the result make sense?
+
+Anything that looks implausible goes to the owner before the next run. Examples: a policy that
+gets worse while training, or a variant with more signal that scores below its baseline. The
+check is a judgment, not a list of limits.
+
+The sense check is engineer and QA work:
+
+- The engineer writes it in the record, after each screening and before the next run.
+- QA reads the same curves and metrics on its own and states in its result whether it agrees. It
+  names anything implausible that the engineer's check missed or played down.
+- A missing sense check, or one that contradicts the numbers in the record, is a QA failure.
 
 ## Resume after an interruption
 

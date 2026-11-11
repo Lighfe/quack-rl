@@ -2,7 +2,8 @@
 
 Stage: #309. Spec: `docs/specs/2026-11-09-screening-and-bc-start.md` ("Choice rules", "The
 screening record"). Part 1 is the screening of S0, S1 and S2 and the choice of X. Part 2 (S3-S5
-and the long run) is #314. The full report is #298.
+and the long run) is #314. The full report is #298. Part 3 (#318) states the shortcomings of
+the stage.
 
 The run folders are in `data/experiments/` (git-ignored, not committed); the rows below are
 copied from them.
@@ -506,3 +507,100 @@ S5 - S2 = 0.0517 - 0.0181 = 0.0336
 Unrounded: 0.051666666666666666 - 0.018055555555555557 = 0.033611111111111105.
 
 L: S5
+
+## Part 3: Shortcomings of stage #309
+
+Issue: #318. Spec: `docs/specs/2026-11-11-ppo-update-size.md` ("Part 3 of the record"). This part
+was written after the stage, before any new run. The numbers come from parts 1 and 2 and from the
+`ppo.csv` files of the run folders.
+
+### What went wrong
+
+- **After S0-S2, every score was at the floor:** S0 0.0036, S1 0.0011, S2 0.0181, with 1,800
+  scored greedy games each. S1 also beat `bot:random` less often than S0, although S1 trained
+  against it: greedy final win rate, seeds 0, 1, 2, S1 0.955, 0.735, 0.615 against S0 0.9275,
+  0.9225, 0.9775. The stage went on to screening 2 instead of asking why.
+- **After S3-S5, every BC arm dropped on the learning curve** from its first checkpoint (S3
+  0.1933, S4 0.2933, S5 0.2578 at step 96,256) to its last checkpoint (S3 0.0178, S4 0.0189, S5
+  0.0444 at step 962,560). The final scores (S3 0.0239, S4 0.0314, S5 0.0517) stayed near the
+  floor. The fixed rules still chose S5 and wrote L.
+- **The stage review of #309 saw the drop** and still offered "run L = S5" as an option
+  (https://github.com/Lighfe/quack-rl/issues/309#issuecomment-6776798379).
+- **The training logs (`ppo.csv`) were never read.** The table below shows what they held.
+- **The owner's part:** the owner did not watch the runs in the monitor.
+- **What changes:** the PPO settings become config fields (#319), and every screening gets a
+  sense check (`experiments/README.md`, "Sense check after a screening").
+
+### PPO metrics
+
+Per experiment and window: the mean over seeds 0, 1, 2 of the mean over the window's rows of
+`data/experiments/<exp>/seed<k>/ppo.csv` (940 rows each, one row per update of 1,024 steps).
+Windows, as 1-based data rows: first = rows 1-50, middle = rows 446-495, last = rows 891-940.
+
+| experiment | window | `approx_kl` | `clip_fraction` | `entropy` | `explained_variance` | `mean_reward` |
+|---|---|---|---|---|---|---|
+| S0 | first | 0.0572 | 0.2328 | 0.4614 | 0.6754 | -0.9993 |
+| S0 | middle | 0.1447 | 0.1526 | 0.1544 | 0.9557 | -0.9915 |
+| S0 | last | 0.1213 | 0.1517 | 0.1707 | 0.9564 | -0.9964 |
+| S1 | first | 0.0548 | 0.2458 | 0.5384 | 0.7029 | -0.7614 |
+| S1 | middle | 0.1094 | 0.2166 | 0.2925 | 0.8839 | -0.7435 |
+| S1 | last | 0.1133 | 0.1999 | 0.2583 | 0.8669 | -0.7674 |
+| S2 | first | 0.0558 | 0.2446 | 0.5052 | 0.4201 | -0.5983 |
+| S2 | middle | 0.1166 | 0.1923 | 0.2325 | 0.7332 | -0.5380 |
+| S2 | last | 0.1327 | 0.1593 | 0.1764 | 0.7383 | -0.4952 |
+| S3 | first | 0.0000 | 0.0000 | 0.1628 | 0.4792 | -0.0737 |
+| S3 | middle | 0.1025 | 0.1700 | 0.2049 | 0.7456 | -0.5219 |
+| S3 | last | 0.1252 | 0.1525 | 0.1619 | 0.7232 | -0.4852 |
+| S4 | first | 0.0000 | 0.0000 | 0.4427 | 0.4928 | -0.3727 |
+| S4 | middle | 0.1189 | 0.1710 | 0.2035 | 0.7179 | -0.5056 |
+| S4 | last | 0.1099 | 0.1607 | 0.1832 | 0.7317 | -0.5122 |
+| S5 | first | 0.0000 | 0.0000 | 0.1625 | 0.4591 | -0.0757 |
+| S5 | middle | 0.1090 | 0.1712 | 0.2252 | 0.6863 | -0.4313 |
+| S5 | last | 0.1039 | 0.1544 | 0.1795 | 0.7083 | -0.4721 |
+
+The snippet that computed the table (run from the repo root):
+
+```python
+import csv
+from pathlib import Path
+
+METRICS = ("approx_kl", "clip_fraction", "entropy", "explained_variance", "mean_reward")
+WINDOWS = {"first": (1, 50), "middle": (446, 495), "last": (891, 940)}  # 1-based data rows
+
+
+def window_means(exp: str, root: Path = Path("data/experiments")) -> dict:
+    """Per window and metric: the mean over seeds 0, 1, 2 of the mean over the window's rows."""
+    out = {w: {m: 0.0 for m in METRICS} for w in WINDOWS}
+    for seed in (0, 1, 2):
+        with open(root / exp / f"seed{seed}" / "ppo.csv", newline="") as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == 940
+        for w, (lo, hi) in WINDOWS.items():
+            part = rows[lo - 1 : hi]
+            for m in METRICS:
+                out[w][m] += sum(float(r[m]) for r in part) / len(part) / 3
+    return out
+
+
+for exp in ("S0", "S1", "S2", "S3", "S4", "S5"):
+    for w, vals in window_means(exp).items():
+        print(f"| {exp} | {w} | " + " | ".join(f"{vals[m]:.4f}" for m in METRICS) + " |")
+```
+
+### Reading of the PPO metrics
+
+- **The updates are large.** `approx_kl` is 0.05-0.16 in every window that trains the actor
+  (0.0548-0.1447 in the table), against the common 0.01-0.02.
+- **The zero window of S3-S5 is the critic warmup.** In S3-S5, rows 1-50 are exactly the critic
+  warmup (`critic_warmup_steps` 51,200 = 50 updates of 1,024 steps, actor frozen). So
+  `approx_kl` and `clip_fraction` are 0 there; that window is not a sign of small updates.
+- **The PPO setup is SB3's defaults.** `n_steps` 1,024, `batch_size` 64, `n_epochs` 10: 1,024 /
+  64 x 10 = 160 gradient steps per update, on about 12 games. There is no `target_kl`, and
+  `ent_coef` is 0.
+- **Entropy falls even in S0**, which has almost no wins: from 0.4614 (first) to 0.1544 (middle)
+  and 0.1707 (last). The policy grows sure of itself without a signal that would justify it.
+- **Reading, not a test:** in S0 the critic most likely predicts how many moves are left. With
+  reward `win_loss` and almost every game lost (`mean_reward` -0.9993 to -0.9915), the target is
+  -0.99^k for almost every game, where k is the number of moves to the end. So
+  `explained_variance` is high (0.9557, 0.9564) with no information about winning. This was not
+  tested.
