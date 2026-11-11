@@ -44,7 +44,9 @@ PPO_COLUMNS = (
     "clip_fraction",
     "explained_variance",
     "wall_seconds",
+    "epochs_run",
 )
+_WALL = PPO_COLUMNS.index("wall_seconds")
 # ppo.csv column -> SB3 logger key (entropy is handled apart: it is minus train/entropy_loss)
 _LOGGER_KEYS = {
     "policy_loss": "train/policy_gradient_loss",
@@ -202,10 +204,12 @@ def _check(config: ExperimentConfig, steps: int) -> None:
 
 
 def _read_rows(path: Path) -> list[list[str]]:
+    """The rows of `ppo.csv` in the order of `PPO_COLUMNS`, read by the file's header: a column
+    the file does not have (an older format, for example without `epochs_run`) is empty."""
     if not path.is_file():
         return []
     with path.open(newline="") as handle:
-        return [row for row in csv.reader(handle)][1:]
+        return [[row.get(c) or "" for c in PPO_COLUMNS] for row in csv.DictReader(handle)]
 
 
 def _write_rows(path: Path, rows: list[list[str]]) -> None:
@@ -366,7 +370,7 @@ def run_ppo_seed(
         config_path.write_text(json.dumps(stored, indent=2) + "\n")
     kept = [row for row in _read_rows(csv_path) if row and int(row[0]) <= start]
     _write_rows(csv_path, kept)
-    wall_offset = float(kept[-1][-1]) if kept else 0.0
+    wall_offset = float(kept[-1][_WALL]) if kept else 0.0
     games = None
     if config.save_games:
         _trim_games(out / GAMES_FILE, start)
@@ -388,7 +392,7 @@ def run_ppo_seed(
     if not (out / "checkpoints" / f"step_{final}.zip").is_file():
         _save_checkpoint(model, out, final)
     rows = _read_rows(csv_path)
-    train_seconds = float(rows[-1][-1]) if rows else wall_offset
+    train_seconds = float(rows[-1][_WALL]) if rows else wall_offset
     done = {"steps": final, "train_seconds": train_seconds}
     (out / "done.json").write_text(json.dumps(done, indent=2) + "\n")
     return out
@@ -414,6 +418,11 @@ def _make_callback(
     SB3 records the `train/*` values of rollout k in `train()`, after the rollout callbacks of
     rollout k, so the row of rollout k is made at the start of the next rollout or at the end of
     training. The row is written before the checkpoint, so a checkpoint always has its row.
+
+    `epochs_run` is the number of passes of the update of the row: the growth of MaskablePPO's
+    pass counter `_n_updates` (logged as `train/n_updates`) since the previous row, or since the
+    start of `learn` (after `MaskablePPO.load` on a resume) for the first row. MaskablePPO adds 1
+    after each pass, also after a pass cut short by `target_kl`.
     """
     from stable_baselines3.common.callbacks import BaseCallback
 
@@ -424,6 +433,10 @@ def _make_callback(
             super().__init__()
             self.finished: list[float] = []
             self.pending: list[float] | None = None  # rewards of a rollout that has no row yet
+            self.passes = 0  # the model's pass counter at the previous row
+
+        def _on_training_start(self) -> None:
+            self.passes = int(self.model._n_updates)
 
         def _on_step(self) -> bool:
             infos = self.locals["infos"]
@@ -463,7 +476,9 @@ def _make_callback(
                 "games": len(finished),
                 "entropy": -float(values["train/entropy_loss"]),
                 "wall_seconds": round(wall_offset + time.monotonic() - started, 3),
+                "epochs_run": int(self.model._n_updates) - self.passes,
             }
+            self.passes = int(self.model._n_updates)
             row.update({column: float(values[key]) for column, key in _LOGGER_KEYS.items()})
             with csv_path.open("a", newline="") as handle:
                 csv.writer(handle).writerow([row[c] for c in PPO_COLUMNS])

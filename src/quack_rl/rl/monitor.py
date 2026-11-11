@@ -30,6 +30,7 @@ PPO_SCHEMA: dict[str, pl.DataType] = {
     "clip_fraction": _FLOAT(),
     "explained_variance": _FLOAT(),
     "wall_seconds": _FLOAT(),
+    "epochs_run": _INT(),  # not in the ppo.csv of S0-S5: read_csv types only the header's columns
 }
 BC_SCHEMA: dict[str, pl.DataType] = {
     "epoch": _INT(),

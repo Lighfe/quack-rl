@@ -302,3 +302,83 @@ def test_without_save_games_no_games_file(tmp_path):
     pytest.importorskip("sb3_contrib")
     run_ppo_seed(p0(checkpoint_every=None, hidden=32), 0, tmp_path, steps_override=1024)
     assert not (tmp_path / "games.jsonl").exists()
+
+
+# --- passes per update (epochs_run) ------------------------------------------------------------
+
+
+def _short(**overrides) -> ExperimentConfig:
+    data = {"n_steps": 128, "batch_size": 32, "steps": 384, "checkpoint_every": 128, "hidden": 32}
+    data.update(overrides)
+    return p0(**data)
+
+
+def test_epochs_run_is_the_last_column():
+    assert PPO_COLUMNS[-1] == "epochs_run"
+    assert PPO_COLUMNS[-2] == "wall_seconds"
+
+
+@pytest.mark.slow
+def test_epochs_run_is_ten_without_target_kl(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    run_ppo_seed(_short(), 0, tmp_path)
+    got = rows(tmp_path)
+    assert len(got) == 3
+    assert [int(r["epochs_run"]) for r in got] == [10, 10, 10]
+
+
+@pytest.mark.slow
+def test_epochs_run_stops_early_with_a_tiny_target_kl(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    run_ppo_seed(_short(target_kl=1e-6), 0, tmp_path)
+    passes = [int(r["epochs_run"]) for r in rows(tmp_path)]
+    assert len(passes) == 3
+    assert all(n >= 1 for n in passes), passes
+    assert any(n < 10 for n in passes), passes
+
+
+@pytest.mark.slow
+def test_epochs_run_after_a_resume_counts_only_the_new_update(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    config = _short()
+    run_ppo_seed(config, 0, tmp_path)
+    (tmp_path / "done.json").unlink()
+    (tmp_path / "checkpoints" / "step_384.zip").unlink()
+    (tmp_path / "checkpoints" / "step_256.zip").unlink()
+    run_ppo_seed(config, 0, tmp_path, resume=True)
+    got = rows(tmp_path)
+    assert [r["steps"] for r in got] == ["128", "256", "384"]
+    assert [int(r["epochs_run"]) for r in got] == [10, 10, 10]
+
+
+@pytest.mark.slow
+def test_resume_of_an_old_format_ppo_csv(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    from quack_rl.rl.monitor import load_run
+
+    config = _short()
+    run_ppo_seed(config, 0, tmp_path)
+    old_columns = [c for c in PPO_COLUMNS if c != "epochs_run"]
+    old_rows = [{c: r[c] for c in old_columns} for r in rows(tmp_path)]
+    with (tmp_path / "ppo.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=old_columns)
+        writer.writeheader()
+        writer.writerows(old_rows)
+    (tmp_path / "done.json").unlink()
+    (tmp_path / "checkpoints" / "step_384.zip").unlink()
+    run_ppo_seed(config, 0, tmp_path, resume=True)
+
+    with (tmp_path / "ppo.csv").open(newline="") as handle:
+        lines = list(csv.reader(handle))
+    assert lines[0] == list(PPO_COLUMNS)
+    assert all(len(line) == 11 for line in lines), lines
+    body = lines[1:]
+    assert [line[0] for line in body] == ["128", "256", "384"]
+    assert [line[-1] for line in body[:2]] == ["", ""]
+    assert int(body[2][-1]) == 10
+    assert [line[:-1] for line in body[:2]] == [[r[c] for c in old_columns] for r in old_rows[:2]]
+    done = json.loads((tmp_path / "done.json").read_text())
+    assert done["train_seconds"] == float(body[2][PPO_COLUMNS.index("wall_seconds")])
+
+    run = load_run(tmp_path)
+    assert run.train["epochs_run"].to_list() == [None, None, 10]

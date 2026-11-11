@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import polars as pl
+
 from quack_rl.rl.monitor import RunData, load_experiment, load_run
 
 PPO_HEADER = (
@@ -157,3 +159,31 @@ def test_monitor_imports_only_stdlib_and_polars():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == ""
+
+
+def test_ppo_schema_matches_the_run_columns():
+    from quack_rl.rl.monitor import PPO_SCHEMA
+    from quack_rl.rl.ppo_run import PPO_COLUMNS
+
+    assert list(PPO_SCHEMA) == list(PPO_COLUMNS)
+
+
+def test_ppo_csv_with_epochs_run(tmp_path):
+    write(
+        tmp_path / "ppo.csv",
+        PPO_HEADER.rstrip("\n")
+        + ",epochs_run\n"
+        + "2048,1.5,12,-0.01,0.5,1.2,0.01,0.1,0.2,10.0,10\n"
+        + "4096,,0,-0.02,0.4,1.1,0.02,0.2,0.3,20.0,3\n"
+        + "6144,,0,-0.02,0.4,1.1,0.02,0.2,0.3,30.0,\n",
+    )
+    run = load_run(tmp_path)
+    assert run.train["epochs_run"].dtype == pl.Int64
+    assert run.train["epochs_run"].to_list() == [10, 3, None]
+
+
+def test_old_format_ppo_csv_without_epochs_run(tmp_path):
+    write(tmp_path / "ppo.csv", PPO_HEADER + "2048,1.5,12,-0.01,0.5,1.2,0.01,0.1,0.2,10.0\n")
+    run = load_run(tmp_path)
+    assert "epochs_run" not in run.train.columns
+    assert run.train["wall_seconds"].to_list() == [10.0]
