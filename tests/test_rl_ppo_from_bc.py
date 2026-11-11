@@ -22,6 +22,9 @@ def p3(**overrides) -> ExperimentConfig:
         "steps": 2048,
         "opponents": [{"spec": "bot:random"}],
         "checkpoint_every": 1024,
+        "n_steps": 1024,
+        "batch_size": 64,
+        "target_kl": None,
     }
     data.update(overrides)
     return ExperimentConfig.model_validate(data)

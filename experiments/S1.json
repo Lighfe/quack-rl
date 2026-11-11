@@ -41,5 +41,8 @@
   ],
   "reward": "win_loss",
   "hidden": 256,
+  "n_steps": 1024,
+  "batch_size": 64,
+  "target_kl": null,
   "checkpoint_every": 96256
 }

@@ -1,5 +1,6 @@
 """Tests for the experiment config (`quack_rl.rl.experiment`)."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,9 @@ def p0(**overrides) -> ExperimentConfig:
         "changes": "PPO baseline",
         "steps": 1000,
         "opponents": [{"spec": "bot:random"}],
+        "n_steps": 1000,
+        "batch_size": 50,
+        "target_kl": None,
     }
     data.update(overrides)
     return ExperimentConfig.model_validate(data)
@@ -133,6 +137,70 @@ def test_unknown_opponent_key_raises():
         p0(opponents=[{"spec": "bot:random", "share": 2}])
 
 
+# --- PPO update settings (n_steps, batch_size, target_kl) -------------------
+
+
+@pytest.mark.parametrize("field", ["n_steps", "batch_size", "target_kl"])
+def test_ppo_missing_update_setting_raises_naming_it(field, tmp_path: Path):
+    data = p0().model_dump(mode="json")
+    del data[field]
+    with pytest.raises(ValueError, match=field):
+        ExperimentConfig.model_validate(data)
+    path = tmp_path / "x.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match=field):
+        load_config(path)
+
+
+def test_ppo_target_kl_null_is_valid(tmp_path: Path):
+    path = tmp_path / "x.json"
+    path.write_text(json.dumps(p0().model_dump(mode="json")), encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    assert '"target_kl": null' in text
+    cfg = load_config(path)
+    assert cfg.target_kl is None
+    assert (cfg.n_steps, cfg.batch_size) == (1000, 50)
+
+
+def test_bc_config_needs_no_update_settings():
+    cfg = b0()
+    assert (cfg.n_steps, cfg.batch_size, cfg.target_kl) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"n_steps": 0, "batch_size": 2},
+        {"n_steps": -4, "batch_size": 2},
+        {"n_steps": 4, "batch_size": 1},
+        {"n_steps": 4, "batch_size": 0},
+        {"n_steps": 1000, "batch_size": 64},
+        {"target_kl": 0},
+        {"target_kl": 0.0},
+        {"target_kl": -0.01},
+        {"n_steps": None},
+        {"batch_size": None},
+    ],
+)
+def test_ppo_bad_update_settings_raise(overrides):
+    with pytest.raises(ValueError):
+        p0(**overrides)
+
+
+def test_ppo_n_steps_not_a_multiple_of_batch_size_names_both():
+    with pytest.raises(ValueError, match="n_steps.*1000.*batch_size.*64"):
+        p0(n_steps=1000, batch_size=64)
+
+
+@pytest.mark.parametrize(
+    ("n_steps", "batch_size", "target_kl"),
+    [(2, 2, None), (4096, 64, 0.03), (128, 32, 0.5), (1024, 1024, 1e-6)],
+)
+def test_ppo_valid_update_settings(n_steps, batch_size, target_kl):
+    cfg = p0(n_steps=n_steps, batch_size=batch_size, target_kl=target_kl)
+    assert (cfg.n_steps, cfg.batch_size, cfg.target_kl) == (n_steps, batch_size, target_kl)
+
+
 # --- config_diff ------------------------------------------------------------
 
 
@@ -165,6 +233,12 @@ def test_diff_bc_fields_in_order():
 
 def test_diff_bc_one_side_null():
     assert config_diff(p0(), p0(bc={"dataset": "d"})) == ["bc"]
+
+
+def test_diff_names_the_update_settings():
+    assert config_diff(p0(), p0(target_kl=0.03)) == ["target_kl"]
+    assert config_diff(p0(), p0(n_steps=2000)) == ["n_steps"]
+    assert config_diff(p0(), p0(n_steps=2000, batch_size=100)) == ["n_steps", "batch_size"]
 
 
 def test_diff_p3_names_two_fields():

@@ -30,7 +30,7 @@ from quack_rl.rl.opponents import OpponentMix
 from quack_rl.rl.reward import REWARDS
 from quack_rl.rl.selfplay import ResumeError
 from quack_rl.rl.single_env import QuackEnv
-from quack_rl.rl.train import BATCH_SIZE, N_STEPS, library_versions
+from quack_rl.rl.train import library_versions
 
 RULES = "v2.3"
 PPO_COLUMNS = (
@@ -188,12 +188,16 @@ def _check(config: ExperimentConfig, steps: int) -> None:
         raise ValueError(f"run_ppo_seed needs a ppo experiment, not kind {config.kind!r}")
     if steps < 1:
         raise ValueError(f"steps must be at least 1, not {steps}")
+    n_steps = config.n_steps
+    assert n_steps is not None  # a ppo config always has n_steps
     every = config.checkpoint_every
-    if every is not None and (every < 1 or every % N_STEPS):
-        raise ValueError(f"checkpoint_every must be a multiple of {N_STEPS}, not {every}")
+    if every is not None and (every < 1 or every % n_steps):
+        raise ValueError(f"checkpoint_every must be a multiple of n_steps {n_steps}, not {every}")
     warmup = config.critic_warmup_steps
-    if warmup < 0 or warmup % N_STEPS:
-        raise ValueError(f"critic_warmup_steps must be a multiple of {N_STEPS}, not {warmup}")
+    if warmup < 0 or warmup % n_steps:
+        raise ValueError(
+            f"critic_warmup_steps must be a multiple of n_steps {n_steps}, not {warmup}"
+        )
     OpponentMix(_opponent_specs(config), 0, RULES)  # raises ValueError naming an unknown spec
 
 
@@ -266,7 +270,8 @@ def run_ppo_seed(
     The opponents are an `OpponentMix` of the config's specs, each repeated `weight` times; the
     reward is `REWARDS[config.reward]`; the network is `policy_kwargs(config.hidden)`. The step
     budget is `steps_override` or `config.steps`; the run ends at the first rollout end at or past
-    it. `checkpoint_every=None` means only the final checkpoint.
+    it. MaskablePPO gets the config's `n_steps`, `batch_size` and `target_kl` (one env, so a
+    rollout is `n_steps` moves). `checkpoint_every=None` means only the final checkpoint.
 
     `resume=False` raises FileExistsError when `out` already has a `config.json`. `resume=True`
     raises `ResumeError` naming each differing setting when the config, the seed or the budget
@@ -275,7 +280,8 @@ def run_ppo_seed(
     step (and with `save_games` the `games.jsonl` lines past it and a broken last line) and trains
     up to the budget. Raises ValueError before any file is written on an unknown
     opponent spec, or a `checkpoint_every` or `critic_warmup_steps` that is not a multiple of
-    `N_STEPS`.
+    the config's `n_steps`. `config.json` holds the config (with the three update settings) and
+    its `n_steps` and `batch_size` also as top-level keys.
 
     With `init_from_bc` (a path relative to the current directory; every `{seed}` in it is
     replaced by `seed`, see `resolve_bc_path`) a run that starts from step 0 loads that BC
@@ -316,8 +322,8 @@ def run_ppo_seed(
             "seed": seed,
             "steps": steps,
             "rules": RULES,
-            "n_steps": N_STEPS,
-            "batch_size": BATCH_SIZE,
+            "n_steps": config.n_steps,
+            "batch_size": config.batch_size,
             "git_commit": git_commit(),
             "versions": library_versions(),
         }
@@ -341,8 +347,9 @@ def run_ppo_seed(
         model = MaskablePPO(
             "MlpPolicy",
             env,
-            n_steps=N_STEPS,
-            batch_size=BATCH_SIZE,
+            n_steps=config.n_steps,
+            batch_size=config.batch_size,
+            target_kl=config.target_kl,
             seed=seed,
             device="cpu",
             policy_kwargs=policy_kwargs(config.hidden),

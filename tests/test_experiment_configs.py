@@ -1,6 +1,7 @@
 """The experiment configs in `experiments/`: each changes exactly one thing against its
 baseline. The screening configs S0-S5 share one step budget."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -47,3 +48,23 @@ def test_screening_configs_share_the_step_budget() -> None:
     (every,) = checkpoint_every
     assert budget % every == 0
     assert budget // every >= 6
+
+
+PPO_CONFIGS = [*SCREENING, "L"]
+
+
+@pytest.mark.parametrize("name", PPO_CONFIGS)
+def test_ppo_configs_write_the_update_settings(name: str) -> None:
+    data = json.loads((EXPERIMENTS / f"{name}.json").read_text(encoding="utf-8"))
+    assert data["n_steps"] == 1024
+    assert data["batch_size"] == 64
+    assert "target_kl" in data and data["target_kl"] is None
+    config = load_config(EXPERIMENTS / f"{name}.json")
+    assert (config.n_steps, config.batch_size, config.target_kl) == (1024, 64, None)
+
+
+@pytest.mark.parametrize("name", ["B0", "B1", "B2"])
+def test_bc_configs_have_no_update_settings(name: str) -> None:
+    data = json.loads((EXPERIMENTS / f"{name}.json").read_text(encoding="utf-8"))
+    assert not {"n_steps", "batch_size", "target_kl"} & set(data)
+    assert load_config(EXPERIMENTS / f"{name}.json").kind == "bc"

@@ -25,6 +25,9 @@
   ],
   "reward": "margin",
   "hidden": 256,
+  "n_steps": 1024,
+  "batch_size": 64,
+  "target_kl": null,
   "checkpoint_every": 96256,
   "init_from_bc": "data/experiments/B0/seed{seed}/model.pt",
   "critic_warmup_steps": 51200

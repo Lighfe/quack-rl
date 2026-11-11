@@ -24,6 +24,9 @@ def p0(**overrides) -> ExperimentConfig:
         "steps": 2048,
         "opponents": [{"spec": "bot:random"}],
         "checkpoint_every": 1024,
+        "n_steps": 1024,
+        "batch_size": 64,
+        "target_kl": None,
     }
     data.update(overrides)
     return ExperimentConfig.model_validate(data)
@@ -69,6 +72,70 @@ def test_checkpoint_every_not_a_multiple_raises_before_any_file(tmp_path):
     with pytest.raises(ValueError, match="checkpoint_every"):
         run_ppo_seed(p0(checkpoint_every=1000), 0, out)
     assert not out.exists()
+
+
+def test_checkpoint_every_is_checked_against_the_config_n_steps(tmp_path):
+    out = tmp_path / "run"
+    config = p0(n_steps=4096, batch_size=64, steps=192512, checkpoint_every=96256)
+    with pytest.raises(ValueError, match="4096"):
+        run_ppo_seed(config, 0, out)
+    assert not out.exists()
+    # 192512 = 47 * 4096: the check passes (stopped right after it by an unknown opponent)
+    config = p0(
+        n_steps=4096,
+        batch_size=64,
+        steps=192512,
+        checkpoint_every=192512,
+        opponents=[{"spec": "bot:nobody"}],
+    )
+    with pytest.raises(ValueError, match="bot:nobody"):
+        run_ppo_seed(config, 0, out)
+    assert not out.exists()
+
+
+def test_critic_warmup_is_checked_against_the_config_n_steps(tmp_path):
+    out = tmp_path / "run"
+    config = p0(n_steps=4096, batch_size=64, checkpoint_every=None, critic_warmup_steps=51200)
+    with pytest.raises(ValueError, match="critic_warmup_steps.*4096"):
+        run_ppo_seed(config, 0, out)
+    assert not out.exists()
+
+
+def test_ppo_run_does_not_import_the_train_constants():
+    import quack_rl.rl.ppo_run as ppo_run
+
+    assert not hasattr(ppo_run, "N_STEPS")
+    assert not hasattr(ppo_run, "BATCH_SIZE")
+
+
+@pytest.mark.slow
+def test_run_uses_the_config_update_settings(tmp_path):
+    pytest.importorskip("sb3_contrib")
+    import sb3_contrib
+
+    built = []
+    original = sb3_contrib.MaskablePPO.__init__
+
+    def spy(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        built.append(self)
+
+    config = p0(
+        n_steps=128, batch_size=32, target_kl=0.03, steps=256, checkpoint_every=None, hidden=32
+    )
+    out = tmp_path / "run"
+    try:
+        sb3_contrib.MaskablePPO.__init__ = spy
+        run_ppo_seed(config, 0, out)
+    finally:
+        sb3_contrib.MaskablePPO.__init__ = original
+    (model,) = built
+    assert (model.n_steps, model.batch_size, model.target_kl) == (128, 32, 0.03)
+    stored = json.loads((out / "config.json").read_text())
+    assert stored["n_steps"] == 128 and stored["batch_size"] == 32
+    inner = stored["config"]
+    assert (inner["n_steps"], inner["batch_size"], inner["target_kl"]) == (128, 32, 0.03)
+    assert [r["steps"] for r in rows(out)] == ["128", "256"]
 
 
 def test_fresh_run_on_existing_config_raises_and_changes_nothing(tmp_path):

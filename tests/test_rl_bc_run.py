@@ -56,6 +56,9 @@ def test_wrong_kind_raises_before_any_file(tmp_path, dataset_folder):
             "changes": "x",
             "steps": 2048,
             "opponents": [{"spec": "bot:random"}],
+            "n_steps": 1024,
+            "batch_size": 64,
+            "target_kl": None,
         }
     )
     out = tmp_path / "run"

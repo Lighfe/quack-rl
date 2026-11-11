@@ -16,6 +16,8 @@ EVAL_OPPONENTS: tuple[str, ...] = (*PRESET_BOTS, "bot:random")
 
 # Fields that describe an experiment, not a setting of it.
 _META_FIELDS = frozenset({"id", "baseline", "changes"})
+# MaskablePPO settings every ppo config must write out (no code default stands in for them).
+PPO_UPDATE_FIELDS = ("n_steps", "batch_size", "target_kl")
 
 
 class OpponentShare(BaseModel):
@@ -64,6 +66,14 @@ class ExperimentConfig(BaseModel):
     BC seed k; a path without `{seed}` is used for every seed.
     """
     critic_warmup_steps: int = 0
+    n_steps: int | None = None
+    """Moves per rollout (MaskablePPO `n_steps`); required for a ppo config, at least 1."""
+    batch_size: int | None = None
+    """Moves per minibatch (MaskablePPO `batch_size`); required for a ppo config, at least 2, and
+    `n_steps` must be a multiple of it."""
+    target_kl: float | None = None
+    """MaskablePPO `target_kl`: None (no early stop) or > 0. A ppo config must write the key, also
+    as `null`."""
     save_games: bool = False
     bc: BCSettings | None = None
 
@@ -78,9 +88,25 @@ class ExperimentConfig(BaseModel):
                 raise ValueError("a ppo experiment needs steps")
             if not self.opponents:
                 raise ValueError("a ppo experiment needs at least one opponent")
+            self._check_ppo_update()
         if self.kind == "bc" and self.bc is None:
             raise ValueError("a bc experiment needs bc settings")
         return self
+
+    def _check_ppo_update(self) -> None:
+        for name in PPO_UPDATE_FIELDS:
+            if name not in self.model_fields_set:
+                raise ValueError(f"a ppo experiment needs {name}")
+        if self.n_steps is None or self.n_steps < 1:
+            raise ValueError(f"n_steps must be at least 1, not {self.n_steps}")
+        if self.batch_size is None or self.batch_size < 2:
+            raise ValueError(f"batch_size must be at least 2, not {self.batch_size}")
+        if self.n_steps % self.batch_size:
+            raise ValueError(
+                f"n_steps {self.n_steps} must be a multiple of batch_size {self.batch_size}"
+            )
+        if self.target_kl is not None and not self.target_kl > 0:
+            raise ValueError(f"target_kl must be null or greater than 0, not {self.target_kl}")
 
 
 def load_config(path: Path) -> ExperimentConfig:
