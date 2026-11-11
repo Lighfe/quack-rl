@@ -807,9 +807,9 @@ checkpoint:
 
 | experiment | seed | 192,512 | 385,024 | 577,536 | 770,048 | 962,560 |
 |---|---|---|---|---|---|---|
-| S6 | 0 | 0.0333 | 0.0133 | 0.0267 | 0.0000 | 0.0000 |
-| S6 | 1 | 0.1433 | 0.0167 | 0.0000 | 0.0033 | 0.0033 |
-| S6 | 2 | 0.0000 | 0.0233 | 0.0167 | 0.0000 | 0.0000 |
+| S6 | 0 | 0.0333 | 0.0133 | 0.0333 | 0.0000 | 0.0000 |
+| S6 | 1 | 0.1433 | 0.0233 | 0.0000 | 0.0033 | 0.0000 |
+| S6 | 2 | 0.0000 | 0.0167 | 0.0100 | 0.0000 | 0.0033 |
 
 ### PPO metrics
 
@@ -881,8 +881,8 @@ S6 does not make sense as an improvement, and one part of it is implausible in t
 `experiments/README.md`: **the policy gets worse while training.** The preset curve falls from
 0.0589 at the first checkpoint (192,512) to 0.0011 at the last two (770,048 and 962,560), and
 the fall is not noise of one checkpoint: seed 1 won 0.1433 of 150 greedy games against the
-presets at 192,512 (in S1 no seed reached that at any checkpoint) and then 0.0167, 0.0000,
-0.0033, 0.0033. The same seed's training reward against its own seven-opponent mix shows it
+presets at 192,512 (in S1 no seed reached that at any checkpoint) and then 0.0233, 0.0000,
+0.0033, 0.0000. The same seed's training reward against its own seven-opponent mix shows it
 too: `mean_reward` rose from -0.732 (first tenth) to -0.555 (third tenth) and fell back to
 -0.750 (last tenth), so it lost what it had learned on the objective it trains on, not only on
 the presets. Against `bot:random` S6 also ends lower than its best (0.9667 at 385,024, 0.8733
