@@ -677,15 +677,23 @@ Wall time, exit status and `Maximum resident set size` are from `/usr/bin/time -
 | S6 trial (seed 0, 8,192 steps) | 2026-11-11T11:09:47Z | 2026-11-11T11:13:29Z | 3:41.57 | 0 | 854,336 | no |
 | S7 trial (seed 0, 8,192 steps) | 2026-11-11T11:13:45Z | 2026-11-11T11:18:05Z | 4:19.94 | 0 | 816,376 | no |
 | S6 | 2026-11-11T11:18:27Z | 2026-11-11T12:23:36Z | 1:05:09 | 0 | 852,400 | no |
+| S7 | 2026-11-11T14:31:00Z | 2026-11-11T15:30:03Z | 59:02.36 | 0 | 828,824 | no |
 
-The configs were committed at 2026-11-11T11:09:42Z (`6331803`), before the trial runs.
+The configs were committed at 2026-11-11T11:09:42Z (`6331803`), before the trial runs. The
+sense check after S6 was committed at 2026-11-11T12:25:08Z (`1ce8e7b`), before the S7 run.
+S7 started after the owner's decision on #321 to run it as planned (`## Owner: RESUME`, option
+1), and after the commit that corrected only the `changes` text of `experiments/S7.json`
+(`3387e6d`; no setting changed), so the S7 seeds record that commit.
 
 Planned time per experiment (`experiments/README.md`, "Step budget"): 962,560 / 194.2 + 328 =
 5,284.5 s (1:28:05). S6 took 1:05:09; its training took about half of S1's (3,425-3,435 s
 against 7,159-7,169 s): an update of 4,096 steps in minibatches of 256 makes the same 160
 gradient steps as one of 1,024 steps in minibatches of 64, so S6 makes a quarter of S1's
 gradient steps over the budget (235 x 160 = 37,600 against 940 x 160 = 150,400), each on a
-larger minibatch.
+larger minibatch. S7 took 59:02; its training took 3,049-3,056 s, also less than half of
+S1's: the early stop ends an update after 2.8-2.9 passes on average (see "PPO metrics"), so S7
+makes at most 42,176-43,424 gradient steps over the budget (the passes run, times 16; the pass
+in which the stop comes is cut short), about 29% of S1's.
 
 Per seed (`done.json` and `config.json`):
 
@@ -694,6 +702,9 @@ Per seed (`done.json` and `config.json`):
 | S6 | 0 | 962,560 | 3425.033 | `6331803` |
 | S6 | 1 | 962,560 | 3435.388 | `6331803` |
 | S6 | 2 | 962,560 | 3434.329 | `6331803` |
+| S7 | 0 | 962,560 | 3048.918 | `3387e6d` |
+| S7 | 1 | 962,560 | 3055.869 | `3387e6d` |
+| S7 | 2 | 962,560 | 3054.798 | `3387e6d` |
 
 sha256 of the `final_eval.csv` files:
 
@@ -702,6 +713,9 @@ sha256 of the `final_eval.csv` files:
 | `data/experiments/S6/seed0/final_eval.csv` | `9612e0790b10711c95b8a66b2d3fa8dc0ac29a8e07aa7f73bbc30d85d7444aff` |
 | `data/experiments/S6/seed1/final_eval.csv` | `70731df8466e02412debed2cff65ddbc13db43a68393859a25a5d231283c45ee` |
 | `data/experiments/S6/seed2/final_eval.csv` | `6986f80057dce556ebf605ae87ead422ab1f467a21c09faf60cb74f35c736664` |
+| `data/experiments/S7/seed0/final_eval.csv` | `a5f617f2d20ef702acbe7c050ec9d4df95440f221b727c16e8d6a9a2f728bdac` |
+| `data/experiments/S7/seed1/final_eval.csv` | `514568d48f792cb328782a996a046c9204eaeaf79db3aa7826efabf608db66a6` |
+| `data/experiments/S7/seed2/final_eval.csv` | `d16531c9a516b55be6a6d3ad6f60e0e9a61778b4d45d345611a06f287c6b2298` |
 
 ### Final tables
 
@@ -726,6 +740,23 @@ The `greedy` rows of the three `final_eval.csv` files of each experiment, copied
 | 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 0 | 200 | 0.0 | 1.734723475976807e-18 | 0.018845326377266575 |
 | 2 | 962560 | bot:random | greedy | 200 | 154 | 15 | 31 | 0.8075 | 0.747271896634225 | 0.856138227643756 |
 
+#### S7
+
+| seed | step | opponent | mode | games | wins | draws | losses | win_rate | ci_low | ci_high |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 3 | 0 | 197 | 0.015 | 0.00511423779325831 | 0.04316572879269026 |
+| 0 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 2 | 5 | 193 | 0.0225 | 0.009239825338271078 | 0.0537574613520185 |
+| 0 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 0 | 1 | 199 | 0.0025 | 0.0002610559935489268 | 0.023490043751831318 |
+| 0 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 1 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 26 | 0 | 174 | 0.13 | 0.0902820227966932 | 0.18366351872248407 |
+| 1 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 15 | 5 | 180 | 0.0875 | 0.055712202024730345 | 0.13483519223651458 |
+| 1 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 15 | 7 | 178 | 0.0925 | 0.05967117957918944 | 0.14068776141828282 |
+| 1 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+| 2 | 962560 | bot:topchip-draw20-pts6 | greedy | 200 | 86 | 9 | 105 | 0.4525 | 0.385060585428547 | 0.5217297205772933 |
+| 2 | 962560 | bot:spendmost-draw20-pts6 | greedy | 200 | 86 | 11 | 103 | 0.4575 | 0.3899055046923899 | 0.5266963480496778 |
+| 2 | 962560 | bot:blackpurple-draw20-pts6 | greedy | 200 | 54 | 5 | 141 | 0.2825 | 0.22465831833539887 | 0.3485393986387121 |
+| 2 | 962560 | bot:random | greedy | 200 | 200 | 0 | 0 | 1.0 | 0.9811546736227335 | 1.0 |
+
 ### Scores
 
 Score = mean of `win_rate` over the 9 `greedy` rows against `bot:topchip-draw20-pts6`,
@@ -737,27 +768,30 @@ are the reference rows from part 1. The snippet is the `score` function of part 
 | S0 (reference, part 1) | 0.0036 |
 | S1 (reference, part 1) | 0.0011 |
 | S6 | 0.0022 |
+| S7 | 0.1714 |
 
-Unrounded: S6 = 0.0022222222222222222.
+Unrounded: S6 = 0.0022222222222222222, S7 = 0.1713888888888889. Per seed (mean over the three
+presets): S7 seed 0 0.0133, seed 1 0.1033, seed 2 0.3975.
 
 ### Learning curves
 
 Per checkpoint `step` of `eval.csv`: the mean of `win_rate` over the 9 `greedy` rows against
 the three presets (3 seeds x 3 presets, 50 games each). S1 is the reference column from part 1.
-S6 has a checkpoint only on every second step of S1 (`-`: no checkpoint).
+S6 has a checkpoint only on every second step of S1 (`-`: no checkpoint); S7 has the
+checkpoints of S1.
 
-| step | S1 | S6 |
-|---|---|---|
-| 96,256 | 0.0167 | - |
-| 192,512 | 0.0100 | 0.0589 |
-| 288,768 | 0.0244 | - |
-| 385,024 | 0.0022 | 0.0178 |
-| 481,280 | 0.0133 | - |
-| 577,536 | 0.0000 | 0.0144 |
-| 673,792 | 0.0000 | - |
-| 770,048 | 0.0056 | 0.0011 |
-| 866,304 | 0.0078 | - |
-| 962,560 | 0.0000 | 0.0011 |
+| step | S1 | S6 | S7 |
+|---|---|---|---|
+| 96,256 | 0.0167 | - | 0.0600 |
+| 192,512 | 0.0100 | 0.0589 | 0.0422 |
+| 288,768 | 0.0244 | - | 0.1344 |
+| 385,024 | 0.0022 | 0.0178 | 0.1533 |
+| 481,280 | 0.0133 | - | 0.2267 |
+| 577,536 | 0.0000 | 0.0144 | 0.0389 |
+| 673,792 | 0.0000 | - | 0.0867 |
+| 770,048 | 0.0056 | 0.0011 | 0.1778 |
+| 866,304 | 0.0078 | - | 0.1244 |
+| 962,560 | 0.0000 | 0.0011 | 0.1667 |
 
 ### Win rate against `bot:random`
 
@@ -765,18 +799,18 @@ Per checkpoint `step` of `eval.csv`: the mean of `win_rate` over the 3 `greedy` 
 `bot:random` (3 seeds, 50 games each). `bot:random` is one of the seven training opponents of
 S1, S6 and S7.
 
-| step | S1 | S6 |
-|---|---|---|
-| 96,256 | 0.9233 | - |
-| 192,512 | 0.8467 | 0.9433 |
-| 288,768 | 0.8400 | - |
-| 385,024 | 0.8733 | 0.9667 |
-| 481,280 | 0.9667 | - |
-| 577,536 | 0.9333 | 0.9500 |
-| 673,792 | 0.9567 | - |
-| 770,048 | 0.9067 | 0.8933 |
-| 866,304 | 0.8867 | - |
-| 962,560 | 0.7300 | 0.8733 |
+| step | S1 | S6 | S7 |
+|---|---|---|---|
+| 96,256 | 0.9233 | - | 0.9967 |
+| 192,512 | 0.8467 | 0.9433 | 0.9633 |
+| 288,768 | 0.8400 | - | 1.0000 |
+| 385,024 | 0.8733 | 0.9667 | 1.0000 |
+| 481,280 | 0.9667 | - | 1.0000 |
+| 577,536 | 0.9333 | 0.9500 | 1.0000 |
+| 673,792 | 0.9567 | - | 0.9933 |
+| 770,048 | 0.9067 | 0.8933 | 0.9867 |
+| 866,304 | 0.8867 | - | 1.0000 |
+| 962,560 | 0.7300 | 0.8733 | 1.0000 |
 
 The snippet that computed both curves (run from the repo root):
 
@@ -798,8 +832,8 @@ def curve(exp: str, opponents: tuple, root: Path = Path("data/experiments")) -> 
     return {s: sum(v) / len(v) for s, v in sorted(by_step.items()) if len(v) == 3 * len(opponents)}
 
 
-presets = {exp: curve(exp, PRESETS) for exp in ("S1", "S6")}
-random_bot = {exp: curve(exp, ("bot:random",)) for exp in ("S1", "S6")}
+presets = {exp: curve(exp, PRESETS) for exp in ("S1", "S6", "S7")}
+random_bot = {exp: curve(exp, ("bot:random",)) for exp in ("S1", "S6", "S7")}
 ```
 
 Per seed (greedy, from the same `eval.csv` rows), the mean over the three presets per
@@ -811,6 +845,14 @@ checkpoint:
 | S6 | 1 | 0.1433 | 0.0233 | 0.0000 | 0.0033 | 0.0000 |
 | S6 | 2 | 0.0000 | 0.0167 | 0.0100 | 0.0000 | 0.0033 |
 
+S7 per seed, the same way, at all ten checkpoints:
+
+| seed | 96,256 | 192,512 | 288,768 | 385,024 | 481,280 | 577,536 | 673,792 | 770,048 | 866,304 | 962,560 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0.0000 | 0.0533 | 0.2267 | 0.2000 | 0.2733 | 0.0533 | 0.0200 | 0.0733 | 0.1733 | 0.0067 |
+| 1 | 0.0733 | 0.0333 | 0.1167 | 0.1700 | 0.1900 | 0.0400 | 0.0500 | 0.2000 | 0.0067 | 0.1000 |
+| 2 | 0.1067 | 0.0400 | 0.0600 | 0.0900 | 0.2167 | 0.0233 | 0.1900 | 0.2600 | 0.1933 | 0.3933 |
+
 ### PPO metrics
 
 Per experiment and window: the mean over seeds 0, 1, 2 of the mean over the window's rows of
@@ -818,8 +860,9 @@ Per experiment and window: the mean over seeds 0, 1, 2 of the mean over the wind
 count at the end of an update), so they cover the same share of training for both rollout
 sizes: first = steps 1-51,200, middle = 455,681-506,880, last = 911,361-962,560. For S0 and S1
 (1,024 steps per row) these are rows 1-50, 446-495 and 891-940, the windows of part 3; for S6
-(4,096 steps per row) they hold 12, 12 and 13 rows. S0 and S1 have no `epochs_run` column
-(`-`). `approx_kl` is the mean KL of the last pass of each update (see the correction above).
+(4,096 steps per row) they hold 12, 12 and 13 rows; S7 has S1's rows. S0 and S1 have no
+`epochs_run` column (`-`). `approx_kl` is the mean KL of the last pass of each update (see the
+correction above); for S7 that is the pass in which the stop came.
 
 | experiment | window | rows | `mean_reward` | `approx_kl` | `clip_fraction` | `entropy` | `explained_variance` | `epochs_run` |
 |---|---|---|---|---|---|---|---|---|
@@ -832,6 +875,9 @@ sizes: first = steps 1-51,200, middle = 455,681-506,880, last = 911,361-962,560.
 | S6 | first | 12 | -0.7783 | 0.0196 | 0.1778 | 0.7156 | 0.3136 | 10.0000 |
 | S6 | middle | 12 | -0.6895 | 0.0484 | 0.1409 | 0.2684 | 0.9162 | 10.0000 |
 | S6 | last | 13 | -0.7831 | 0.0462 | 0.1209 | 0.2056 | 0.8992 | 10.0000 |
+| S7 | first | 50 | -0.6639 | 0.0287 | 0.1262 | 0.4709 | 0.7186 | 3.8067 |
+| S7 | middle | 50 | -0.3709 | 0.0241 | 0.0590 | 0.1586 | 0.7610 | 2.8400 |
+| S7 | last | 50 | -0.4402 | 0.0272 | 0.0519 | 0.1348 | 0.7999 | 2.6867 |
 
 `mean_reward` of S6 per tenth of its 235 updates (23 rows each, the last 5 rows left out), per
 seed:
@@ -841,6 +887,23 @@ seed:
 | 0 | -0.719 | -0.708 | -0.754 | -0.759 | -0.710 | -0.717 | -0.720 | -0.762 | -0.748 | -0.720 |
 | 1 | -0.732 | -0.572 | -0.555 | -0.688 | -0.678 | -0.728 | -0.760 | -0.772 | -0.754 | -0.750 |
 | 2 | -0.830 | -0.688 | -0.750 | -0.736 | -0.792 | -0.703 | -0.708 | -0.776 | -0.711 | -0.754 |
+
+S7 per tenth of its 940 updates (94 rows each), per seed: `mean_reward`, then `epochs_run`.
+Over the whole run S7 ran 2.80, 2.88 and 2.89 passes per update (seeds 0, 1, 2; min 1, max
+10; 10, 8 and 9 updates ran all 10 passes), and played 8.5-8.8 games per update (about 118
+moves per game; S1 12.3-12.6 games, about 82 moves).
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | -0.662 | -0.710 | -0.529 | -0.529 | -0.481 | -0.443 | -0.656 | -0.630 | -0.472 | -0.391 |
+| 1 | -0.675 | -0.648 | -0.626 | -0.439 | -0.447 | -0.580 | -0.643 | -0.442 | -0.560 | -0.590 |
+| 2 | -0.605 | -0.541 | -0.550 | -0.563 | -0.570 | -0.537 | -0.462 | -0.300 | -0.349 | -0.308 |
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 3.39 | 3.05 | 2.63 | 2.65 | 2.78 | 2.82 | 2.96 | 2.65 | 2.41 | 2.70 |
+| 1 | 3.90 | 3.50 | 2.71 | 3.41 | 2.91 | 2.79 | 2.33 | 2.29 | 2.53 | 2.38 |
+| 2 | 3.14 | 3.00 | 2.72 | 2.73 | 3.04 | 3.14 | 2.34 | 2.72 | 2.91 | 3.12 |
 
 The snippet that computed the PPO metrics table (run from the repo root):
 
@@ -869,7 +932,7 @@ def window_means(exp: str, root: Path = Path("data/experiments")) -> dict:
     return out
 
 
-for exp in ("S0", "S1", "S6"):
+for exp in ("S0", "S1", "S6", "S7"):
     for w, vals in window_means(exp).items():
         cells = [f"{vals[m]:.4f}" if m in vals else "-" for m in METRICS]
         print(f"| {exp} | {w} | {vals['rows']} | " + " | ".join(cells) + " |")
@@ -897,3 +960,67 @@ not the 50 the spec expected from S1's 12.6: S6's games are longer on average (a
 per game against 81). Smaller updates alone did not stop the decline: the KL of S6 is already
 well below S1's, and the policy still forgets. Following the issue's constraint, S7 is not
 started; this goes to the owner first.
+
+The owner read this finding on #321 and decided to run S7 as planned (`## Owner: RESUME`,
+option 1). S7 ran after it (see "Run data").
+
+### Sense check after S7
+
+S7 makes sense as an improvement, with two things said plainly: its learning curve swings
+widely, and its score rests mostly on one seed. The direction is plausible and shows up in
+three places that do not depend on each other: the greedy win rate against the presets (score
+0.1714 against S1's 0.0011 and S0's 0.0036; S7's preset curve is above S1's at every one of
+the ten checkpoints), the win rate against `bot:random` (1.0000 at the end and at least 0.9633
+at every checkpoint, where S1 ends at 0.7300), and S7's own training reward (`mean_reward`
+-0.6639 / -0.3709 / -0.4402 in the three windows against S1's -0.7614 / -0.7435 / -0.7674).
+The PPO metrics fit the change: the stop ends an update after 2.7-3.8 passes on average
+(`epochs_run` by window), so the logged KL of the last pass stays at 0.024-0.029, below the
+0.045 at which the stop comes, where S1's 10th pass reaches 0.11; `clip_fraction` is a
+quarter of S1's late in training (0.0519 against 0.1999). Entropy ends lower than S1's (0.1348
+against 0.2583) and `explained_variance` is lower (0.7999 against 0.8669); both fit a policy
+that wins more often and a value net that gets about 29% of S1's gradient steps (the stop
+cuts the value updates too, since policy and value share one loss). What is not settled by
+these runs:
+
+- **Large swings between checkpoints.** The mean curve rises to 0.2267 at 481,280, falls to
+  0.0389 at 577,536 and climbs back to 0.1667. Per seed the swings are far larger than the
+  noise of 150 games (about 0.03 at a win rate of 0.2): seed 0 goes 0.2733 -> 0.0533 -> 0.0200
+  and ends at 0.0067; all three seeds drop at 577,536 at once. The checkpoint games use the
+  same chance seed at every step, so the drop is not a change of deals; the training reward
+  does not show a common drop in that tenth. I have no explanation for the common timing; it
+  may be chance with three seeds. The policy is not stable: a final score taken at another
+  checkpoint could be much lower or higher (mean of the last five checkpoints 0.1189).
+- **Seed spread.** The per-seed scores are 0.0133, 0.1033 and 0.3975: seed 2 gives about 77%
+  of the sum. Seed 0 ends at the floor of S1, after reaching 0.2733 at 481,280. Seed 2 still
+  rises at the end (0.3933 at the last checkpoint, 0.3975 in the 200-game final evaluation).
+- **Longer games.** S7 plays about 118 moves per game (8.5-8.8 games per update) against S1's
+  about 82. Its policy plays the game differently, not only better; I did not look into how.
+
+Nothing here is implausible in the sense of the README; the swings and the seed spread are
+the reason not to read the score as a precise number.
+
+### Suggestion to the owner
+
+S7 looks better than S1; S6 does not. This is a suggestion, not the result of a rule.
+
+- **S7 against S1, S0 and S6.** S7 has the highest score of the three screenings (the best
+  before was S5, a BC start, at 0.0517) and is the first arm from scratch that rises clearly
+  off the floor on the presets: its curve is above S1's at every checkpoint, its final
+  score is 0.1714 against 0.0011 (S1), 0.0036 (S0) and 0.0022 (S6), it ends at 1.0000 against
+  `bot:random`, and its own training reward is higher than S1's in every window. The step from
+  S1 to S7 is one change (`target_kl` 0.03), so the gain belongs to that change.
+- **S6 against S1.** S6 ends at the floor like S1 and gets worse while training (sense check
+  after S6). More data per update with 10 passes did not help.
+- **S6 against S7.** Both make far fewer gradient steps than S1 (S6 25%, S7 about 29%), and
+  both have smaller KL than S1, so neither "fewer gradient steps" nor "smaller KL in the last
+  pass" alone explains why S7 learns and S6 does not. What differs is how often each sample is
+  reused: S6 still runs 10 passes over each rollout, S7 about 3. A reading that fits both runs:
+  the many passes over the same rollout, not the update size as such, are what hurt S0, S1 and
+  S6. This is a guess from two runs, not tested.
+- **What I suggest.** Take `target_kl` 0.03 (S7) as the PPO update setting for the next step
+  instead of S1's, but not straight into a long run: the swings and the seed spread mean that
+  the 0.17 can be far off for one seed. Before L, a run that checks how stable S7 is would
+  tell more than a further variant: more seeds of S7, or S7 with the rest of the update
+  unchanged and fewer passes (`n_epochs` 3 instead of 10, without `target_kl`) to test the
+  reuse reading above. S7's setting with a BC start (as S5) was not tried. All of these are
+  outside this issue.
