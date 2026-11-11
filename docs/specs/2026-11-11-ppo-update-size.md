@@ -81,6 +81,13 @@ paragraph in the record. Does the result make sense? Anything that looks implaus
 example a policy that gets worse while training, or a variant with more signal that scores
 below its baseline) goes to the owner before the next run. No thresholds.
 
+The sense check is engineer and QA work (owner's decision):
+
+- The engineer writes it in the record, after each screening and before the next run.
+- QA reads the same curves and metrics on its own, and states in its result whether it agrees.
+  It names anything implausible that the engineer's check missed or played down. A sense check
+  that is missing, or that contradicts the numbers in the record, is a QA failure.
+
 ## Config fields
 
 `ExperimentConfig` (`src/quack_rl/rl/experiment.py`) gets three fields:
