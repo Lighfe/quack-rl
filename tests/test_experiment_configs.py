@@ -21,6 +21,9 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S6": ("S1", ["checkpoint_every", "n_steps", "batch_size"]),
     "S7": ("S1", ["target_kl"]),
     "S8": ("S7", ["n_steps", "batch_size"]),
+    "S9": ("S3", ["seeds", "target_kl"]),
+    "S10": ("S4", ["seeds", "target_kl"]),
+    "S11": ("S5", ["seeds", "target_kl"]),
     "L": ("S5", ["steps", "checkpoint_every"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
@@ -69,7 +72,7 @@ def test_ppo_configs_write_the_update_settings(name: str) -> None:
 
 
 def test_screening_3_configs_keep_the_step_budget() -> None:
-    for name in ("S6", "S7", "S8"):
+    for name in ("S6", "S7", "S8", "S9", "S10", "S11"):
         assert load_config(EXPERIMENTS / f"{name}.json").steps == 962560
 
 
@@ -84,3 +87,23 @@ def test_bc_configs_have_no_update_settings(name: str) -> None:
     data = json.loads((EXPERIMENTS / f"{name}.json").read_text(encoding="utf-8"))
     assert not {"n_steps", "batch_size", "target_kl"} & set(data)
     assert load_config(EXPERIMENTS / f"{name}.json").kind == "bc"
+
+
+@pytest.mark.parametrize("name", ["S9", "S10", "S11"])
+def test_bc_reruns_take_s7_update_settings_and_seed_3(name: str) -> None:
+    config = load_config(EXPERIMENTS / f"{name}.json")
+    s7 = load_config(EXPERIMENTS / "S7.json")
+    assert (config.n_steps, config.batch_size, config.target_kl) == (
+        s7.n_steps,
+        s7.batch_size,
+        s7.target_kl,
+    )
+    assert config.seeds == [0, 1, 2, 3]
+    assert config.critic_warmup_steps % config.n_steps == 0
+    assert config.checkpoint_every % config.n_steps == 0
+
+
+@pytest.mark.parametrize("name", ["B0", "B1", "B2"])
+def test_bc_configs_have_the_seeds_of_the_bc_reruns(name: str) -> None:
+    """PPO seed k of S9-S11 starts from BC seed k, so every BC config has seed 3."""
+    assert load_config(EXPERIMENTS / f"{name}.json").seeds == [0, 1, 2, 3]

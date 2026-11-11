@@ -1,0 +1,35 @@
+{
+  "id": "S9",
+  "kind": "ppo",
+  "baseline": "S3",
+  "changes": "target_kl 0.03: S7's early stop of the update (chosen over S8 after screening 4) on S3 (B0 start, reward margin, the three presets). seeds adds seed 3 (PPO seed 3 starts from B0 seed 3); seeds 0, 1, 2 are paired with S3. n_steps 1024 and batch_size 64 stay, so critic_warmup_steps 51,200 is still 50 updates",
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "steps": 962560,
+  "opponents": [
+    {
+      "spec": "bot:topchip-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:spendmost-draw20-pts6",
+      "weight": 1
+    },
+    {
+      "spec": "bot:blackpurple-draw20-pts6",
+      "weight": 1
+    }
+  ],
+  "reward": "margin",
+  "hidden": 256,
+  "n_steps": 1024,
+  "batch_size": 64,
+  "target_kl": 0.03,
+  "checkpoint_every": 96256,
+  "init_from_bc": "data/experiments/B0/seed{seed}/model.pt",
+  "critic_warmup_steps": 51200
+}

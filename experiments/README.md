@@ -178,6 +178,58 @@ the winner, and wait for the owner's decision after S8:
 Both are possible with S3-S5's other settings: `critic_warmup_steps` 51,200 is 25 rollouts of
 2,048 (and 50 of 1,024), and `checkpoint_every` 96,256 is a multiple of both rollout sizes.
 
+**Result (2026-11-11):** S8 is not better than S7. Score 0.1464 against 0.1714 (a fails); its
+preset curve is at or above S7's at 2 of 10 checkpoints (b fails); largest seed share 37% (c
+holds). The owner kept S7's settings and dropped S8. S9-S11 take `target_kl` 0.03 only.
+
+## Screening 5: S9, S10, S11
+
+`experiments/S9.json`, `S10.json`, `S11.json` are S3, S4, S5 (BC start from B0, B1, B2, reward
+`margin`, the three presets, critic warmup 51,200) with two changes: `target_kl` 0.03 (S7's
+early stop) and a fourth seed. Seeds 0, 1, 2 are paired with S3-S5. Seed 3 is new: PPO seed 3
+starts from BC seed 3, so B0, B1 and B2 get seed 3 as well (`experiments/B*.json`; seeds 0-2 of
+the BC runs are not run again). 4 seeds give 4 trainings and 4 evaluators, 8 processes on the
+8 cores.
+
+Run it:
+
+```
+scripts/run_s9_s11.sh                         # BC seed 3, trial, S9, S10, S11
+scripts/run_s9_s11.sh --skip-bc --skip-trial  # the full runs only
+scripts/run_s9_s11.sh --resume                # passes --resume to the PPO runs
+```
+
+- First BC seed 3 of B0, B1, B2, one arm at a time (a BC process loads the whole 2.5 GB
+  dataset), under `BC_MEM_MAX` (default 8G).
+- Then a trial of S9 with all 4 seeds and 8,192 steps to `/tmp/quack-trial-s9`, under
+  `PPO_MEM_MAX` (default 6G; the 4G of the earlier screenings was for 6 processes). If the peak
+  memory of the whole trial run is above 85% of the cap, the script stops before the full runs.
+- `data/experiments/run_s9_s11.log` gets start, end, exit code, wall time, the peak RSS of the
+  largest process and the peak memory of the whole run (`memory.peak` of the systemd scope).
+  The cap is on the whole run, so that second number is the one to compare with the cap.
+
+### Decision rule (written before the run)
+
+Committed together with the configs, before S9-S11 ran. The question is whether the early stop
+keeps the BC start from getting worse in PPO, and which BC start is best with it.
+
+- **Decline.** For each arm, the preset curve (mean greedy `win_rate` over seeds x presets in
+  `eval.csv`) at the last checkpoint is not below the first one (96,256). S3-S5 fell from
+  0.19-0.29 to 0.02-0.04. Also reported: the BC start level of each seed (the greedy preset win
+  rate in `final_eval.csv` of B0/B1/B2), so the curve can be read against where PPO started.
+- **Against its baseline.** S9, S10 and S11 are compared with S3, S4 and S5 on the paired seeds
+  0, 1, 2 only: score, and how many of the 10 checkpoints are at or above the baseline's.
+- **Best arm.** The arm with the highest score over all 4 seeds, provided its decline check holds
+  and no single seed gives more than half of its score (with 4 seeds an even share is a
+  quarter). If no arm passes the decline check, there is no best arm, and the result goes to
+  the owner.
+- The comparison table lists the gradient steps of each arm (as in screening 4), and the score
+  of each arm on seeds 0-2 as well as on 0-3.
+- S7 (0.1714) is shown for orientation only. S9-S11 differ from S7 in the start, the reward and
+  the opponents, so a gap between them has no single cause.
+
+L stays on hold. What follows S9-S11 is the owner's decision.
+
 ## Sense check after a screening
 
 After each screening, the engineer reads the learning curves and the PPO metrics, in the monitor
