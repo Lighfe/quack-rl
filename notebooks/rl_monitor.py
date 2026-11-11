@@ -47,6 +47,7 @@ with app.setup:
         "approx_kl",
         "clip_fraction",
         "explained_variance",
+        "epochs_run",  # passes of each update; not in the ppo.csv of S0-S5, then not shown
     ]
     # A PPO seed logs one row per update (about 940 at the screening budget). The chart averages
     # them into at most this many bins per seed: it smooths the noise and keeps the chart data
@@ -161,18 +162,26 @@ def _(runs):
         )
 
     def long_train(kind):
+        """One row per (step, seed, metric). A seed whose file lacks a metric (an older format,
+        for example no `epochs_run`) gives no rows for it, also next to a group that has it."""
         metrics, x = (PPO_METRICS, "steps") if kind == "ppo" else (BC_METRICS, "epoch")
+
+        def long_part(run, group, seed):
+            present = [m for m in metrics if m in run.train.columns]
+            frame = tagged(binned(run.train.select(x, *present)), group, seed)
+            return frame.unpivot(
+                index=[x, "group", "seed"], on=present, variable_name="metric", value_name="value"
+            ).with_columns(pl.col("value").cast(pl.Float64))
+
         parts = [
-            tagged(binned(run.train.select(x, *metrics)), group, seed)
+            long_part(run, group, seed)
             for group in GROUPS
             for seed, run in runs[group].items()
             if run.kind == kind and run.train.height
         ]
         if not parts:
             return pl.DataFrame()
-        return pl.concat(parts).unpivot(
-            index=[x, "group", "seed"], on=metrics, variable_name="metric", value_name="value"
-        )
+        return pl.concat(parts)
 
     train_ppo = long_train("ppo")
     train_bc = long_train("bc")
