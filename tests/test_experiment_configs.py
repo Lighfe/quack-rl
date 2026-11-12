@@ -24,7 +24,7 @@ EXPECTED: dict[str, tuple[str | None, list[str] | None]] = {
     "S9": ("S3", ["seeds", "target_kl"]),
     "S10": ("S4", ["seeds", "target_kl"]),
     "S11": ("S5", ["seeds", "target_kl"]),
-    "L": ("S5", ["steps", "checkpoint_every"]),
+    "L": ("S11", ["steps", "checkpoint_every"]),
     "B0": (None, None),
     "B1": ("B0", ["bc.label_smoothing"]),
     "B2": ("B0", ["bc.entropy_coef"]),
@@ -58,7 +58,7 @@ def test_screening_configs_share_the_step_budget() -> None:
     assert budget // every >= 6
 
 
-PPO_CONFIGS = [*SCREENING, "L"]
+PPO_CONFIGS = SCREENING
 
 
 @pytest.mark.parametrize("name", PPO_CONFIGS)
@@ -107,3 +107,16 @@ def test_bc_reruns_take_s7_update_settings_and_seed_3(name: str) -> None:
 def test_bc_configs_have_the_seeds_of_the_bc_reruns(name: str) -> None:
     """PPO seed k of S9-S11 starts from BC seed k, so every BC config has seed 3."""
     assert load_config(EXPERIMENTS / f"{name}.json").seeds == [0, 1, 2, 3]
+
+
+def test_long_run_budget() -> None:
+    """L (experiments/README.md, "Long-run budget (L)"): at most 18,360 s at the slowest
+    quarter rate of S11 (240.1 steps per second per training) plus S11's final evaluation
+    (471 s), and its checkpoints up to S11's budget fall on S11's checkpoint steps."""
+    long = load_config(EXPERIMENTS / "L.json")
+    s11 = load_config(EXPERIMENTS / "S11.json")
+    assert long.steps % long.checkpoint_every == 0
+    assert long.checkpoint_every % s11.checkpoint_every == 0
+    assert s11.steps % long.checkpoint_every == 0
+    assert long.steps / 240.1 + 471 <= 18360
+    assert long.seeds == s11.seeds

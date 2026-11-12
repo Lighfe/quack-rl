@@ -1,14 +1,15 @@
 {
   "id": "L",
   "kind": "ppo",
-  "baseline": "S5",
-  "changes": "long-run budget (experiments/README.md, \"Long-run budget (L)\"): steps 3,481,600 and checkpoint_every 174,080 instead of the screening budget; S5 is the config chosen in docs/analysis/2026-11-screening.md, part 2",
+  "baseline": "S11",
+  "changes": "long-run budget (experiments/README.md, \"Long-run budget (L)\"): steps 4,235,264 and checkpoint_every 192,512 instead of the screening budget; S11 is the arm chosen after screening 5 (B2 start, target_kl 0.03, seeds 0-3). 192,512 is 2 x 96,256, so L's checkpoints up to 962,560 fall on steps S11 also checkpointed",
   "seeds": [
     0,
     1,
-    2
+    2,
+    3
   ],
-  "steps": 3481600,
+  "steps": 4235264,
   "opponents": [
     {
       "spec": "bot:topchip-draw20-pts6",
@@ -27,8 +28,8 @@
   "hidden": 256,
   "n_steps": 1024,
   "batch_size": 64,
-  "target_kl": null,
-  "checkpoint_every": 174080,
+  "target_kl": 0.03,
+  "checkpoint_every": 192512,
   "init_from_bc": "data/experiments/B2/seed{seed}/model.pt",
   "critic_warmup_steps": 51200
 }

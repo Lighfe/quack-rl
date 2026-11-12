@@ -90,38 +90,70 @@ steps / checkpoint_every = 962,560 / 96,256 = 10  >=  6
 
 ### Long-run budget (L)
 
-`steps` = 3,481,600 (20 x 174,080), `checkpoint_every` = 174,080 (170 x 1,024).
+L is S11 (chosen after screening 5) with a longer budget. S11's update stops early
+(`target_kl` 0.03, about 3 passes per update instead of 10), so it is faster than the 194.2 steps
+per second above, which were measured for 10 passes. The rate is re-measured from S11 (4 seeds,
+8 processes, `train_seconds` in `done.json` and `wall_seconds` in `ppo.csv`):
+
+| item | value |
+|---|---|
+| rate per training, whole run (slowest seed, seed 1) | 962,560 / 3,765.5 s = 255.6 steps per second |
+| rate per training, slowest quarter of any seed (seed 1, last quarter) | 240.1 steps per second |
+| final evaluation and start-up (S11's whole run 4,237 s minus 3,765.5 s) | 471 s |
+
+`steps` = 4,235,264 (22 x 192,512), `checkpoint_every` = 192,512 (2 x 96,256 = 188 x 1,024).
 
 ```
 steps_long / rate + final evaluation time
-  = 3,481,600 / 194.2 + 328
-  = 17,927.9 + 328
-  = 18,255.9 s  <=  18,360 s
+  = 4,235,264 / 255.6 + 471  =  16,570 + 471  =  17,041 s (4.7 h)  <=  18,360 s
+  at the slowest quarter rate:
+  = 4,235,264 / 240.1 + 471  =  17,640 + 471  =  18,111 s (5.0 h)  <=  18,360 s
 ```
 
-- The largest that fits: one more checkpoint interval, 3,655,680 steps, gives
-  3,655,680 / 194.2 + 328 = 18,824.3 + 328 = 19,152.3 s > 18,360 s.
-- With the evaluator's pass over the last checkpoint (94 s) the total is 18,349.9 s, still below
-  18,360 s.
-- The evaluators keep up: a checkpoint comes every 174,080 / 194.2 = 896.4 s, and one evaluator
-  pass takes 94 s.
+- The budget is set by the slowest quarter rate, since the number of passes per update can
+  change over a longer run. One more checkpoint interval, 4,427,776 steps, gives
+  4,427,776 / 240.1 + 471 = 18,912 s > 18,360 s.
+- `checkpoint_every` is a multiple of S11's 96,256, so L's checkpoints at 192,512 ... 962,560
+  fall on S11's checkpoint steps. Same config and seeds: L's first 962,560 steps should repeat
+  S11 (checked for the first 3,072 steps of seed 0: `ppo.csv` equal except `wall_seconds`), so
+  the part beyond 962,560 is what L adds.
+- The evaluators keep up: a checkpoint comes every 192,512 / 255.6 = 753 s.
 
-### Next: the long run
+### The long run
 
-> **L is on hold. Do not start it.** Every BC arm of screening 2 got worse while training (S5
-> fell from 0.2578 at the first checkpoint to 0.0444 at the last), so a longer run of S5 has no
-> sound basis. See
-> [part 3 of the screening record](../docs/analysis/2026-11-screening.md#part-3-shortcomings-of-stage-309)
-> (#318).
-
-Next: the long run. `experiments/L.json` is S5 (chosen in part 2 of
-`docs/analysis/2026-11-screening.md`, #314) with the long-run budget above:
+Run it (all steps logged to `data/experiments/run_long.log`):
 
 ```
-systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 /usr/bin/time -v \
-    uv run --group rl python scripts/run_experiment.py \
-    --config experiments/L.json --out data/experiments --threads 1
+scripts/run_long.sh                 # checks, trial, L, reproducibility check, agents
+scripts/run_long.sh --skip-trial    # without the trial
+scripts/run_long.sh --resume        # after an interruption
 ```
+
+- Before anything runs it checks that B2's `model.pt` of seeds 0-3 exist and that the agent
+  names are free, so the agents can be saved after the run.
+- The whole script runs under `systemd-inhibit` (no suspend, idle sleep or lid-switch sleep).
+- A trial of 8,192 steps with all 4 seeds goes to `/tmp/quack-trial-l` (memory check as in
+  screening 5) and saves one agent into a temporary root, to check the save step.
+- After L it compares L's `ppo.csv` up to 962,560 with S11's per seed and logs the result. A
+  resumed run restarts the opponent mix and the env generators, so it differs after the resume.
+- Then it saves the final checkpoint of each seed as an agent:
+  `data/agents/long-s11-seed<k>/` (seat `agent:long-s11-seed<k>`). `AGENTS_ROOT` and
+  `AGENT_PREFIX` change the folder and the names.
+
+`scripts/save_run_agent.py RUN_DIR --agent-name NAME --agents-root PATH [--step N]` saves any
+finished seed folder (PPO: a checkpoint, default the final one; BC: `model.pt`) as an agent.
+
+### Decision rule for L (written before the run)
+
+- **Agents.** The agents are the final checkpoints, chosen before the run. A best checkpoint
+  picked from `eval.csv` (50 games per opponent and mode) would be picked on noise.
+- **Does more training help?** For each seed, the greedy preset win rate at the last checkpoint
+  is compared with the one at 962,560 (S11's end; both from `eval.csv`), and the 4-seed mean
+  of L's `final_eval.csv` score with S11's 0.5585. L helps when the mean is higher and at least
+  3 of 4 seeds are not lower at the last checkpoint than at 962,560.
+- **Decline.** If the preset curve (mean over seeds x presets) drops below its value at
+  962,560 for the last 3 checkpoints, the result goes to the owner before any further run.
+- The sense check (see "Sense check after a screening") is written as usual.
 
 ## Screening 4: S8
 
@@ -230,6 +262,14 @@ keeps the BC start from getting worse in PPO, and which BC start is best with it
 
 L stays on hold. What follows S9-S11 is the owner's decision.
 
+**Result (2026-11-12):** all three arms beat their baselines at 10 of 10 checkpoints (seeds
+0-2). Score over seeds 0-3: S9 0.522, S10 0.421, S11 0.559. S10 fails the decline check (0.473
+at the first checkpoint, 0.372 at the last); S9 and S11 pass, and no seed gives more than 42%
+of an arm's score. Best arm: S11 (B2 start), also the one with the smallest seed spread (sd
+0.060) and the largest gain over its BC start (+0.100). S11 over S9 is not clear (paired
+difference +0.037, SE 0.040). Gradient steps: about 50,000 per seed for S9-S11 against 150,400
+for S3-S5, so the early stop and less training are not separated. The owner chose S11 for L.
+
 ## Sense check after a screening
 
 After each screening, the engineer reads the learning curves and the PPO metrics, in the monitor
@@ -285,6 +325,8 @@ uv run --group rl --group monitor marimo run notebooks/rl_monitor.py
 
 ## Agents
 
-This command saves no agent. Agents go into `data/agents/` only by the owner's choice: today
-through `--agent-name` and `--agents-root` of `scripts/train_ppo.py` and
-`scripts/train_offline.py`. Saving a run of an experiment as an agent is #307.
+This command saves no agent. Agents go into `data/agents/` only by the owner's choice: through
+`scripts/save_run_agent.py RUN_DIR --agent-name NAME --agents-root PATH [--step N]` for a
+finished seed folder (#307; `--agents-root` has no default), `scripts/run_long.sh` for the long
+run, or `--agent-name` and `--agents-root` of `scripts/train_ppo.py` and
+`scripts/train_offline.py`.

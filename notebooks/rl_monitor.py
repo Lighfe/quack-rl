@@ -211,8 +211,18 @@ def _(runs):
 @app.cell
 def _(train_bc, train_ppo):
     def train_chart(frame, x, title):
+        # A cell whose group logs no row of a metric (an older ppo.csv without `epochs_run`)
+        # gets a note instead of an empty frame.
+        groups = frame["group"].unique().to_list()
+        missing = (
+            pl.DataFrame({"metric": frame["metric"].unique().to_list()})
+            .join(pl.DataFrame({"group": groups}), how="cross")
+            .join(frame.select("metric", "group").unique(), on=["metric", "group"], how="anti")
+            .with_columns(pl.lit("not logged in this run").alias("note"))
+        )
+        data = pl.concat([frame, missing], how="diagonal")
         line = (
-            alt.Chart(frame)
+            alt.Chart()
             .mark_line()
             .encode(
                 x=alt.X(f"{x}:Q", title=x),
@@ -220,10 +230,18 @@ def _(train_bc, train_ppo):
                 color=alt.Color("seed:N"),
                 tooltip=[x, "seed", "metric", "value"],
             )
-            .properties(width=320, height=150)
+            .transform_filter("datum.note == null")
+        )
+        note = (
+            alt.Chart()
+            .mark_text(x=160, y=75, color="gray")
+            .encode(text="note:N")
+            .transform_filter("datum.note != null")
         )
         return (
-            line.facet(
+            alt.layer(line, note, data=data)
+            .properties(width=320, height=150)
+            .facet(
                 row=alt.Row("metric:N", title=None),
                 column=alt.Column("group:N", title=None, sort=GROUPS),
             )
